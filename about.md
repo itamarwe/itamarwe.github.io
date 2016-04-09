@@ -3,13 +3,11 @@ layout: page
 title: About
 permalink: /about/
 ---
+![Itamar Weiss](/img/profile.jpg "Itamar Weiss")
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](http://jekyllrb.com/)
+I’m Itamar Weiss. An Electrical Engineer and a developer. Consulting for machine learning,
+big data, node.js, angular.js, security, Bitcoin, virtual currencies, decentralized and distributed systems development projects.
 
-You can find the source code for the Jekyll new theme at:
-{% include icon-github.html username="jglovier" %} /
-[jekyll-new](https://github.com/jglovier/jekyll-new)
+Feel free to contact me at:
 
-You can find the source code for Jekyll at
-{% include icon-github.html username="jekyll" %} /
-[jekyll](https://github.com/jekyll/jekyll)
+weiss.itamar@gmail.com
