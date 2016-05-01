@@ -38,6 +38,7 @@ automatically re-initializes the client on expiry. The wrapper still emits an
 expiry events that needs to be handled by the user of the wrapper.
 
 Example in Coffeescript:
+
 ```coffeescript
 zookeeper = require 'node-zookeeper-client'
 EventEmitter = require 'eventemitter3'
