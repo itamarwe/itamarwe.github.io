@@ -3,10 +3,11 @@ layout: page
 title: About
 permalink: /about/
 ---
-![Itamar Weiss](/img/profile.jpg "Itamar Weiss")
 
-I’m Itamar Weiss. An Electrical Engineer and a developer. Consulting for machine learning,
-big data, node.js, angular.js, security, Bitcoin, virtual currencies, decentralized and distributed systems development projects.
+<img src="/img/profile.jpg" alt="Itamar Weiss" style="width:194px"\>
+
+Consulting for machine learning, big data, data science, node.js, angular.js, security,
+virtual currencies, decentralized and distributed systems.
 
 Feel free to contact me at:
 
