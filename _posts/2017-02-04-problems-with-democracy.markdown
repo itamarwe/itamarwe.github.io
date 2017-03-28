@@ -29,8 +29,11 @@ Here is the list of the biggest problems I identified:
 4. Underrepresentation of the silent majority vs organized pressure groups - we all know how a loud
 crowd can have more influence over decision-making than the silent majority. Be it commercial
 lobbies or activist pressure groups.
-5. Representatives loosely held accountable for their actions during their term.
-6. Your views can change over time, even during a seat.
+5. Representatives loosely held accountable for their actions during their term - among other reasons,
+because they're elected only for the main issue at the time of the election and because of the lack
+of transparency.
+6. Your views can change over time, even during a seat - nevertheless, you are not able
+to update them.
 7. There are topics that you care more about and want to be more involved in.
 8. Lack of transparency - Government lacks transparency. You don't necessarily know about all the meetings,
 and definitely not about the content of all the meetings. It's hard to understand what are the powers at
