@@ -46,7 +46,7 @@ A user-friendly Facebook for app that allows to create and practice flash-cards.
 Visualizing real-time high-throughput data streams, aggregating statistics and providing real-time search.
 The tool was developed using node.js, angular.js, socket.io and Apache Kafka.
 
-## Have a project?
+## Need help with a project?
 
 Feel free to contact me at:
 
