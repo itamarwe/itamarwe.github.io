@@ -2,6 +2,9 @@
 layout: page
 title: About
 permalink: /about/
+excerpt: "Consulting for machine learning, big data, data science, node.js, angular.js, security,
+virtual currencies, blockchain, decentralized and distributed systems."
+navbar: true
 ---
 
 <img src="/img/profile.jpg" alt="Itamar Weiss" style="width:194px">

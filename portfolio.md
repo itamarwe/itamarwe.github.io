@@ -2,6 +2,7 @@
 layout: page
 title: Portfolio
 permalink: /portfolio/
+navbar: true
 ---
 ## Background:
 
@@ -40,6 +41,10 @@ Developing and instructing a full-week angular.js course. The course was given s
 
 ### Flash-cards based spaced-repetition tool for memorization
 A user-friendly Facebook for app that allows to create and practice flash-cards. The app used the [spaced repetition](https://www.supermemo.com/english/ol/sm2.htm) algorithm to optimize the learning curve of the user.
+
+### Real time Apache Kafka visualization
+Visualizing real-time high-throughput data streams, aggregating statistics and providing real-time search.
+The tool was developed using node.js, angular.js, socket.io and Apache Kafka.
 
 ## Have a project?
 
