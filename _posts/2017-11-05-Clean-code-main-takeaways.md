@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Clean"
+title:  "Clean code - main takeaways"
 date:   2017-11-05
 categories: personal
 ---
