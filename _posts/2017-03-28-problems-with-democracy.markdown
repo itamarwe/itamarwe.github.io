@@ -2,7 +2,8 @@
 layout: post
 title:  "Problems with democracy"
 date:   2017-03-28
-categories: personal
+comments: true
+categories: personal, politics
 ---
 
 As Winston Churchill once said: “Democracy is the worst form of government, except for all the others.”

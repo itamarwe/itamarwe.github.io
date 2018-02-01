@@ -6,7 +6,8 @@ navbar: true
 ---
 ## Background:
 
-The first computer program I wrote was back in 1992 when I was 10 years old. It was an analogue clock written in [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). During high-school years I enjoyed spending my free time doing creative work with friends. I created and recorded music, built 3D models and rendered animations, I ran [BBSs](https://en.wikipedia.org/wiki/Bulletin_board_system), wrote management tools for them and wrote trojans to hack into others, I built and flew radio-controlled model airplanes (and later became an instructor), I developed a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog) that helped me go through my SATs, a natural-language-processing tool that broke down English sentences and built a semantic network that you could query using natural language questions.
+The first computer program I wrote was back in 1992 when I was 10 years old. It was an analogue clock written in [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). During high-school years I enjoyed spending my free time doing creative work with friends
+I created and recorded music, built 3D models and rendered animations, I ran [BBSs](https://en.wikipedia.org/wiki/Bulletin_board_system), wrote management tools for them and wrote trojans to hack into others, I built and flew radio-controlled model airplanes (and later became an instructor), I developed a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog) that helped me go through my SATs, a natural-language-processing tool that broke down English sentences and built a semantic network that you could query using natural language questions.
 
 ## Education:
 
@@ -22,6 +23,15 @@ An open-source proof-of-stake blockchain was forked and customized according to 
 
 ### Cryptocurrency exchange
 A cryptocurrency exchange was developed, allowing to automatically and securely trade a custom cryptocurrency for Bitcoin and vice-versa.
+
+## Ethereum Token
+An Ethereum token customized to the client's needs. A smart contract for a trustless
+exchange of the token was also created.
+
+## Double-ratchet secure messaging system
+Defining the requirements for the client's secure messaging system, researching 
+potential solutions, choosing, adapting and integrating a double-ratchet messaging
+protocol in the client's application.
 
 ### Accurate autonomous landing system for [multicopters](https://en.wikipedia.org/wiki/Multirotor)
 Accurate autonomous landing is essential for fully-autonomous multicopters to fly without a man in-the-loop, land on a basestation, recharge and fly again. A computer-vision based algorithm was developed in order to identify a unique pattern on a ground basestation. The algorithm was developed to be very accurate, computationally efficient, run in real-time, and be height invariant. The algorithm was implemented using openCV on an embedded Linux board and allowed a multicopter to land in high positional and orientational accuracy.
@@ -48,6 +58,6 @@ The tool was developed using node.js, angular.js, socket.io and Apache Kafka.
 
 ## Need help with a project?
 
-Feel free to contact me at:
+Please contact me at:
 
 me@itamarweiss.com

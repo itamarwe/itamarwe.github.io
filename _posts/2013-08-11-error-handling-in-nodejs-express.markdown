@@ -1,8 +1,9 @@
 ---
 layout: post
 title:  "Error handling in node.js express"
+comments: true
 date:   2014-04-14
-categories: node.js, express
+categories: code, node.js, express
 ---
 What are the best practices for handling errors in Express?
 

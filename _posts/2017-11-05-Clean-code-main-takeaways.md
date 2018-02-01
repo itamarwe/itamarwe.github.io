@@ -1,8 +1,9 @@
 ---
 layout: post
-title:  "Clean code - main takeaways"
+title:  "Clean code - key takeaways"
 date:   2017-11-05
-categories: personal
+comments: true
+categories: code
 ---
 
 A few years ago, I read the book "Clean code - A handbook of Agile software craftmanship"
