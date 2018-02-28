@@ -7,7 +7,7 @@ categories: personal
 ---
 
 ## The pattern
-Today I would like to share a simple but very important coding pattern. Using it
+In this post I would like to share a simple but very important coding pattern. Using it
 made my code much more readable. Since I discovered it I find it very hard to read
 code that doesn't employ it.
 
