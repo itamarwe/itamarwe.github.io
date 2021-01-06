@@ -24,11 +24,11 @@ An open-source proof-of-stake blockchain was forked and customized according to 
 ### Cryptocurrency exchange
 A cryptocurrency exchange was developed, allowing to automatically and securely trade a custom cryptocurrency for Bitcoin and vice-versa.
 
-## Ethereum Token
+### Ethereum Token
 An Ethereum token customized to the client's needs. A smart contract for a trustless
 exchange of the token was also created.
 
-## Double-ratchet secure messaging system
+### Double-ratchet secure messaging system
 Defining the requirements for the client's secure messaging system, researching 
 potential solutions, choosing, adapting and integrating a double-ratchet messaging
 protocol in the client's application.
