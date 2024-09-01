@@ -4,60 +4,48 @@ title: Portfolio
 permalink: /portfolio/
 navbar: true
 ---
+
 ## Background:
 
-The first computer program I wrote was back in 1992 when I was 10 years old. It was an analogue clock written in [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). During high-school years I enjoyed spending my free time doing creative work with friends
-I created and recorded music, built 3D models and rendered animations, I ran [BBSs](https://en.wikipedia.org/wiki/Bulletin_board_system), wrote management tools for them and wrote trojans to hack into others, I built and flew radio-controlled model airplanes (and later became an instructor), I developed a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog) that helped me go through my SATs, a natural-language-processing tool that broke down English sentences and built a semantic network that you could query using natural language questions.
+I developed my first computer program in 1992 at the age of 10 — an analog clock created using [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). Throughout high school, I pursued a variety of creative projects, including music production, 3D modeling, and animation rendering. I operated multiple [BBSs](https://en.wikipedia.org/wiki/Bulletin_board_system), developed management tools, and experimented with cybersecurity. I also built and piloted radio-controlled model airplanes and later became an instructor. Additionally, I created a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog) to help me prepare for the SATs, and developed a natural language processing tool capable of constructing a semantic network and responding to queries in natural language.
+
+Since those early years, I have continued to build upon my diverse interests and skills. I earned a B.Sc. in Physics and Mathematics from Hebrew University and an M.Sc. in Electrical Engineering from Tel Aviv University, combining my passion for technology and problem-solving with a strong academic foundation. Professionally, I have developed complex systems in fields ranging from blockchain technology and secure communications to online marketplaces and autonomous navigation systems.
+
+My career has been driven by a commitment to innovation and excellence, whether designing algorithms for real-time data visualization or developing scalable APIs for SMS marketing campaigns. I have had the privilege of working with a wide range of clients and industries, helping them achieve their goals through tailored software solutions and strategic technology consulting.
 
 ## Education:
 
-- BSc. Physics and Math - Hebrew University
-- MSc. Electrical Engineering - Tel-Aviv university
+- B.Sc. in Physics and Mathematics - Hebrew University
+- M.Sc. in Electrical Engineering - Tel Aviv University
 
 ## Projects:
 
-Here are a few of the projects I worked on in recent years:
+### Blockchain Customization
+Customized a proof-of-stake blockchain to meet client-specific requirements. This involved guiding multiple development teams, inexperienced in cryptocurrency, through the integration process. The new cryptocurrency successfully passed several rigorous security and functionality audits.
 
-### Blockchain customization
-An open-source proof-of-stake blockchain was forked and customized according to the client's needs. Several development teams with no prior experience with cryptocurrencies were developing application on top of the blockchain and were guided through the integration process. The new cryptocurrency successfully went through several thorough security and functionality audits.
-
-### Cryptocurrency exchange
-A cryptocurrency exchange was developed, allowing to automatically and securely trade a custom cryptocurrency for Bitcoin and vice-versa.
+### Cryptocurrency Exchange
+Developed a cryptocurrency exchange platform enabling secure, automated trading between a custom cryptocurrency and Bitcoin.
 
 ### Ethereum Token
-An Ethereum token customized to the client's needs. A smart contract for a trustless
-exchange of the token was also created.
+Created an Ethereum token tailored to the client's specifications and designed a smart contract for a trustless exchange of the token.
 
-### Double-ratchet secure messaging system
-Defining the requirements for the client's secure messaging system, researching 
-potential solutions, choosing, adapting and integrating a double-ratchet messaging
-protocol in the client's application.
+### Double-Ratchet Secure Messaging System
+Defined the requirements for a secure messaging system, researched potential solutions, and selected, adapted, and integrated a double-ratchet messaging protocol into the client's application.
 
-### Accurate autonomous landing system for [multicopters](https://en.wikipedia.org/wiki/Multirotor)
-Accurate autonomous landing is essential for fully-autonomous multicopters to fly without a man in-the-loop, land on a basestation, recharge and fly again. A computer-vision based algorithm was developed in order to identify a unique pattern on a ground basestation. The algorithm was developed to be very accurate, computationally efficient, run in real-time, and be height invariant. The algorithm was implemented using openCV on an embedded Linux board and allowed a multicopter to land in high positional and orientational accuracy.
+### Accurate Autonomous Landing System for [Multicopters](https://en.wikipedia.org/wiki/Multirotor)
+Developed a computer vision-based algorithm for accurately identifying a unique pattern on a ground base station, essential for autonomous multicopter landing. The algorithm was designed to be highly accurate, computationally efficient, real-time, and height-invariant. Implemented using OpenCV on an embedded Linux board, it enabled precise positional and orientational landing.
 
-### Online marketplace
-Developing a fully-featured two-sided (buyers and sellers) online marketplace. Sellers could create their profiles and offer their services on the platform. Buyers could search for sellers based on their location and specific needs, contact them through the platform, book and pay online and leave a review after the service was rendered. The system included a back-office admin interface for approving sellers, monitoring transactions, handling disputes and no-shows and performing payouts to the sellers.
+### Online Marketplace
+Developed a comprehensive two-sided online marketplace platform. Sellers could create profiles and offer services, while buyers could search, contact, book, and pay online, as well as leave reviews. The system included an admin interface for approving sellers, monitoring transactions, handling disputes, and managing payouts. The platform was built using Node.js, MongoDB, Elasticsearch, and Angular, with integration for email, SMS, and telephony services, and was optimized for both desktop and mobile devices.
 
-The platform was developed using node.js, MongoDB, Elasticsearch, Angular and integrated with email, SMS and telephony systems. It was both desktop and mobile friendly.
+### SMS Sending API
+Developed a scalable SMS sending platform with a user-friendly API for a [Kannel](http://www.kannel.org/) server. The platform featured self-service capabilities, allowing users to subscribe, input payment details, and manage SMS campaigns. It also included an admin interface for monitoring system health and activity. Built using Node.js, MongoDB, and Angular.js, the platform supported millions of SMS messages for various marketing campaigns.
 
-### SMS sending API
-Developing an SMS sending platform with a friendly, usable and scalable API for a [Kannel](http://www.kannel.org/) server. The platform was self-serve, and allowed a user to subscribe, put his credit-card details, send a single SMS or create an SMS marketing campaign. The platform included a back-office admin interface that allowed to monitor the activity and health of the system.
+### Angular.js Course
+Designed and instructed a comprehensive one-week Angular.js course, delivered multiple times to developers at [Pictet Private Bank](https://www.group.pictet/) and other front-end developers in Geneva, Switzerland.
 
-The platform was developed using node.js, MongoDB, angular.js and was used to send millions of SMS messages for various marketing campaigns.
+### Flash-Card Based Spaced Repetition Tool for Memorization
+Developed a user-friendly Facebook app to create and practice flashcards using the [spaced repetition](https://www.supermemo.com/english/ol/sm2.htm) algorithm to optimize learning.
 
-### Angular.js course
-Developing and instructing a full-week angular.js course. The course was given several times to developers of the [Pictet private bank](https://www.group.pictet/) and to front-end developers in Geneva, Switzerland.
-
-### Flash-cards based spaced-repetition tool for memorization
-A user-friendly Facebook for app that allows to create and practice flash-cards. The app used the [spaced repetition](https://www.supermemo.com/english/ol/sm2.htm) algorithm to optimize the learning curve of the user.
-
-### Real time Apache Kafka visualization
-Visualizing real-time high-throughput data streams, aggregating statistics and providing real-time search.
-The tool was developed using node.js, angular.js, socket.io and Apache Kafka.
-
-## Need help with a project?
-
-Please contact me at:
-
-me@itamarweiss.com
+### Real-Time Apache Kafka Visualization
+Created a tool to visualize real-time, high-throughput data streams, aggregate statistics, and provide real-time search capabilities, using Node.js, Angular.js, Socket.io, and Apache Kafka.
