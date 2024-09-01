@@ -8,8 +8,10 @@ navbar: true
 
 <img src="/img/profile.jpg" alt="Itamar Weiss" style="width:194px">
 
-I specialize in consulting for AI, machine learning, and big data, leveraging advanced techniques in data science to build intelligent systems that drive business growth. With extensive experience in designing and implementing high-scale distributed systems, I provide solutions that are both scalable and efficient, suitable for complex environments.
+I offer expert consulting in AI and machine learning, specializing in advanced techniques such as PyTorch, convolutional neural networks (ConvNets), large language models (LLMs), retrieval-augmented generation (RAG), fine-tuning, diffusion networks, and autoencoders. My work focuses on developing and deploying intelligent systems that provide measurable business impact, using cutting-edge methodologies to solve complex problems.
 
-My expertise spans across cloud architecture, modern application development frameworks like Node.js and Angular, and creating secure and resilient platforms for diverse use cases. I have a deep understanding of blockchain technology and virtual currencies, developing both secure messaging systems and decentralized applications.
+I have extensive experience in building and optimizing high-scale distributed systems using technologies like Apache Kafka, Apache Spark, PySpark, Databricks, Snowflake, AWS Redshift, and Google Cloud Platform (GCP). I am proficient in designing cloud-native architectures and scalable data pipelines on platforms such as AWS (including EMR), GCP, and Azure, ensuring high performance, reliability, and security for data-intensive applications.
 
-I work with organizations to harness the power of AI and distributed systems to solve challenging problems, optimize processes, and innovate at scale.
+Additionally, I specialize in modern application development frameworks such as Node.js and Angular, and I have a deep understanding of blockchain technologies and virtual currencies. My expertise includes creating secure messaging systems, decentralized applications, and other innovative solutions in the space of cybersecurity and distributed ledger technologies.
+
+I partner with organizations to leverage the power of AI, machine learning, and distributed systems to drive innovation, optimize operations, and scale effectively in today's fast-paced digital landscape.
