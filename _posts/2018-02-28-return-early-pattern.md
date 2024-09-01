@@ -1,24 +1,21 @@
 ---
 layout: post
-title:  "The \"return early\" pattern"
+title: "The 'Return Early' Pattern"
 comments: true
-date:   2018-02-28
+date: 2018-02-28
 categories: personal
 ---
 
-## The pattern
-In this post I would like to share a simple but very important coding pattern. Using it
-made my code much more readable. Since I discovered it I find it very hard to read
-code that doesn't employ it.
+## The Pattern
 
-The pattern is called "return early" because it recommends that your functions
-*return* as early as possible.
+In this post, I want to introduce a simple yet powerful coding pattern that has significantly improved the readability of my code: the "return early" pattern. Since adopting this approach, I've found it challenging to work with code that doesn't utilize it.
 
-Let's dive straight into an example. Imagine that you have a piece of code that
-looks as follows:
+The "return early" pattern advocates for functions to *return* as soon as possible. Let's look at an example to illustrate this concept.
 
-** the examples are in Python syntax, but relevant to any language
-that allows multiple return statements
+Consider the following piece of code:
+
+**Note:** The examples are in Python syntax, but this pattern is applicable to any language that allows multiple return statements.
+
 
 ```
 def function foo():
@@ -29,23 +26,23 @@ def function foo():
   return <result>
 ```
 
-The "return early" pattern will suggest the code will be:
+The "return early" pattern suggests restructuring the code like this:
 
 ```
 def function foo():
   if <condition a>:
     <code_block_a>
   return <result>
-  
+
   <code_block_b>
   return <result>
 ```
 
-That's all there is to it. Maybe it doesn't look like much, but let's
-see how it can break down long and unreadable nested if/else statements.
+While this change may appear minor, it can significantly simplify complex, nested if/else statements.
 
 ## Simplifying nested if/else statements
-For example:
+
+For instance, consider the following nested structure:
 
 ```
 def function foo():
@@ -59,43 +56,30 @@ def function foo():
   return <result>
 ```
 
-This code block is already much less readable. When you read the code and you get
-to `code_block_b` you probably don't even remember `<condition_a>` and you need
-to go back and forth in order to understand when it is invoked.
+This code is already challenging to read. By the time you reach `code_block_b`, you may have forgotten the original `<condition_a>`, requiring you to revisit the code multiple times to understand when each block is executed.
 
-On the other hand, by employing the "return early" pattern, it will look like this:
+By applying the "return early" pattern, the code becomes much clearer:
 
 ```
 def function foo():
   if not <condition a>:
     <code_block_b>
     return <result>
-  
+
   if <condition a_1>:
       <code_block_a_1>
       return <result>
-    
+
   <code_block_a_2>
   return <result>
 ```
-To me, the code block above is much more readable. It is very clear on what condition
-every code block is invoked. You don't have any complex nested if/else statements.
-The chances of getting the logic wrong here and introducing bugs is much lower
-when the code is as straightforward.
+This refactored version is far more readable. Each block clearly indicates under what condition it is executed, eliminating the need for complex nested if/else statements. As a result, the risk of introducing logic errors or bugs is significantly reduced when the code is straightforward.
 
 ## Analogy to the "promise" pattern
-I find that this pattern is analogous to moving from "callback hell" to the promise
-pattern. It has the same concept of breaking nested complex code to very linear
-and readable code.
+I find this pattern analogous to the transition from "callback hell" to the promise pattern in asynchronous programming. Both approaches share the common goal of transforming complex, nested code into a more linear and readable format.
 
 ## Additional advantages
-Here's another way in which this pattern will make your code cleaner. The pattern
-forces your functions to do only one thing. If you know the ["clean code" principles](/code/2017/11/05/Clean-code-main-takeaways.html),
-you know that breaking your code to many short functions that only do one thing is
-the way to go. Many times developers have trouble employing the "return early" pattern
-because their functions are doing many things, and in that case you cannot just
-return in the middle of the function. If the "return early" pattern cannot be
-employed in a function it's a good indicator that this function is not doing one
-thing and needs to be broken down.
+The "return early" pattern also encourages cleaner code by promoting functions that perform a single task. According to the principles of ["clean code" principles](/code/2017/11/05/Clean-code-main-takeaways.html),
+breaking code into small, focused functions is essential for maintainability. Developers often struggle to apply the "return early" pattern because their functions are too complex, handling multiple responsibilities. If a function cannot accommodate an early return, it often indicates that it should be broken down into smaller, more focused functions.
 
-It's as easy as it gets.
+Adopting the "return early" pattern is a straightforward yet effective way to improve your code quality.
