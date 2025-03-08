@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sun-Earth Simulation</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      pointer-events: none;
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    #camera-info {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+      display: block;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .seasons {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index-otPlMTsW.js"></script>
+</head>
+<body>
+  <div id="info">
+    <h2>Sun-Earth Simulation</h2>
+    <p>Demonstrating day/night transitions</p>
+    <p>Use mouse to rotate view, scroll to zoom</p>
+  </div>
+  <div id="controls">
+    <button id="toggleHelpers">Toggle Helpers</button>
+    <button id="resetCamera">Reset Camera</button>
+    <button id="topView">Top View</button>
+    <div class="seasons">
+      <button id="summer">Summer</button>
+      <button id="autumn">Autumn</button>
+      <button id="winter">Winter</button>
+      <button id="spring">Spring</button>
+    </div>
+  </div>
+  <div id="camera-info">
+    Camera Position: (0, 0, 0)<br>
+    Looking At: (0, 0, 0)
+  </div>
+</body>
+</html>
