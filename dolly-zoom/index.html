@@ -97,7 +97,7 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      "three": "./three.module.js"
     }
   }
   </script>
@@ -264,18 +264,21 @@
   subject.rotation.y = Math.PI; // face +z (towards camera)
   scene.add(subject);
 
-  // Second person, 100 m behind subject, also facing camera
+  // Second person, 100 m behind subject, offset slightly to one side so
+  // they're never fully occluded by the foreground person, and facing camera.
   const person2 = makePerson(0x3d6cb4, 0x222222, 0xf6c84c);
-  person2.position.set(0, 0, -PERSON2_OFFSET);
+  person2.position.set(1.4, 0, -PERSON2_OFFSET);
   person2.rotation.y = Math.PI;
   scene.add(person2);
 
   // Trees scattered along both sides, well behind the subject
   // (kept out of the immediate space between camera and subject)
+  // Keep a clear corridor on the path centerline so person 2 stays visible
+  // even at the narrow FOVs reached at high zoom.
   for (let i = 0; i < 90; i++) {
     const t = makeTree(0.85 + Math.random() * 0.6);
     const side = Math.random() < 0.5 ? -1 : 1;
-    const xOff = side * rand(4.5, 70);
+    const xOff = side * rand(8, 70);
     const z = rand(-220, -2);
     t.position.set(xOff, 0, z);
     t.rotation.y = Math.random() * Math.PI * 2;
