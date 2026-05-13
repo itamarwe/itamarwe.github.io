@@ -8,7 +8,7 @@ navbar: true
 
 <img src="/img/profile.jpg" alt="Itamar Weiss" style="width:194px">
 
-I help companies turn AI and data from "interesting experiment" into something the business actually relies on. Most teams can build an impressive demo in a week. The hard part is everything after that - making the system trustworthy, governed, and useful enough that people change how they work because of it. That's where I come in.
+I help companies turn AI and data from "interesting experiment" into something the business actually relies on. Most teams can build an impressive demo in a week. The hard part is everything after that - making the system trustworthy, governed, and useful enough that people change how they work because of it. That's where I come in - usually with my hands on the keyboard, writing the code alongside your team.
 
 ## What I help with
 
@@ -20,7 +20,7 @@ I help companies turn AI and data from "interesting experiment" into something t
 
 ## How I work
 
-I work with founders, CTOs, and engineering leaders - sometimes hands-on building, sometimes as an advisor helping the team make the right architectural calls. Engagements range from a focused one-off ("help us decide between these three approaches and de-risk the first 4 weeks") to longer partnerships where I'm embedded with a team. I try to push back when I think a project is over-scoped, and I'd rather tell you the boring answer than sell you a flashy one.
+Most of my work is hands-on building. I embed with a team, write production code, set up the pipelines, wire up the evals, ship the feature - and along the way, help with the architectural calls that shape what gets built. Sometimes engagements are purely advisory ("help us decide between these three approaches"), but more often they're a mix: build the first version, prove it works, and hand off something the team can own and extend. I try to push back when I think a project is over-scoped, and I'd rather tell you the boring answer than sell you a flashy one.
 
 ## The stack I tend to reach for
 
@@ -28,4 +28,4 @@ Python, TypeScript, React, Node.js for the application layer. Postgres, Snowflak
 
 ## Get in touch
 
-If you're trying to ship something in this space and want a second opinion or a partner for the build, I'd be happy to talk. The fastest way to reach me is by [email](mailto:me@itamarweiss.com).
+If you're trying to ship something in this space and want a builder on your team - or a partner to bounce architecture off - I'd be happy to talk. The fastest way to reach me is by [email](mailto:me@itamarweiss.com).
