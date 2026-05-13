@@ -6,7 +6,7 @@ date: 2026-05-13
 categories: ai, code
 ---
 
-I recently listened to a great episode of [Startup for Startup](https://open.spotify.com/episode/6hsRV4ZbmY6ZUmK21pCOdO?si=sHgOLIDERNetOU0QtdXbrg) by monday.com, where they shared how they built an internal AI agent that can answer data questions across the company. What I loved about the episode is that it's not abstract hype, it's a practical blueprint. They walked through the real problems they had to solve and the architectural decisions they made along the way.
+I recently listened to a great [episode of Startup for Startup](https://www.startupforstartup.com/348-%D7%93%D7%9E%D7%95%D7%A7%D7%A8%D7%98%D7%99%D7%96%D7%A6%D7%99%D7%94-%D7%A9%D7%9C-%D7%93%D7%90%D7%98%D7%94-%D7%90%D7%99%D7%9A-%D7%91%D7%A0%D7%99%D7%A0%D7%95-%D7%90%D7%99%D7%99%D7%92%D7%B3%D7%A0/) by monday.com, where they shared how they built an internal AI agent that can answer data questions across the company. What I loved about the episode is that it's not abstract hype, it's a practical blueprint. They walked through the real problems they had to solve and the architectural decisions they made along the way.
 
 This is, in my opinion, one of the highest-leverage AI use cases inside any organization: democratizing access to data so that anyone, from a sales rep to a product manager, can ask a question in natural language and get a trustworthy answer. But getting there is harder than it sounds. Here are the main building blocks they described.
 
