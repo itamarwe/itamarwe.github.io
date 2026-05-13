@@ -12,7 +12,7 @@ I help companies turn AI and data from "interesting experiment" into something t
 
 ## What I help with
 
-**Data platforms & analytics that anyone in the company can use.** Semantic layers, warehouses, pipelines, and the analytics tooling that sits on top. The goal is usually the same: democratize data so a sales rep, a PM, or an exec can answer their own questions without waiting for an analyst. That includes building internal data agents (like the ones I [write about on my blog](/ai/code/2026/05/13/ai-for-data-questions-blueprint.html)) - the kind that combine a semantic layer, governed access, and domain skills into something employees actually trust.
+**Data platforms & analytics that anyone in the company can use.** Semantic layers, warehouses, pipelines, and the analytics tooling that sits on top. The goal is usually the same: democratize data so a sales rep, a PM, or an exec can answer their own questions without waiting for an analyst. That includes building internal data agents - the kind that combine a semantic layer, governed access, and domain skills into something employees actually trust.
 
 **AI agents and assistants that do real work.** Custom agents and copilots, MCP-based capabilities, RAG systems over your internal knowledge, and the evaluation harnesses that keep them honest. I focus on the parts most teams underinvest in: scoping the agent to one job it can actually do well, building benchmarks before features, and designing for governance from day one.
 
