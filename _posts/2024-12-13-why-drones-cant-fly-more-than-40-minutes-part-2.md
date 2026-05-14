@@ -6,7 +6,9 @@ date: 2024-12-13
 categories: drones
 ---
 
-In the [previous parts](/drones/2024/12/11/why-drones-cant-fly-more-than-40-minutes.html) we talked about the principles behind how drones fly, and about the counter-intuitive insight that a drone's flight time is limited no matter how many batteries we add — and in fact, that this is true for any aircraft.
+*Previously in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 1)](/drones/2024/12/11/why-drones-cant-fly-more-than-40-minutes.html).*
+
+In the previous parts we talked about the principles behind how drones fly, and about the counter-intuitive insight that a drone's flight time is limited no matter how many batteries we add — and in fact, that this is true for any aircraft.
 
 In this part we'll focus on another counter-intuitive insight: past a certain point, adding more batteries will actually *decrease* the drone's flight time rather than increase it. That means that for any given drone there is an optimal battery weight that yields the maximum flight time. How can that be?
 
@@ -55,6 +57,8 @@ That said, because the graph becomes very flat well before that point, from arou
 ## What's next
 
 In the next part of the thread we'll talk about what *can* still be done to increase the flight time of drones.
+
+*Next in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 3)](/drones/2024/12/18/why-drones-cant-fly-more-than-40-minutes-part-3.html).*
 
 ---
 
