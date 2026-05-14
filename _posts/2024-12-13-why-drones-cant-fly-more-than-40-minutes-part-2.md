@@ -58,7 +58,7 @@ That said, because the graph becomes very flat well before that point, from arou
 
 In the next part of the thread we'll talk about what *can* still be done to increase the flight time of drones.
 
-*Next in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 3)](/drones/2024/12/18/why-drones-cant-fly-more-than-40-minutes-part-3.html).*
+*Next in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 3)](/drones/2024/12/31/why-drones-cant-fly-more-than-40-minutes-part-3.html).*
 
 ---
 

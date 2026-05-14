@@ -2,7 +2,7 @@
 layout: post
 title: "Why Can't Drones Fly for More Than 40 Minutes? (Part 3)"
 comments: true
-date: 2024-12-18
+date: 2024-12-31
 categories: drones
 ---
 
@@ -58,4 +58,4 @@ That's it. The flight-time limit of drones bothered me for a long time, and we h
 
 ---
 
-*This post is a translation of a thread I originally posted on X.*
+*This post is a translation of [a thread I originally posted on X](https://x.com/itamarwe/status/1874135174163919048).*
