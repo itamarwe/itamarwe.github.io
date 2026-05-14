@@ -6,6 +6,8 @@ date: 2024-12-11
 categories: drones
 ---
 
+*Previously in this series: [How Does a Drone Fly?](/drones/2024/12/07/how-does-a-drone-fly.html).*
+
 Why is the flight time of drones so limited, and what can be done about it?
 
 This is part 1 of the thread.
@@ -35,6 +37,8 @@ This thought experiment shows us why there is a flight-time limit — for any ai
 But reality is even more complex than that. You can reach a situation where you add batteries and the flight time doesn't grow at all — it actually shrinks. And why is it that helicopters can fly for hours but drones can't?
 
 We'll talk about this and more in the next parts of the thread.
+
+*Next in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 2)](/drones/2024/12/13/why-drones-cant-fly-more-than-40-minutes-part-2.html).*
 
 ---
 

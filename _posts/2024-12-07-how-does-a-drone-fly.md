@@ -50,6 +50,8 @@ In upcoming posts I'll write about why drones can't stay in the air for hours, t
 
 ![A fixed-wing drone](/img/drones/thread1/tweet7_photo1.jpg)
 
+*Next in this series: [Why Can't Drones Fly for More Than 40 Minutes? (Part 1)](/drones/2024/12/11/why-drones-cant-fly-more-than-40-minutes.html).*
+
 ---
 
 *This post is a translation of [a thread I originally posted on X](https://x.com/itamarwe/status/1865455329934197124).*
