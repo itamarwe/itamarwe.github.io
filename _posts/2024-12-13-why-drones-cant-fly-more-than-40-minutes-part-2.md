@@ -18,37 +18,37 @@ The reason a drone's flight time starts to shrink past a certain point as we add
 
 How does a propeller generate lift? Simplifying a bit: a propeller pushes air downward. Every action has a reaction, so this pushes the drone upward against gravity and keeps it in the air.
 
-![A propeller pushes air down to generate lift up](/img/drones/thread3/propeller-lift.jpg)
+![A propeller pushes air down to generate lift up](/img/drones/thread3/propeller-lift.png)
 
 ## How much air is pushed down
 
 How much air does the propeller push per unit of time? A cylinder of air, with a volume equal to the propeller's area times the air's velocity — and a mass equal to that volume times the air's density (if we simplify).
 
-![The mass of air pushed down equals density times area times velocity](/img/drones/thread3/air-mass.jpg)
+![The mass of air pushed down equals density times area times velocity](/img/drones/thread3/air-mass.png)
 
 ## How much lift is produced
 
 How much lift does the propeller generate? The lift force acting on the drone — from Newton's second law — is proportional to the mass of air times its velocity. And since the mass of air is itself proportional to the velocity, the lift comes out proportional to the air velocity *squared*.
 
-![Lift is proportional to the air velocity squared](/img/drones/thread3/lift-formula.jpg)
+![Lift is proportional to the air velocity squared](/img/drones/thread3/lift-formula.png)
 
 ## How much power is consumed
 
 How much energy is required per unit of time to generate that lift? From the most basic kinetic energy formula — energy is half the mass times the velocity squared — the required power comes out proportional to the air velocity *cubed*.
 
-![Power consumed is proportional to the air velocity cubed](/img/drones/thread3/power-formula.jpg)
+![Power consumed is proportional to the air velocity cubed](/img/drones/thread3/power-formula.png)
 
 ## Efficiency drops as the propeller works harder
 
 From here you can immediately see that efficiency drops as the propeller has to generate more lift. For example, if the velocity of the air the propeller pushes is doubled, the lift grows by a factor of 4 — but the energy required grows by a factor of 8.
 
-![Doubling the air velocity multiplies lift by 4 but power by 8](/img/drones/thread3/power-vs-lift.jpg)
+![Doubling the air velocity multiplies lift by 4 but power by 8](/img/drones/thread3/power-vs-lift.png)
 
 ## The optimal battery weight
 
 If we take this insight into account and now calculate the flight time as a function of battery weight, we get that the optimal flight time is reached when the battery weight is twice the weight of the drone without the battery.
 
-![Flight time against the battery-to-frame mass ratio, with the optimal choice marked](/img/drones/thread3/optimal-battery-weight.jpg)
+![Flight time against the battery-to-frame mass ratio, with the optimal choice marked](/img/drones/thread3/optimal-battery-weight.png)
 
 That said, because the graph becomes very flat well before that point, from around where the battery weight is 60–70% of the weight of the drone without the batteries the flight time barely grows anymore. That's why this is a very common operating point in practice.
 
