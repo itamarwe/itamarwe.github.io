@@ -2,7 +2,7 @@
 layout: post
 title: "Why Can't Drones Fly for More Than 40 Minutes? (Part 2)"
 comments: true
-date: 2024-12-14
+date: 2024-12-13
 categories: drones
 ---
 
@@ -58,4 +58,4 @@ In the next part of the thread we'll talk about what *can* still be done to incr
 
 ---
 
-*This post is a translation of a thread I originally posted on X.*
+*This post is a translation of [a thread I originally posted on X](https://x.com/itamarwe/status/1867685047215472954).*
