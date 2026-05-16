@@ -10,6 +10,8 @@ I recently had to refactor a very complex and messy piece of code — a recursiv
 
 But I did eventually find a way to solve it with AI.
 
+![A refactoring workflow showing the step-by-step process](/img/ai-refactoring/refactoring-workflow.jpeg)
+
 ## The problem
 
 The core logic was buried under classic anti-patterns: one giant function, lots of side effects, and no clear separation of responsibilities between modules.

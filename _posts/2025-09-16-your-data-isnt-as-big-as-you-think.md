@@ -10,6 +10,8 @@ Here's an uncomfortable truth: in most cases, you could throw away your Spark/Fl
 
 One of the most surprising findings I've seen shows that about 99% of real-world queries could fit entirely in memory on one box.
 
+![Query distribution across data scanned for Redshift and Snowflake](/img/small-data/redshift-vs-snowflake.jpeg)
+
 ## Why is that possible?
 
 Despite the huge data lakes we all love to brag about, most queries only touch tiny slices of the data:
