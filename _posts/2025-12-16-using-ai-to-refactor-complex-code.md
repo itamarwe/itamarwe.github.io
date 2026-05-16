@@ -2,7 +2,7 @@
 layout: post
 title: "How to Use AI to Refactor Complex Code"
 comments: true
-date: 2026-05-16
+date: 2025-12-16
 categories: ai
 ---
 
