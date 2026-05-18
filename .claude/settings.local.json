@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'Update domain to itamar-weiss.com and add spouse info to about page *)"
+    ]
+  }
+}

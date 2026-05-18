@@ -128,4 +128,4 @@ multi-sig account is slightly more cumbersome, but it is much more secure.
 - [How to create your own crypto-currency with Ethereum](https://www.ethereum.org/token)
 - [How to create an ICO with Truffle](https://blog.zeppelin.solutions/how-to-create-token-and-initial-coin-offering-contracts-using-truffle-openzeppelin-1b7a5dae99b6)
 
-Need help building your smart contracts? Contact me at me@itamarweiss.com
+Need help building your smart contracts? Contact me at me@itamar-weiss.com

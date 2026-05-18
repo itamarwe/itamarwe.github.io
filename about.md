@@ -15,3 +15,5 @@ I have extensive experience in building and optimizing high-scale distributed sy
 Additionally, I specialize in modern application development with Next.js for full-stack web applications and FastAPI for high-performance backend services. I have a deep understanding of blockchain technologies and virtual currencies. My expertise includes creating secure messaging systems, decentralized applications, and other innovative solutions in the space of cybersecurity and distributed ledger technologies.
 
 I partner with organizations to leverage the power of AI, machine learning, and distributed systems to drive innovation, optimize operations, and scale effectively in today's fast-paced digital landscape.
+
+I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).
