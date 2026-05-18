@@ -16,4 +16,4 @@ Additionally, I specialize in modern application development with Next.js for fu
 
 I partner with organizations to leverage the power of AI, machine learning, and distributed systems to drive innovation, optimize operations, and scale effectively in today's fast-paced digital landscape.
 
-I'm married to [Dr. Sarah Weiss](https://www.drsarahweiss.co.il/), a neurologist specialized in stroke treatment.
+I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).
