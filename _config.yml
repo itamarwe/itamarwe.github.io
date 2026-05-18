@@ -7,11 +7,11 @@
 
 # Site settings
 title: Itamar Weiss
-email: me@itamarweiss.com
+email: me@itamar-weiss.com
 description: > # this means to ignore newlines until "baseurl:"
   Personal blog by Itamar Weiss.
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "http://www.itamarweiss.com" # the base hostname & protocol for your site
+url: "https://www.itamar-weiss.com" # the base hostname & protocol for your site
 twitter_username: itamarwe
 github_username:  itamarwe
 
