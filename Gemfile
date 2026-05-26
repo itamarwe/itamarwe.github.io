@@ -1,3 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'github-pages'
+gem 'jekyll', '~> 4.3'
+gem 'jekyll-sitemap'
+gem 'kramdown-parser-gfm'
+gem 'webrick'
