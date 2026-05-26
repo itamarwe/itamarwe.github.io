@@ -16,8 +16,10 @@ This is a static site, so a typo in an internal link is a dead link in productio
 
 For every change, no matter how small:
 
-1. **Create a new branch** from `master`
-2. **Make commits** to that branch
-3. **Open a pull request** — do not merge yourself; leave it for the user to review and merge
+1. **Start from an up-to-date `master`**: check out `master` and `git pull` before creating a new branch.
+2. **Create a new branch** from `master`.
+3. **Make commits** to that branch.
+4. **Open a pull request** — do not merge yourself; leave it for the user to review and merge.
+5. **Leave the working directory clean**: after opening the PR, switch back to `master`, pull the latest, and confirm `git status` shows nothing unexpected.
 
 Once a PR is merged, that branch is closed. Do not push further commits to it — create a new branch for the next set of changes.
