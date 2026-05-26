@@ -27,6 +27,8 @@ body {
     -o-font-feature-settings: "kern" 1;
     font-feature-settings: "kern" 1;
     font-kerning: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 
@@ -86,7 +88,7 @@ li {
  * Headings
  */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: $base-font-weight;
+    font-weight: 600;
 }
 
 
@@ -96,15 +98,16 @@ h1, h2, h3, h4, h5, h6 {
  */
 a {
     color: $brand-color;
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
 
     &:visited {
-        color: color.adjust($brand-color, $lightness: -15%);
+        color: color.adjust($brand-color, $lightness: -8%);
     }
 
     &:hover {
-        color: $text-color;
-        text-decoration: underline;
+        text-decoration-thickness: 2px;
     }
 }
 
@@ -118,7 +121,6 @@ blockquote {
     border-left: 4px solid $grey-color-light;
     padding-left: math.div($spacing-unit, 2);
     font-size: 18px;
-    letter-spacing: -1px;
     font-style: italic;
 
     > :last-child {
@@ -133,10 +135,11 @@ blockquote {
  */
 pre,
 code {
-    font-size: 15px;
+    font-family: $mono-font-family;
+    font-size: 0.9em;
     border: 1px solid $grey-color-light;
-    border-radius: 3px;
-    background-color: #eef;
+    border-radius: 4px;
+    background-color: $code-bg-color;
 }
 
 code {
