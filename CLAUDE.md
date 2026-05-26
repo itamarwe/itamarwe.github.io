@@ -12,12 +12,12 @@ This is a static site, so a typo in an internal link is a dead link in productio
 
 ## Pull request workflow
 
-Once a pull request for a working branch has been merged, it is closed — pushing more commits to that branch will **not** reopen or update it. 
+**Always branch and PR — never push directly to `master`.**
 
-### After merging a branch:
+For every change, no matter how small:
 
-1. **Create a new branch** from `master` for the next set of changes
-2. **Make commits** to the new branch
-3. **Open a new pull request** for the new branch
+1. **Create a new branch** from `master`
+2. **Make commits** to that branch
+3. **Open a pull request** — do not merge yourself; leave it for the user to review and merge
 
-Do not continue pushing commits to a branch whose PR has already been merged.
+Once a PR is merged, that branch is closed. Do not push further commits to it — create a new branch for the next set of changes.
