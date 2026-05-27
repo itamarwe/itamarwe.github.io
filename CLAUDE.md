@@ -21,3 +21,26 @@ Once a pull request for a working branch has been merged, it is closed — pushi
 3. **Open a new pull request** for the new branch
 
 Do not continue pushing commits to a branch whose PR has already been merged.
+
+## Capturing demo videos from a running web app
+
+To embed demo videos in a post, use Playwright to record the live app rather than recreating it. General pattern:
+
+1. **Expose internals** — patch the app's JS to set `window.__camera`, `window.__controls`, or whatever handles you need for programmatic control, then restart the dev server.
+
+2. **Scaffold a capture script** (`/tmp/capture/capture.js`) with this structure:
+   - Launch Chromium with `--use-gl=angle` (required for WebGL headless)
+   - Create a context with `recordVideo` pointing to a temp dir
+   - On page load: hide UI chrome with `addStyleTag`, inject a fake CSS cursor div (`window.__moveCursor(x, y)`)
+   - Run `setup(page)` to set initial camera/state, then `waitForTimeout(SETUP_SECS * 1000)`
+   - Run `animate(page, clipSecs)` — drive the camera via `page.evaluate` + `requestAnimationFrame` loop
+   - After recording: trim the setup period and encode with ffmpeg: `ffmpeg -ss SETUP_SECS -i input.webm -c:v libx264 -pix_fmt yuv420p -t clipSecs output.mp4`
+
+3. **Camera geometry** — always reason about where the Sun/light is before placing the camera. To show a day/night terminator, position the camera *perpendicular* to the light-source→object axis, not behind the object.
+
+4. **Install Remotion skill** for programmatic video generation as an alternative: `npx skills add remotion-dev/skills`. Remotion + React Three Fiber works for recreating 3D scenes from scratch, but Playwright capture is faster when a real app already exists.
+
+5. **Embed in Jekyll** with a plain `<video>` tag — autoplay/loop/muted/playsinline works in all modern browsers without JavaScript:
+   ```html
+   <video src="/img/folder/clip.mp4" autoplay loop muted playsinline style="width:100%"></video>
+   ```
