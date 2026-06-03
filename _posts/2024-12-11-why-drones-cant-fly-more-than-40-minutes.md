@@ -12,7 +12,39 @@ Why is the flight time of drones so limited, and what can be done about it?
 
 ![A drone in flight, with a controller and a watch](/img/drones/thread2/tweet1_photo1.jpg)
 
-## An ideal aircraft made of nothing but battery
+One of the biggest limitations of drones is their flight time. Almost no matter how you look at it, the maximum flight time of most drones stays around 30–40 minutes, which sharply limits their range and the missions they can perform.
+
+![Soldiers operating a drone in a forest](/img/drones/thread2/drone-operators-forest.jpg)
+
+The importance of flight time is clear: the longer a drone can stay in the air, the greater its operating range, the better it can hold an area continuously, the more efficiently it can use its flight time, and the less often it has to go through risky takeoffs and landings.
+
+![A drone flying while a person controls it from the ground](/img/drones/thread2/drone-flight-time-range.jpg)
+
+It turns out that the flight-time limit comes from a universal constraint shared by every aircraft, but it shows up especially strongly in drones. Hidden behind it are a few counter-intuitive principles.
+
+![Many different drones flying over a landscape](/img/drones/thread2/drone-variety.jpg)
+
+## A first thought experiment
+
+Let's start with a short thought experiment. Imagine a fictional aircraft that weighs 1 kg and is made entirely of battery. It has no unnecessary weight at all. Now imagine that it can use the energy in that battery to generate enough lift to hold the 1 kg aircraft in the air for one minute.
+
+How could we extend its flight time?
+
+![An ideal 1 kg aircraft made entirely of battery flying for one minute](/img/drones/thread2/ideal-one-kg-one-minute.jpg)
+
+The obvious, intuitive answer is to add another battery.
+
+Suppose we add another 1 kg battery. What will the flight time be?
+
+![A 2 kg version of the ideal aircraft with a question mark over the flight time](/img/drones/thread2/ideal-two-kg-question.jpg)
+
+On one hand, the aircraft now has twice as much energy. On the other hand, it also has to generate lift for twice as much weight, so its energy consumption rises by roughly a factor of two. Overall, the flight time does not increase.
+
+You can also think of it as the equivalent of two of the previous aircraft tied together, which makes it obvious that the flight time should stay the same.
+
+![A 2 kg aircraft is equivalent to two 1 kg aircraft tied together](/img/drones/thread2/doubled-battery-same-flight-time.jpg)
+
+## Real aircraft are worse than the ideal model
 
 To reason about the limits of flight time, it helps to imagine an *ideal aircraft* — a thought experiment in which the aircraft is made of nothing but battery.
 
@@ -75,6 +107,10 @@ If we take this insight into account and now calculate the flight time as a func
 That said, because the graph becomes very flat well before that point, from around where the battery weight is 60–70% of the weight of the drone without the batteries the flight time barely grows anymore. That's why this is a very common operating point in practice.
 
 ## So what *can* we do to increase flight time?
+
+In the final part of the thread, we can turn from the limits themselves to the things that can actually move them.
+
+![A drone balancing lift and weight for one minute](/img/drones/thread4/lift-weight-recap.jpg)
 
 There are two main factors that determine a drone's flight time: the density of the energy source — how much energy is stored per unit of weight — and the efficiency of the drone — how much energy is needed to keep the drone in the air.
 
