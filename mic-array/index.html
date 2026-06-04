@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Circular Microphone Array Directionality</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --panel: #161b22;
+      --panel-2: #1c232c;
+      --border: #2b333d;
+      --text: #e6edf3;
+      --muted: #9aa7b3;
+      --accent: #4fc3f7;
+      --accent-2: #ffb74d;
+      --good: #66bb6a;
+      --bad: #ef5350;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+    h1 {
+      font-size: 1.35rem;
+      margin: 0 0 4px;
+      font-weight: 650;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0 0 18px;
+      line-height: 1.4;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 760px) {
+      .stage { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .card h2 {
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    canvas { display: block; width: 100%; height: auto; }
+    .controls {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px 22px;
+    }
+    .ctrl label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.85rem;
+      margin-bottom: 7px;
+      color: var(--muted);
+    }
+    .ctrl label b {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+    button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background .12s, border-color .12s;
+    }
+    button:hover { background: #232c36; border-color: #3a4552; }
+    button.active { border-color: var(--accent); color: var(--accent); }
+    .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .toggle-group button { border: none; border-radius: 0; }
+    .toggle-group button + button { border-left: 1px solid var(--border); }
+    .metrics {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .metric { background: var(--panel); padding: 12px 14px; }
+    .metric .k { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric .v { font-size: 1.05rem; font-weight: 650; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .metric .v small { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+    .alias-ok { color: var(--good); }
+    .alias-bad { color: var(--bad); }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); margin-top: 10px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+    .note { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin-top: 18px; }
+    .note b { color: var(--text); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Directionality of a Circular Microphone Array</h1>
+    <p class="sub">
+      A uniform circular array of omnidirectional microphones with a delay-and-sum beamformer steered toward the
+      arrow. The polar plot is the array's spatial response (how much gain it gives sound coming from each direction)
+      across the 200&ndash;4000&nbsp;Hz speech band. Drag the steering arrow in the left panel.
+    </p>
+
+    <div class="stage">
+      <div class="card">
+        <h2>Array geometry &amp; steering</h2>
+        <canvas id="geo"></canvas>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--accent)"></span>microphones</span>
+          <span><span class="swatch" style="background:var(--accent-2)"></span>steering direction</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Beam pattern (directional response)</h2>
+        <canvas id="polar"></canvas>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--accent)"></span>response at selected frequency</span>
+          <span id="cmp-legend" style="display:none"><span class="swatch" style="background:var(--accent-2)"></span>200&nbsp;Hz</span>
+          <span id="cmp-legend2" style="display:none"><span class="swatch" style="background:var(--good)"></span>4000&nbsp;Hz</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl">
+        <label>Frequency <b><span id="fVal">1000</span> Hz</b></label>
+        <input type="range" id="freq" min="200" max="4000" step="10" value="1000">
+      </div>
+      <div class="ctrl">
+        <label>Microphones <b><span id="nVal">6</span></b></label>
+        <input type="range" id="nmics" min="2" max="16" step="1" value="6">
+      </div>
+      <div class="ctrl">
+        <label>Array radius <b><span id="rVal">5.0</span> cm</b></label>
+        <input type="range" id="radius" min="1" max="20" step="0.5" value="5">
+      </div>
+      <div class="ctrl">
+        <label>Steering angle <b><span id="sVal">0</span>&deg;</b></label>
+        <input type="range" id="steer" min="0" max="359" step="1" value="0">
+      </div>
+      <div class="ctrl">
+        <label>Display</label>
+        <div class="row">
+          <div class="toggle-group">
+            <button id="scaleDb" class="active">dB</button>
+            <button id="scaleLin">Linear</button>
+          </div>
+          <button id="compare">Compare 200 / 4000 Hz</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Frequency sweep</label>
+        <div class="row">
+          <button id="sweep">▶ Sweep 200 → 4000 Hz</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="k">Wavelength</div><div class="v" id="mLambda">—</div></div>
+      <div class="metric"><div class="k">Adjacent mic spacing</div><div class="v" id="mSpacing">—</div></div>
+      <div class="metric"><div class="k">Aliasing onset</div><div class="v" id="mAlias">—</div></div>
+      <div class="metric"><div class="k">−3 dB beamwidth</div><div class="v" id="mBeam">—</div></div>
+      <div class="metric"><div class="k">Directivity index</div><div class="v" id="mDi">—</div></div>
+    </div>
+
+    <p class="note">
+      <b>What to look for.</b> At low frequencies the array is barely directional &mdash; the wavelength dwarfs the array,
+      so all microphones hear almost the same signal and the response is nearly a circle (omnidirectional).
+      As frequency rises the main lobe narrows and the array "points." Once the spacing between adjacent
+      microphones exceeds half a wavelength (the <b>aliasing onset</b>), spurious <b>grating lobes</b> appear &mdash;
+      the array picks up sound strongly from directions you never steered toward. A real circular array trades off
+      radius and microphone count to push that onset above the band of interest.
+    </p>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+    const C = 343; // speed of sound, m/s
+
+    const el = (id) => document.getElementById(id);
+    const geo = el("geo"), polar = el("polar");
+    const gctx = geo.getContext("2d"), pctx = polar.getContext("2d");
+
+    const state = {
+      f: 1000,
+      n: 6,
+      r: 0.05,        // metres
+      steer: 0,       // degrees
+      db: true,
+      compare: false,
+      sweeping: false,
+    };
+    const DB_FLOOR = -40;
+
+    // ---- DPI-aware sizing ----
+    function fitCanvas(cv) {
+      const dpr = window.devicePixelRatio || 1;
+      const w = cv.clientWidth;
+      const h = w; // square
+      cv.style.height = h + "px";
+      cv.width = Math.round(w * dpr);
+      cv.height = Math.round(h * dpr);
+      const ctx = cv.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { w, h };
+    }
+
+    // ---- Physics: delay-and-sum beam response of a uniform circular array ----
+    // Mic n at angle 2*pi*n/N on circle of radius r. Plane wave from azimuth theta.
+    // Steered to theta0. |B(theta)| in [0,1].
+    function micAngles(n) {
+      const a = [];
+      for (let i = 0; i < n; i++) a.push((2 * Math.PI * i) / n);
+      return a;
+    }
+
+    function response(theta, theta0, k, phis, r) {
+      // sum_n exp( j k r [ (cos th - cos th0) cos phi_n + (sin th - sin th0) sin phi_n ] ) / N
+      const dux = Math.cos(theta) - Math.cos(theta0);
+      const duy = Math.sin(theta) - Math.sin(theta0);
+      let re = 0, im = 0;
+      for (let i = 0; i < phis.length; i++) {
+        const phase = k * r * (dux * Math.cos(phis[i]) + duy * Math.sin(phis[i]));
+        re += Math.cos(phase);
+        im += Math.sin(phase);
+      }
+      return Math.hypot(re, im) / phis.length;
+    }
+
+    // Sample the full pattern; returns {mag:[], n}
+    const SAMPLES = 720;
+    function patternFor(f) {
+      const k = (2 * Math.PI * f) / C;
+      const phis = micAngles(state.n);
+      const theta0 = (state.steer * Math.PI) / 180;
+      const mag = new Float64Array(SAMPLES);
+      for (let i = 0; i < SAMPLES; i++) {
+        const theta = (2 * Math.PI * i) / SAMPLES;
+        mag[i] = response(theta, theta0, k, phis, state.r);
+      }
+      return mag;
+    }
+
+    function toRadial(m) {
+      if (state.db) {
+        const db = 20 * Math.log10(Math.max(m, 1e-6));
+        return Math.max(0, (db - DB_FLOOR) / (0 - DB_FLOOR)); // 0..1
+      }
+      return Math.min(1, m);
+    }
+
+    // ---- Drawing: polar plot ----
+    function drawPolar() {
+      const { w, h } = fitCanvas(polar);
+      const cx = w / 2, cy = h / 2;
+      const R = Math.min(w, h) / 2 - 26;
+      pctx.clearRect(0, 0, w, h);
+
+      // grid rings
+      pctx.lineWidth = 1;
+      pctx.font = "11px -apple-system, sans-serif";
+      pctx.textAlign = "left";
+      const rings = state.db ? [0, -10, -20, -30, -40] : [1, 0.75, 0.5, 0.25, 0];
+      rings.forEach((val) => {
+        const frac = state.db ? (val - DB_FLOOR) / (0 - DB_FLOOR) : val;
+        const rr = R * frac;
+        pctx.strokeStyle = "#222b35";
+        pctx.beginPath();
+        pctx.arc(cx, cy, rr, 0, 2 * Math.PI);
+        pctx.stroke();
+        pctx.fillStyle = "#5d6b78";
+        const lbl = state.db ? (val === 0 ? "0 dB" : val + "") : val.toFixed(2);
+        pctx.fillText(lbl, cx + 3, cy - rr - 2);
+      });
+
+      // angle spokes + labels every 30°
+      pctx.strokeStyle = "#1c242d";
+      pctx.fillStyle = "#5d6b78";
+      for (let a = 0; a < 360; a += 30) {
+        const rad = (a * Math.PI) / 180;
+        // screen: 0° to the right, CCW positive (flip y)
+        const ex = cx + R * Math.cos(rad);
+        const ey = cy - R * Math.sin(rad);
+        pctx.beginPath();
+        pctx.moveTo(cx, cy);
+        pctx.lineTo(ex, ey);
+        pctx.stroke();
+        const lx = cx + (R + 14) * Math.cos(rad);
+        const ly = cy - (R + 14) * Math.sin(rad);
+        pctx.textAlign = "center";
+        pctx.textBaseline = "middle";
+        pctx.fillText(a + "°", lx, ly);
+      }
+
+      const drawCurve = (mag, color, fill) => {
+        pctx.beginPath();
+        for (let i = 0; i <= SAMPLES; i++) {
+          const idx = i % SAMPLES;
+          const theta = (2 * Math.PI * idx) / SAMPLES;
+          const rr = R * toRadial(mag[idx]);
+          const x = cx + rr * Math.cos(theta);
+          const y = cy - rr * Math.sin(theta);
+          if (i === 0) pctx.moveTo(x, y); else pctx.lineTo(x, y);
+        }
+        pctx.closePath();
+        if (fill) {
+          pctx.fillStyle = fill;
+          pctx.fill();
+        }
+        pctx.strokeStyle = color;
+        pctx.lineWidth = 2;
+        pctx.stroke();
+      };
+
+      if (state.compare) {
+        drawCurve(patternFor(200), "#ffb74d", null);
+        drawCurve(patternFor(4000), "#66bb6a", null);
+      }
+      drawCurve(currentPattern, "#4fc3f7", "rgba(79,195,247,0.14)");
+
+      // steering tick on the rim
+      const sr = (state.steer * Math.PI) / 180;
+      pctx.strokeStyle = "#ffb74d";
+      pctx.lineWidth = 2;
+      pctx.beginPath();
+      pctx.moveTo(cx + (R - 8) * Math.cos(sr), cy - (R - 8) * Math.sin(sr));
+      pctx.lineTo(cx + (R + 8) * Math.cos(sr), cy - (R + 8) * Math.sin(sr));
+      pctx.stroke();
+    }
+
+    // ---- Drawing: geometry with draggable steering arrow ----
+    function drawGeo() {
+      const { w, h } = fitCanvas(geo);
+      const cx = w / 2, cy = h / 2;
+      const R = Math.min(w, h) / 2 - 30;
+      gctx.clearRect(0, 0, w, h);
+
+      // reference frame circle
+      gctx.strokeStyle = "#222b35";
+      gctx.lineWidth = 1;
+      gctx.beginPath();
+      gctx.arc(cx, cy, R, 0, 2 * Math.PI);
+      gctx.stroke();
+
+      // array radius scaled so 20cm (max) fits comfortably; show physical scale
+      const pxPerM = (R * 0.62) / 0.20;
+      const arrPx = state.r * pxPerM;
+
+      // array circle outline
+      gctx.strokeStyle = "#2d3a47";
+      gctx.setLineDash([4, 4]);
+      gctx.beginPath();
+      gctx.arc(cx, cy, arrPx, 0, 2 * Math.PI);
+      gctx.stroke();
+      gctx.setLineDash([]);
+
+      // steering arrow
+      const sr = (state.steer * Math.PI) / 180;
+      const ax = cx + (R - 6) * Math.cos(sr);
+      const ay = cy - (R - 6) * Math.sin(sr);
+      gctx.strokeStyle = "#ffb74d";
+      gctx.fillStyle = "#ffb74d";
+      gctx.lineWidth = 2.5;
+      gctx.beginPath();
+      gctx.moveTo(cx, cy);
+      gctx.lineTo(ax, ay);
+      gctx.stroke();
+      // arrowhead
+      const ah = 10;
+      gctx.beginPath();
+      gctx.moveTo(ax, ay);
+      gctx.lineTo(ax - ah * Math.cos(sr - 0.4), ay + ah * Math.sin(sr - 0.4));
+      gctx.lineTo(ax - ah * Math.cos(sr + 0.4), ay + ah * Math.sin(sr + 0.4));
+      gctx.closePath();
+      gctx.fill();
+      // drag handle
+      gctx.beginPath();
+      gctx.arc(ax, ay, 7, 0, 2 * Math.PI);
+      gctx.fillStyle = "rgba(255,183,77,0.25)";
+      gctx.fill();
+
+      // microphones
+      const phis = micAngles(state.n);
+      phis.forEach((p) => {
+        const mx = cx + arrPx * Math.cos(p);
+        const my = cy - arrPx * Math.sin(p);
+        gctx.beginPath();
+        gctx.arc(mx, my, 6, 0, 2 * Math.PI);
+        gctx.fillStyle = "#4fc3f7";
+        gctx.fill();
+        gctx.strokeStyle = "#0e1116";
+        gctx.lineWidth = 2;
+        gctx.stroke();
+      });
+
+      // scale bar (5 cm)
+      const barM = 0.05;
+      const barPx = barM * pxPerM;
+      const bx = cx - R + 6, by = cy + R - 6;
+      gctx.strokeStyle = "#5d6b78";
+      gctx.lineWidth = 2;
+      gctx.beginPath();
+      gctx.moveTo(bx, by);
+      gctx.lineTo(bx + barPx, by);
+      gctx.stroke();
+      gctx.fillStyle = "#5d6b78";
+      gctx.font = "11px -apple-system, sans-serif";
+      gctx.textAlign = "left";
+      gctx.textBaseline = "bottom";
+      gctx.fillText("5 cm", bx, by - 4);
+    }
+
+    // ---- Metrics ----
+    let currentPattern = null;
+
+    function adjacentSpacing() {
+      // chord between neighbouring mics on the array circle
+      return state.n >= 2 ? 2 * state.r * Math.sin(Math.PI / state.n) : 0;
+    }
+
+    function beamwidth(mag) {
+      // walk out from the steering bin until response drops below -3 dB (1/sqrt2)
+      const i0 = Math.round((state.steer / 360) * SAMPLES) % SAMPLES;
+      const thr = 1 / Math.SQRT2;
+      const step = 360 / SAMPLES;
+      let left = 0, right = 0;
+      for (let d = 1; d <= SAMPLES / 2; d++) {
+        const idx = (i0 + d) % SAMPLES;
+        if (mag[idx] < thr) break;
+        right = d * step;
+      }
+      for (let d = 1; d <= SAMPLES / 2; d++) {
+        const idx = (i0 - d + SAMPLES) % SAMPLES;
+        if (mag[idx] < thr) break;
+        left = d * step;
+      }
+      const bw = left + right + step;
+      return bw >= 360 ? null : bw;
+    }
+
+    function directivityIndex(mag) {
+      // DI = 10 log10( |B(th0)|^2 / mean(|B|^2) ), 2-D approximation
+      let sum = 0;
+      for (let i = 0; i < SAMPLES; i++) sum += mag[i] * mag[i];
+      const mean = sum / SAMPLES;
+      return 10 * Math.log10(1 / mean); // |B(th0)| = 1
+    }
+
+    function updateMetrics() {
+      const lambda = C / state.f;
+      const d = adjacentSpacing();
+      const fAlias = d > 0 ? C / (2 * d) : Infinity;
+
+      el("mLambda").innerHTML =
+        (lambda >= 1 ? lambda.toFixed(2) + " m" : (lambda * 100).toFixed(0) + " cm");
+      el("mSpacing").innerHTML = (d * 100).toFixed(1) + " cm";
+
+      const aliasEl = el("mAlias");
+      if (!isFinite(fAlias)) {
+        aliasEl.innerHTML = "—";
+      } else {
+        const within = state.f >= fAlias;
+        aliasEl.innerHTML = (fAlias >= 1000 ? (fAlias / 1000).toFixed(2) + " kHz" : Math.round(fAlias) + " Hz") +
+          ` <small class="${within ? "alias-bad" : "alias-ok"}">${within ? "aliasing now" : "clear"}</small>`;
+        aliasEl.className = "v";
+      }
+
+      const bw = beamwidth(currentPattern);
+      el("mBeam").innerHTML = bw == null ? "omni <small>(&gt;360°)</small>" : bw.toFixed(0) + "°";
+      el("mDi").innerHTML = directivityIndex(currentPattern).toFixed(1) + " <small>dB</small>";
+    }
+
+    // ---- Render orchestration ----
+    function render() {
+      currentPattern = patternFor(state.f);
+      drawGeo();
+      drawPolar();
+      updateMetrics();
+    }
+
+    // ---- Controls ----
+    el("freq").addEventListener("input", (e) => { state.f = +e.target.value; el("fVal").textContent = state.f; render(); });
+    el("nmics").addEventListener("input", (e) => { state.n = +e.target.value; el("nVal").textContent = state.n; render(); });
+    el("radius").addEventListener("input", (e) => { state.r = +e.target.value / 100; el("rVal").textContent = (+e.target.value).toFixed(1); render(); });
+    el("steer").addEventListener("input", (e) => { state.steer = +e.target.value; el("sVal").textContent = state.steer; render(); });
+
+    function setScale(db) {
+      state.db = db;
+      el("scaleDb").classList.toggle("active", db);
+      el("scaleLin").classList.toggle("active", !db);
+      render();
+    }
+    el("scaleDb").addEventListener("click", () => setScale(true));
+    el("scaleLin").addEventListener("click", () => setScale(false));
+
+    el("compare").addEventListener("click", (e) => {
+      state.compare = !state.compare;
+      e.target.classList.toggle("active", state.compare);
+      el("cmp-legend").style.display = state.compare ? "inline-flex" : "none";
+      el("cmp-legend2").style.display = state.compare ? "inline-flex" : "none";
+      render();
+    });
+
+    // Frequency sweep animation
+    let sweepRAF = null;
+    function stopSweep() {
+      state.sweeping = false;
+      if (sweepRAF) cancelAnimationFrame(sweepRAF);
+      sweepRAF = null;
+      el("sweep").textContent = "▶ Sweep 200 → 4000 Hz";
+      el("sweep").classList.remove("active");
+    }
+    el("sweep").addEventListener("click", () => {
+      if (state.sweeping) { stopSweep(); return; }
+      state.sweeping = true;
+      el("sweep").textContent = "■ Stop sweep";
+      el("sweep").classList.add("active");
+      const t0 = performance.now();
+      const dur = 7000; // ms for full 200->4000 sweep
+      const tick = (t) => {
+        if (!state.sweeping) return;
+        const frac = ((t - t0) % dur) / dur;
+        state.f = Math.round(200 + frac * (4000 - 200));
+        el("freq").value = state.f;
+        el("fVal").textContent = state.f;
+        render();
+        sweepRAF = requestAnimationFrame(tick);
+      };
+      sweepRAF = requestAnimationFrame(tick);
+    });
+
+    // ---- Drag steering arrow on geometry canvas ----
+    let dragging = false;
+    function pointerAngle(evt) {
+      const rect = geo.getBoundingClientRect();
+      const px = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+      const py = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+      const cx = rect.width / 2, cy = rect.height / 2;
+      let a = Math.atan2(cy - py, px - cx) * 180 / Math.PI; // CCW, y flipped
+      if (a < 0) a += 360;
+      return Math.round(a);
+    }
+    function startDrag(e) { dragging = true; setSteer(pointerAngle(e)); e.preventDefault(); }
+    function moveDrag(e) { if (dragging) { setSteer(pointerAngle(e)); e.preventDefault(); } }
+    function endDrag() { dragging = false; }
+    function setSteer(a) {
+      state.steer = a;
+      el("steer").value = a;
+      el("sVal").textContent = a;
+      render();
+    }
+    geo.addEventListener("mousedown", startDrag);
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+    geo.addEventListener("touchstart", startDrag, { passive: false });
+    geo.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("touchend", endDrag);
+
+    window.addEventListener("resize", render);
+    render();
+  })();
+  </script>
+</body>
+</html>
