@@ -1,0 +1,528 @@
+@use "sass:math";
+@use "sass:color";
+
+/* ==========================================================================
+   Variables (ported from _sass/_variables.scss)
+   ========================================================================== */
+$base-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", "Inter", system-ui, Roboto, Helvetica, Arial, sans-serif;
+$mono-font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+$base-font-size:   17px;
+$base-font-weight: 400;
+$small-font-size:  $base-font-size * 0.875;
+$base-line-height: 1.65;
+
+$spacing-unit:     30px;
+
+// Cool neutral (Vercel/Tailwind) palette
+$text-color:       #0f172a;  // slate-900
+$background-color: #ffffff;
+$brand-color:      #2563eb;  // blue-600
+
+$grey-color:       #64748b;  // slate-500
+$grey-color-light: #e2e8f0;  // slate-200
+$grey-color-dark:  #334155;  // slate-700
+
+$code-bg-color:    #f1f5f9;  // slate-100
+
+$content-width:    800px;
+
+$on-palm:          600px;
+$on-laptop:        800px;
+
+@mixin media-query($device) {
+  @media screen and (max-width: $device) {
+    @content;
+  }
+}
+
+/* ==========================================================================
+   Base (ported from _sass/_base.scss)
+   ========================================================================== */
+body, h1, h2, h3, h4, h5, h6,
+p, blockquote, pre, hr,
+dl, dd, ol, ul, figure {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font: $base-font-weight #{$base-font-size}/#{$base-line-height} $base-font-family;
+  color: $text-color;
+  background-color: $background-color;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-feature-settings: "kern" 1;
+  -moz-font-feature-settings: "kern" 1;
+  -o-font-feature-settings: "kern" 1;
+  font-feature-settings: "kern" 1;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6,
+p, blockquote, pre,
+ul, ol, dl, figure,
+%vertical-rhythm {
+  margin-bottom: math.div($spacing-unit, 2);
+}
+
+img {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+figure > img {
+  display: block;
+}
+
+figcaption {
+  font-size: $small-font-size;
+}
+
+ul, ol {
+  margin-left: $spacing-unit;
+}
+
+li {
+  > ul,
+  > ol {
+    margin-bottom: 0;
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+}
+
+a {
+  color: $brand-color;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+
+  &:visited {
+    color: color.adjust($brand-color, $lightness: -8%);
+  }
+
+  &:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+blockquote {
+  color: $grey-color;
+  border-left: 4px solid $grey-color-light;
+  padding-left: math.div($spacing-unit, 2);
+  font-size: 18px;
+  font-style: italic;
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+pre,
+code {
+  font-family: $mono-font-family;
+  font-size: 0.9em;
+  border: 1px solid $grey-color-light;
+  border-radius: 4px;
+  background-color: $code-bg-color;
+}
+
+code {
+  padding: 1px 5px;
+}
+
+pre {
+  padding: 8px 12px;
+  overflow-x: auto;
+
+  > code {
+    border: 0;
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
+
+.wrapper {
+  max-width: -webkit-calc(#{$content-width} - (#{$spacing-unit} * 2));
+  max-width:         calc(#{$content-width} - (#{$spacing-unit} * 2));
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: $spacing-unit;
+  padding-left: $spacing-unit;
+  @extend %clearfix;
+
+  @include media-query($on-laptop) {
+    max-width: -webkit-calc(#{$content-width} - (#{$spacing-unit}));
+    max-width:         calc(#{$content-width} - (#{$spacing-unit}));
+    padding-right: math.div($spacing-unit, 2);
+    padding-left: math.div($spacing-unit, 2);
+  }
+}
+
+%clearfix {
+  &:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
+.icon {
+  > svg {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+
+    path {
+      fill: $grey-color;
+    }
+  }
+}
+
+/* ==========================================================================
+   Layout (ported from _sass/_layout.scss)
+   ========================================================================== */
+.site-header {
+  border-bottom: 1px solid $grey-color-light;
+  min-height: 56px;
+  position: relative;
+}
+
+.site-title {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 56px;
+  margin-bottom: 0;
+  float: left;
+  text-decoration: none;
+
+  &,
+  &:visited {
+    color: $grey-color-dark;
+  }
+}
+
+.site-nav {
+  float: right;
+  line-height: 56px;
+
+  .menu-icon {
+    display: none;
+  }
+
+  .page-link {
+    color: $text-color;
+    line-height: $base-line-height;
+    text-decoration: none;
+
+    &:not(:last-child) {
+      margin-right: 20px;
+    }
+  }
+
+  @include media-query($on-palm) {
+    position: absolute;
+    top: 9px;
+    right: math.div($spacing-unit, 2);
+    background-color: $background-color;
+    border: 1px solid $grey-color-light;
+    border-radius: 5px;
+    text-align: right;
+
+    .menu-icon {
+      display: block;
+      float: right;
+      width: 36px;
+      height: 26px;
+      line-height: 0;
+      padding-top: 10px;
+      text-align: center;
+
+      > svg {
+        width: 18px;
+        height: 15px;
+
+        path {
+          fill: $grey-color-dark;
+        }
+      }
+    }
+
+    .trigger {
+      clear: both;
+      display: none;
+    }
+
+    &:hover .trigger {
+      display: block;
+      padding-bottom: 5px;
+    }
+
+    .page-link {
+      display: block;
+      padding: 5px 10px;
+
+      &:not(:last-child) {
+        margin-right: 0;
+      }
+      margin-left: 20px;
+    }
+  }
+}
+
+.site-footer {
+  border-top: 1px solid $grey-color-light;
+  padding: $spacing-unit 0;
+}
+
+.footer-heading {
+  font-size: 18px;
+  margin-bottom: math.div($spacing-unit, 2);
+}
+
+.contact-list,
+.social-media-list {
+  list-style: none;
+  margin-left: 0;
+}
+
+.footer-col-wrapper {
+  font-size: 15px;
+  color: $grey-color;
+  margin-left: math.div(-$spacing-unit, 2);
+
+  &:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
+.footer-col {
+  float: left;
+  margin-bottom: math.div($spacing-unit, 2);
+  padding-left: math.div($spacing-unit, 2);
+}
+
+.footer-col-1 {
+  width: -webkit-calc(35% - (#{$spacing-unit} / 2));
+  width:         calc(35% - (#{$spacing-unit} / 2));
+}
+
+.footer-col-2 {
+  width: -webkit-calc(20% - (#{$spacing-unit} / 2));
+  width:         calc(20% - (#{$spacing-unit} / 2));
+}
+
+.footer-col-3 {
+  width: -webkit-calc(45% - (#{$spacing-unit} / 2));
+  width:         calc(45% - (#{$spacing-unit} / 2));
+}
+
+@include media-query($on-laptop) {
+  .footer-col-1,
+  .footer-col-2 {
+    width: -webkit-calc(50% - (#{$spacing-unit} / 2));
+    width:         calc(50% - (#{$spacing-unit} / 2));
+  }
+
+  .footer-col-3 {
+    width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+    width:         calc(100% - (#{$spacing-unit} / 2));
+  }
+}
+
+@include media-query($on-palm) {
+  .footer-col {
+    float: none;
+    width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+    width:         calc(100% - (#{$spacing-unit} / 2));
+  }
+}
+
+.page-content {
+  padding: $spacing-unit 0;
+}
+
+.page-heading {
+  font-size: 20px;
+}
+
+.home-intro {
+  margin-bottom: $spacing-unit;
+}
+
+.post-list {
+  margin-left: 0;
+  list-style: none;
+
+  > li {
+    margin-bottom: $spacing-unit;
+  }
+}
+
+.post-meta {
+  font-size: $small-font-size;
+  color: $grey-color;
+}
+
+.post-link {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+}
+
+.post-header {
+  margin-bottom: $spacing-unit;
+}
+
+.post-title {
+  font-size: 42px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+
+  @include media-query($on-laptop) {
+    font-size: 36px;
+  }
+}
+
+.post-content {
+  margin-bottom: $spacing-unit;
+
+  h2 {
+    font-size: 32px;
+
+    @include media-query($on-laptop) {
+      font-size: 28px;
+    }
+  }
+
+  h3 {
+    font-size: 26px;
+
+    @include media-query($on-laptop) {
+      font-size: 22px;
+    }
+  }
+
+  h4 {
+    font-size: 20px;
+
+    @include media-query($on-laptop) {
+      font-size: 18px;
+    }
+  }
+}
+
+.rss-subscribe {
+  margin-top: $spacing-unit;
+}
+
+/* ==========================================================================
+   Syntax highlighting — GitHub-style theme for highlight.js (hljs) classes.
+   Mirrors the look of the old Rouge GitHub theme.
+   ========================================================================== */
+.hljs { color: #24292e; background: $code-bg-color; }
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #d73a49; }
+.hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #032f62; }
+.hljs-title, .hljs-section, .hljs-selector-id, .hljs-function .hljs-title { color: #6f42c1; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: #005cc5; }
+.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-number, .hljs-literal { color: #005cc5; }
+.hljs-deletion { color: #b31d28; background: #ffeef0; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
+
+/* ==========================================================================
+   Dark mode (ported from css/main.scss)
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #0f172a;  // slate-900
+    color: #e2e8f0;             // slate-200
+  }
+
+  a {
+    color: #60a5fa;             // blue-400
+
+    &:visited {
+      color: #93c5fd;           // blue-300
+    }
+
+    &:hover {
+      color: #f1f5f9;           // slate-100
+    }
+  }
+
+  pre,
+  code {
+    background-color: #1e293b;  // slate-800
+    border-color: #334155;      // slate-700
+  }
+
+  blockquote {
+    color: #94a3b8;             // slate-400
+    border-color: #334155;
+  }
+
+  .site-header {
+    border-color: #334155;
+  }
+
+  .site-title,
+  .site-title:visited {
+    color: #e2e8f0;
+  }
+
+  .site-nav .page-link {
+    color: #e2e8f0;
+  }
+
+  .site-nav .menu-icon > svg path {
+    fill: #e2e8f0;
+  }
+
+  .site-footer {
+    border-color: #334155;
+  }
+
+  .footer-col-wrapper {
+    color: #94a3b8;
+  }
+
+  .post-meta {
+    color: #94a3b8;
+  }
+
+  .icon > svg path {
+    fill: #94a3b8;
+  }
+
+  // Syntax highlighting — dark variant
+  .hljs { color: #e2e8f0; background: #1e293b; }
+  .hljs-comment, .hljs-quote { color: #8b949e; }
+  .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #ff7b72; }
+  .hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #a5d6ff; }
+  .hljs-title, .hljs-section, .hljs-selector-id, .hljs-function .hljs-title { color: #d2a8ff; }
+  .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: #79c0ff; }
+  .hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-number, .hljs-literal { color: #79c0ff; }
+  .hljs-deletion { color: #ffdcd7; background: #67060c; }
+}
+
+@media (prefers-color-scheme: dark) and (max-width: $on-palm) {
+  .site-nav {
+    background-color: #0f172a;
+    border-color: #334155;
+  }
+}
