@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="head" cx="38%" cy="36%" r="65%">
+      <stop offset="0%" stop-color="#ffa8a8" />
+      <stop offset="55%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </radialGradient>
+    <linearGradient id="needle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d1d5db" />
+      <stop offset="100%" stop-color="#4b5563" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#141414" />
+  <!-- shadow under needle -->
+  <ellipse cx="32" cy="56" rx="7" ry="2" fill="#000" opacity="0.45" />
+  <!-- needle shaft -->
+  <path d="M30 33 L32 56 L34 33 Z" fill="url(#needle)" />
+  <!-- round pin head -->
+  <circle cx="32" cy="26" r="14" fill="url(#head)" />
+  <!-- highlight -->
+  <ellipse cx="27" cy="20" rx="4.5" ry="3" fill="#fff" opacity="0.55" />
+</svg>

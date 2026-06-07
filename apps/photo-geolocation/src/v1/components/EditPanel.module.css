@@ -1,0 +1,20 @@
+.panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  min-height: 58px;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note {
+  font-size: 11px;
+  color: var(--text-muted);
+}

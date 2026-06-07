@@ -1,5 +1,9 @@
 # dependencies
 /node_modules
+/apps/*/node_modules
+
+# embedded apps' build output (apps/*/) emitted into public/ at build time
+/public/photo-geolocation/
 
 # next.js
 /.next/

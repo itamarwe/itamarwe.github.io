@@ -6,12 +6,16 @@ const nextConfig: NextConfig = {
   // Keep that behaviour so canonical URLs stay consistent.
   trailingSlash: true,
 
-  // The Sun–Earth WebGL demo is a pre-built static app living in
-  // public/solar-system/. Serve its index.html at the directory URL.
+  // Embedded static apps living under public/<name>/ are served at their
+  // directory URL. The Sun–Earth WebGL demo (public/solar-system/) is
+  // pre-built and committed; the photo-geolocation tool (public/photo-
+  // geolocation/) is built from apps/photo-geolocation/ during the site build.
   async rewrites() {
     return [
       { source: "/solar-system", destination: "/solar-system/index.html" },
       { source: "/solar-system/", destination: "/solar-system/index.html" },
+      { source: "/photo-geolocation", destination: "/photo-geolocation/index.html" },
+      { source: "/photo-geolocation/", destination: "/photo-geolocation/index.html" },
     ];
   },
 
