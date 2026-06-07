@@ -1,4 +1,4 @@
-# itamar-weiss.com
+# itamarweiss.com
 
 Personal blog of Itamar Weiss — **Next.js** (App Router) site deployed on **Vercel**.
 
@@ -53,11 +53,32 @@ npm run start    # serve the production build
 ## Deploying to Vercel
 
 1. Import the repo into Vercel (framework preset: **Next.js** — auto-detected).
-2. Add the production environment variable `NEXT_PUBLIC_GA_ID` (your `G-…` ID).
-3. Add the custom domain `www.itamar-weiss.com` (and apex redirect) in
-   **Project → Settings → Domains**. This replaces the old GitHub Pages `CNAME`.
+2. Add the Google Analytics 4 environment variable (see below).
+3. Add the custom domain `www.itamarweiss.com` as the **Primary** domain in
+   **Project → Settings → Domains**, and keep the old `www.itamar-weiss.com`
+   attached so it 301-redirects to the new domain (preserving SEO).
 
 Every push to `master` triggers a Vercel production deploy.
+
+## Google Analytics 4
+
+The GA4 tag is injected from the `NEXT_PUBLIC_GA_ID` environment variable
+(rendered by `components/Analytics.tsx`). When the variable is unset, no
+analytics script is emitted, so local/dev builds stay clean.
+
+To enable it in production:
+
+1. In Google Analytics, copy your **Measurement ID** — it looks like
+   `G-XXXXXXXXXX` (Admin → Data Streams → your web stream → Measurement ID).
+   Note: this is **not** the old Universal Analytics number (`UA-…`/`41407229`).
+2. In Vercel → **Project → Settings → Environment Variables**, add:
+   - **Key:** `NEXT_PUBLIC_GA_ID`
+   - **Value:** your `G-XXXXXXXXXX` ID
+   - **Environments:** Production (and Preview, if you want analytics there too)
+3. **Redeploy.** Because the value is a `NEXT_PUBLIC_*` variable, it is inlined
+   at build time, so the tag only appears after a fresh deploy.
+
+For local testing, copy `.env.example` to `.env.local` and set the value there.
 
 ## URL scheme
 

@@ -4,7 +4,7 @@ export const site = {
   email: "weiss.itamar@gmail.com",
   description:
     "Notes on AI agents, data platforms, software engineering, and production systems by Itamar Weiss.",
-  url: "https://www.itamar-weiss.com",
+  url: "https://www.itamarweiss.com",
   twitterUsername: "itamarwe",
   githubUsername: "itamarwe",
   author: "Itamar Weiss",
