@@ -1,11 +1,10 @@
 @use "sass:math";
-@use "sass:color";
 
 /* ==========================================================================
-   Variables (ported from _sass/_variables.scss)
+   Variables — Vercel-style always-dark theme (Geist palette)
    ========================================================================== */
-$base-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", "Inter", system-ui, Roboto, Helvetica, Arial, sans-serif;
-$mono-font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+$base-font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+$mono-font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 $base-font-size:   17px;
 $base-font-weight: 400;
 $small-font-size:  $base-font-size * 0.875;
@@ -13,16 +12,17 @@ $base-line-height: 1.65;
 
 $spacing-unit:     30px;
 
-// Cool neutral (Vercel/Tailwind) palette
-$text-color:       #0f172a;  // slate-900
-$background-color: #ffffff;
-$brand-color:      #2563eb;  // blue-600
+// Vercel / Geist dark tokens
+$background-color: #000000;  // pure black
+$text-color:      #ededed;  // geist foreground
+$brand-color:     #3291ff;  // geist blue (dark)
+$brand-hover:     #ffffff;
 
-$grey-color:       #64748b;  // slate-500
-$grey-color-light: #e2e8f0;  // slate-200
-$grey-color-dark:  #334155;  // slate-700
+$grey-color:       #a1a1a1;  // muted / secondary text
+$grey-color-light: #333333;  // borders / hairlines
+$grey-color-dark:  #ededed;  // strong text (site title)
 
-$code-bg-color:    #f1f5f9;  // slate-100
+$code-bg-color:    #111111;
 
 $content-width:    800px;
 
@@ -36,8 +36,12 @@ $on-laptop:        800px;
 }
 
 /* ==========================================================================
-   Base (ported from _sass/_base.scss)
+   Base
    ========================================================================== */
+:root {
+  color-scheme: dark;
+}
+
 body, h1, h2, h3, h4, h5, h6,
 p, blockquote, pre, hr,
 dl, dd, ol, ul, figure {
@@ -57,6 +61,10 @@ body {
   font-kerning: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(50, 145, 255, 0.3);
 }
 
 h1, h2, h3, h4, h5, h6,
@@ -92,6 +100,8 @@ li {
 
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -99,12 +109,14 @@ a {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
+  transition: color 0.15s ease;
 
   &:visited {
-    color: color.adjust($brand-color, $lightness: -8%);
+    color: $brand-color;
   }
 
   &:hover {
+    color: $brand-hover;
     text-decoration-thickness: 2px;
   }
 }
@@ -126,7 +138,7 @@ code {
   font-family: $mono-font-family;
   font-size: 0.9em;
   border: 1px solid $grey-color-light;
-  border-radius: 4px;
+  border-radius: 6px;
   background-color: $code-bg-color;
 }
 
@@ -135,7 +147,7 @@ code {
 }
 
 pre {
-  padding: 8px 12px;
+  padding: 12px 16px;
   overflow-x: auto;
 
   > code {
@@ -184,7 +196,7 @@ pre {
 }
 
 /* ==========================================================================
-   Layout (ported from _sass/_layout.scss)
+   Layout
    ========================================================================== */
 .site-header {
   border-bottom: 1px solid $grey-color-light;
@@ -194,15 +206,20 @@ pre {
 
 .site-title {
   font-size: 26px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 56px;
   margin-bottom: 0;
   float: left;
   text-decoration: none;
+  letter-spacing: -0.02em;
 
   &,
   &:visited {
     color: $grey-color-dark;
+  }
+
+  &:hover {
+    color: #fff;
   }
 }
 
@@ -219,6 +236,10 @@ pre {
     line-height: $base-line-height;
     text-decoration: none;
 
+    &:hover {
+      color: #fff;
+    }
+
     &:not(:last-child) {
       margin-right: 20px;
     }
@@ -228,9 +249,9 @@ pre {
     position: absolute;
     top: 9px;
     right: math.div($spacing-unit, 2);
-    background-color: $background-color;
+    background-color: #0a0a0a;
     border: 1px solid $grey-color-light;
-    border-radius: 5px;
+    border-radius: 8px;
     text-align: right;
 
     .menu-icon {
@@ -247,7 +268,7 @@ pre {
         height: 15px;
 
         path {
-          fill: $grey-color-dark;
+          fill: $text-color;
         }
       }
     }
@@ -375,8 +396,15 @@ pre {
   font-size: 24px;
   font-weight: 600;
   text-decoration: none;
+  color: $text-color;
+  letter-spacing: -0.01em;
+
+  &:visited {
+    color: $text-color;
+  }
 
   &:hover {
+    color: #fff;
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.15em;
@@ -389,7 +417,7 @@ pre {
 
 .post-title {
   font-size: 42px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1.1;
 
   @include media-query($on-laptop) {
@@ -430,99 +458,15 @@ pre {
 }
 
 /* ==========================================================================
-   Syntax highlighting — GitHub-style theme for highlight.js (hljs) classes.
-   Mirrors the look of the old Rouge GitHub theme.
+   Syntax highlighting — GitHub-dark theme for highlight.js (hljs) classes.
    ========================================================================== */
-.hljs { color: #24292e; background: $code-bg-color; }
-.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #d73a49; }
-.hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #032f62; }
-.hljs-title, .hljs-section, .hljs-selector-id, .hljs-function .hljs-title { color: #6f42c1; }
-.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: #005cc5; }
-.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-number, .hljs-literal { color: #005cc5; }
-.hljs-deletion { color: #b31d28; background: #ffeef0; }
+.hljs { color: $text-color; background: $code-bg-color; }
+.hljs-comment, .hljs-quote { color: #8b949e; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #ff7b72; }
+.hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #a5d6ff; }
+.hljs-title, .hljs-section, .hljs-selector-id, .hljs-function .hljs-title { color: #d2a8ff; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: #79c0ff; }
+.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-number, .hljs-literal { color: #79c0ff; }
+.hljs-deletion { color: #ffdcd7; background: #67060c; }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: bold; }
-
-/* ==========================================================================
-   Dark mode (ported from css/main.scss)
-   ========================================================================== */
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #0f172a;  // slate-900
-    color: #e2e8f0;             // slate-200
-  }
-
-  a {
-    color: #60a5fa;             // blue-400
-
-    &:visited {
-      color: #93c5fd;           // blue-300
-    }
-
-    &:hover {
-      color: #f1f5f9;           // slate-100
-    }
-  }
-
-  pre,
-  code {
-    background-color: #1e293b;  // slate-800
-    border-color: #334155;      // slate-700
-  }
-
-  blockquote {
-    color: #94a3b8;             // slate-400
-    border-color: #334155;
-  }
-
-  .site-header {
-    border-color: #334155;
-  }
-
-  .site-title,
-  .site-title:visited {
-    color: #e2e8f0;
-  }
-
-  .site-nav .page-link {
-    color: #e2e8f0;
-  }
-
-  .site-nav .menu-icon > svg path {
-    fill: #e2e8f0;
-  }
-
-  .site-footer {
-    border-color: #334155;
-  }
-
-  .footer-col-wrapper {
-    color: #94a3b8;
-  }
-
-  .post-meta {
-    color: #94a3b8;
-  }
-
-  .icon > svg path {
-    fill: #94a3b8;
-  }
-
-  // Syntax highlighting — dark variant
-  .hljs { color: #e2e8f0; background: #1e293b; }
-  .hljs-comment, .hljs-quote { color: #8b949e; }
-  .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #ff7b72; }
-  .hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #a5d6ff; }
-  .hljs-title, .hljs-section, .hljs-selector-id, .hljs-function .hljs-title { color: #d2a8ff; }
-  .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: #79c0ff; }
-  .hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-number, .hljs-literal { color: #79c0ff; }
-  .hljs-deletion { color: #ffdcd7; background: #67060c; }
-}
-
-@media (prefers-color-scheme: dark) and (max-width: $on-palm) {
-  .site-nav {
-    background-color: #0f172a;
-    border-color: #334155;
-  }
-}
