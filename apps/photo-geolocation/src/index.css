@@ -33,12 +33,19 @@ button {
   transition: background 0.15s, border-color 0.15s;
 }
 button:hover { background: var(--accent-dim); border-color: var(--accent); }
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+/* Don't show hover affordances on disabled buttons. */
+button:disabled:hover { background: var(--surface2); border-color: var(--border); }
 button.primary {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: #fff;
 }
 button.primary:hover { background: #2a6ccc; }
+button.primary:disabled:hover { background: var(--accent-dim); border-color: var(--accent); }
 
 input[type="range"] {
   -webkit-appearance: none;

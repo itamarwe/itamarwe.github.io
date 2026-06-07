@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
     "@react-three/drei": "^9.99.0",
     "@react-three/fiber": "^8.15.0",
     "heic-to": "^1.5.2",

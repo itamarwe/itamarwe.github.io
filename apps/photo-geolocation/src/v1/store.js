@@ -89,20 +89,10 @@ export const useStore = create((set, get) => ({
   photoUrl: null,
   photoName: null,
 
-  // Semantic segmentation overlay (Transformers.js). `segmentation` is
-  // { url, width, height, groups, modelId } — a colored PNG data URL drawn over
-  // the photo — or null until the user runs it. segModelId is the currently
-  // selected model ('none' = off). segVisible / segOpacity drive the overlay's
-  // display.
-  segmentation: null,
-  segModelId: 'none',
-  segVisible: true,
-  segOpacity: 0.6,
-
   // True once the user has made work-bearing changes (placed/edited anchors,
-  // toggled estimators, ran segmentation) since the current photo was loaded,
-  // a session was loaded, or the session was saved. Drives the "you'll lose
-  // your work" confirmation when removing the photo.
+  // toggled estimators) since the current photo was loaded, a session was
+  // loaded, or the session was saved. Drives the "you'll lose your work"
+  // confirmation when removing the photo.
   dirty: false,
 
   /**
@@ -126,8 +116,6 @@ export const useStore = create((set, get) => ({
       mode: 'view',
       anchors: state.anchors.map((a) => ({ ...a, photoPixel: null })),
       activeAnchorId: null,
-      segmentation: null,
-      segModelId: 'none',
       dirty: false,
       captureVersion: state.captureVersion + 1,
     }
@@ -140,10 +128,11 @@ export const useStore = create((set, get) => ({
     return {
       photoUrl: null,
       photoName: null,
-      anchors: state.anchors.map((a) => ({ ...a, photoPixel: null })),
+      // Removing the photo discards all anchors — they only make sense paired
+      // with the photo they were placed against.
+      anchors: [],
       activeAnchorId: null,
-      segmentation: null,
-      segModelId: 'none',
+      nextAnchorId: 1,
       dirty: false,
     }
   }),
@@ -184,8 +173,6 @@ export const useStore = create((set, get) => ({
       image,
       photoUrl: session.photo ?? null,
       photoName: session.photoName ?? null,
-      segmentation: null,
-      segModelId: 'none',
       dirty: false,
       captureVersion: state.captureVersion + 1,
     }
@@ -193,12 +180,6 @@ export const useStore = create((set, get) => ({
 
   /** Called after a successful session save — the current state is now persisted. */
   markSaved: () => set({ dirty: false }),
-
-  setSegmentation: (segmentation) => set({ segmentation, segVisible: true, segModelId: segmentation?.modelId ?? 'none', dirty: true }),
-  clearSegmentation: () => set({ segmentation: null, segModelId: 'none' }),
-  setSegModelId: (segModelId) => set({ segModelId }),
-  setSegVisible: (segVisible) => set({ segVisible }),
-  setSegOpacity: (segOpacity) => set({ segOpacity }),
 
   /**
    * Ensure building footprints are loaded for every grid cell intersecting the
@@ -273,6 +254,8 @@ export const useStore = create((set, get) => ({
   },
 
   addAnchor: () => set((state) => {
+    // Anchors only make sense against a loaded photo.
+    if (!state.photoUrl) return {}
     const anchor = makeAnchor(state.nextAnchorId, state.anchors)
     return {
       anchors: [...state.anchors, anchor],

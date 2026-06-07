@@ -26,6 +26,7 @@ function timestamp() {
  */
 export default function SessionControls() {
   const fileRef = useRef(null)
+  const hasPhoto = useStore((s) => Boolean(s.photoUrl))
 
   async function handleSave() {
     const s = useStore.getState()
@@ -78,7 +79,7 @@ export default function SessionControls() {
 
   return (
     <span className={styles.group}>
-      <button type="button" className={styles.iconBtn} title="Save session" aria-label="Save session" onClick={handleSave}>
+      <button type="button" className={styles.iconBtn} title={hasPhoto ? 'Save session' : 'Upload a photo first'} aria-label="Save session" onClick={handleSave} disabled={!hasPhoto}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
           <polyline points="17 21 17 13 7 13 7 21" />

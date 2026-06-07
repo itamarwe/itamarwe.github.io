@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import AnchorOverlays from './AnchorOverlays'
-import { segmentImage, SEG_GROUPS, SEG_MODELS } from '../seg/segment'
-
-const SEG_GROUP_BY_ID = Object.fromEntries(SEG_GROUPS.map((g) => [g.id, g]))
-const SEG_MODEL_BY_ID = Object.fromEntries(SEG_MODELS.map((m) => [m.id, m]))
-const rgb = (c) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`
 
 const ACCEPT = 'image/*,.heic,.heif'
 
@@ -40,21 +35,10 @@ export default function PhotoUpload() {
   const setPhoto = useStore((s) => s.setPhoto)
   const clearPhoto = useStore((s) => s.clearPhoto)
   const dirty = useStore((s) => s.dirty)
-  const segmentation = useStore((s) => s.segmentation)
-  const segModelId = useStore((s) => s.segModelId)
-  const segVisible = useStore((s) => s.segVisible)
-  const segOpacity = useStore((s) => s.segOpacity)
-  const setSegmentation = useStore((s) => s.setSegmentation)
-  const setSegModelId = useStore((s) => s.setSegModelId)
-  const clearSegmentation = useStore((s) => s.clearSegmentation)
-  const setSegVisible = useStore((s) => s.setSegVisible)
-  const setSegOpacity = useStore((s) => s.setSegOpacity)
 
   const [hoverPos, setHoverPos] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(null)   // status text while converting/loading, else null
-  const [segBusy, setSegBusy] = useState(null)  // segmentation progress text, else null
-  const [segError, setSegError] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [frameSize, setFrameSize] = useState({ w: 0, h: 0 })
   const frameRef = useRef(null)
@@ -137,44 +121,6 @@ export default function PhotoUpload() {
     else clearPhoto()
   }
 
-  // ---- semantic segmentation ---------------------------------------------
-  // Picking a model from the dropdown runs it; 'none' clears the overlay.
-  async function onSegModelChange(modelId) {
-    if (segBusy) return
-    if (modelId === 'none') {
-      clearSegmentation()
-      setSegError(null)
-      return
-    }
-    setSegModelId(modelId)
-    await runSegmentation(modelId)
-  }
-
-  async function runSegmentation(modelId) {
-    if (!photoUrl || segBusy) return
-    setSegError(null)
-    setSegBusy('Loading model…')
-    try {
-      const result = await segmentImage(photoUrl, {
-        modelId,
-        onProgress: (p) => {
-          if (p?.status === 'progress' && Number.isFinite(p.progress)) {
-            setSegBusy(`Downloading model… ${Math.round(p.progress)}%`)
-          } else if (p?.status === 'ready' || p?.status === 'done') {
-            setSegBusy('Segmenting…')
-          }
-        },
-      })
-      setSegBusy('Segmenting…')
-      setSegmentation(result)
-    } catch (err) {
-      console.error('[PhotoUpload] segmentation failed:', err)
-      setSegError('Segmentation failed — see console.')
-    } finally {
-      setSegBusy(null)
-    }
-  }
-
   // ---- pan / zoom (only meaningful once a photo is loaded) ---------------
   function stagePointFromClient(event) {
     const stage = stageRef.current
@@ -189,10 +135,10 @@ export default function PhotoUpload() {
   const handlePointerDown = (event) => {
     if (!hasPhoto) return
     if (event.button !== 0 && event.button !== 1) return
-    // Don't hijack pointer-downs that land on the overlay controls (Segment
-    // button, opacity slider, Replace/Remove, etc.). Capturing the pointer on
-    // the frame here would redirect the pointerup and swallow the control's
-    // click, so those buttons would appear dead.
+    // Don't hijack pointer-downs that land on the overlay controls (Remove
+    // button, etc.). Capturing the pointer on the frame here would redirect the
+    // pointerup and swallow the control's click, so those buttons would appear
+    // dead.
     if (event.target.closest?.('button, input, label, select, a')) return
     panRef.current = {
       active: true,
@@ -358,23 +304,6 @@ export default function PhotoUpload() {
               draggable={false}
               style={{ width: '100%', height: '100%', display: 'block', userSelect: 'none' }}
             />
-            {segmentation && segVisible && (
-              <img
-                src={segmentation.url}
-                alt="segmentation overlay"
-                draggable={false}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  opacity: segOpacity,
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                }}
-              />
-            )}
           </div>
 
           <AnchorOverlays
@@ -413,69 +342,7 @@ export default function PhotoUpload() {
             <span style={{ background: 'rgba(0,0,0,0.55)', color: '#ddd', fontSize: 11, padding: '3px 8px', borderRadius: 4 }}>
               {image.width} x {image.height}
             </span>
-            {segBusy && (
-              <span style={{ background: 'rgba(0,0,0,0.55)', color: '#ddd', fontSize: 11, padding: '3px 8px', borderRadius: 4 }}>
-                {segBusy}
-              </span>
-            )}
-            <select
-              value={segBusy ? segModelId : (segmentation ? segModelId : 'none')}
-              onChange={(e) => onSegModelChange(e.target.value)}
-              disabled={Boolean(segBusy)}
-              title="Segmentation model — pick one to run, or None to hide"
-              style={{ fontSize: 11, padding: '3px 6px', borderRadius: 4, background: '#1a1a1a', color: '#ddd', border: '1px solid #444' }}
-            >
-              <option value="none">Segmentation: None</option>
-              {SEG_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
           </div>
-
-          {(segmentation || segError) && (
-            <div style={{ position: 'absolute', bottom: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(0,0,0,0.6)', color: '#ddd', fontSize: 11, padding: '8px 10px', borderRadius: 6, maxWidth: 220 }}>
-              {segmentation && (
-                <>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={segVisible} onChange={(e) => setSegVisible(e.target.checked)} />
-                    <span style={{ fontWeight: 600 }}>{SEG_MODEL_BY_ID[segmentation.modelId]?.label || 'Segmentation'}</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: segVisible ? 1 : 0.5 }}>
-                    <span style={{ width: 44 }}>Opacity</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={segOpacity}
-                      disabled={!segVisible}
-                      onChange={(e) => setSegOpacity(Number(e.target.value))}
-                      style={{ flex: 1 }}
-                    />
-                  </label>
-                  {segmentation.kind === 'sam' ? (
-                    <div style={{ marginTop: 2, color: '#bbb' }}>
-                      {segmentation.instanceCount} region{segmentation.instanceCount === 1 ? '' : 's'} · each coloured separately
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 2 }}>
-                      {segmentation.groups.map((id) => {
-                        const g = SEG_GROUP_BY_ID[id]
-                        if (!g) return null
-                        return (
-                          <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 12, height: 12, borderRadius: 2, background: rgb(g.color), display: 'inline-block', flexShrink: 0 }} />
-                            <span>{g.label}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-              {segError && <div style={{ color: '#ff8a8a' }}>{segError}</div>}
-            </div>
-          )}
 
           {confirmRemove && (
             <div
@@ -485,7 +352,7 @@ export default function PhotoUpload() {
               <div style={{ background: '#1c1c1c', border: '1px solid #444', borderRadius: 8, padding: 20, maxWidth: 300, color: '#eee', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Remove this photo?</div>
                 <div style={{ fontSize: 12, color: '#bbb', lineHeight: 1.5, marginBottom: 16 }}>
-                  You have unsaved changes (anchors, estimators, or segmentation). All of it will be lost. Save the session first if you want to keep your work.
+                  You have unsaved changes (anchors or estimators). All of it will be lost. Save the session first if you want to keep your work.
                 </div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                   <button type="button" onClick={() => setConfirmRemove(false)} style={{ fontSize: 12 }}>Cancel</button>

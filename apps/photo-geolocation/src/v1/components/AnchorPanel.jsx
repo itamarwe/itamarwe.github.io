@@ -1,7 +1,8 @@
 import { useStore } from '../store'
 import styles from './AnchorPanel.module.css'
 
-function getHint(active, anchors) {
+function getHint(active, anchors, hasPhoto) {
+  if (!hasPhoto) return 'Upload a photo first to start placing anchors.'
   if (!active) {
     if (anchors.length === 0) return 'Click "+ Add" to create your first anchor.'
     return 'Select an anchor and place both photo + map points.'
@@ -20,15 +21,23 @@ export default function AnchorPanel() {
   const setActiveAnchor = useStore((s) => s.setActiveAnchor)
   const clearAnchors = useStore((s) => s.clearAnchors)
   const setAnchorMapPointY = useStore((s) => s.setAnchorMapPointY)
+  const hasPhoto = useStore((s) => Boolean(s.photoUrl))
 
   const active = anchors.find((a) => a.id === activeAnchorId) ?? null
-  const hint = getHint(active, anchors)
+  const hint = getHint(active, anchors, hasPhoto)
 
   return (
     <aside className={styles.panel}>
       <header className={styles.header}>
         <span className={styles.title}>Anchors · {anchors.length}</span>
-        <button className={`primary ${styles.addBtn}`} onClick={addAnchor}>+ Add</button>
+        <button
+          className={`primary ${styles.addBtn}`}
+          onClick={addAnchor}
+          disabled={!hasPhoto}
+          title={hasPhoto ? 'Add an anchor' : 'Upload a photo first'}
+        >
+          + Add
+        </button>
       </header>
 
       <div className={`${styles.hint} ${active ? styles.hintActive : ''}`}>{hint}</div>
