@@ -1,14 +1,30 @@
-# itamarwe.github.io
+# itamar-weiss.com
 
-Jekyll site published via GitHub Pages.
+Next.js (App Router) site deployed on Vercel. Migrated from Jekyll/GitHub Pages.
+See `README.md` for the full project layout.
+
+## Content model
+
+- **Blog posts** live in `content/posts/*.md` as `YYYY-MM-DD-slug.md` with
+  frontmatter (`title`, `date`, `categories`, `comments`). They are rendered
+  statically by `app/blog/[slug]/page.tsx` and served at `/blog/<slug>/`.
+- **Pages** (`About`, `Portfolio`) live in `content/pages/*.md`.
+- **Legacy URLs**: every old Jekyll URL (e.g.
+  `/drones/2024/12/07/how-does-a-drone-fly.html`) is permanently redirected to
+  its new `/blog/<slug>/` URL. The redirects are generated in `lib/redirects.ts`
+  from each post's `legacyUrl`, computed in `lib/posts.ts`. If you change a
+  post's filename, date, or categories, the legacy redirect changes too — keep
+  `lib/posts.ts` as the single source of truth for URL logic.
 
 ## Always verify links before adding them
 
-This is a static site, so a typo in an internal link is a dead link in production. Before adding any link in a markdown file:
+A dead internal link is a dead link in production. Before adding any link in a
+markdown file:
 
 - **External links**: confirm the URL resolves (WebFetch or WebSearch).
-- **Internal links**: confirm the target file exists and the URL matches Jekyll's actual generated path. The default permalink is `/:categories/:year/:month/:day/:title.html`, so the URL depends on the post's `categories:` frontmatter. Cross-check against an existing post's link to confirm the path format.
-- **Watch the `categories:` field**: writing `categories: ai, code` as a comma-separated string does **not** produce `/ai/code/...` — Jekyll needs a YAML list (`categories: [ai, code]` or block style) or space-separated values.
+- **Internal links**: link to the clean URL, `/blog/<slug>/` (slug = the post
+  filename without the date prefix and extension, case preserved), or `/about/`
+  / `/portfolio/`. Cross-check against an existing post to confirm the format.
 
 ## Pull request workflow
 
@@ -42,7 +58,9 @@ To embed demo videos in a post, use Playwright to record the live app rather tha
 
 4. **Install Remotion skill** for programmatic video generation as an alternative: `npx skills add remotion-dev/skills`. Remotion + React Three Fiber works for recreating 3D scenes from scratch, but Playwright capture is faster when a real app already exists.
 
-5. **Embed in Jekyll** with a plain `<video>` tag — autoplay/loop/muted/playsinline works in all modern browsers without JavaScript:
+5. **Embed in a post** with a plain `<video>` tag in the markdown (raw HTML is
+   supported) — autoplay/loop/muted/playsinline works in all modern browsers
+   without JavaScript. Put the file under `public/img/...`:
    ```html
    <video src="/img/folder/clip.mp4" autoplay loop muted playsinline style="width:100%"></video>
    ```

@@ -1,0 +1,73 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import {
+  getAllPosts,
+  getPostBySlug,
+  renderMarkdown,
+  getExcerpt,
+  formatDate,
+} from "@/lib/posts";
+import Disqus from "@/components/Disqus";
+
+export function generateStaticParams() {
+  return getAllPosts().map((post) => ({ slug: post.slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
+  if (!post) return {};
+  const description = getExcerpt(post.body);
+  return {
+    title: post.title,
+    description,
+    alternates: { canonical: post.url },
+    openGraph: {
+      title: post.title,
+      description,
+      url: post.url,
+      type: "article",
+    },
+  };
+}
+
+export default async function PostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
+  if (!post) notFound();
+
+  const html = await renderMarkdown(post.body);
+
+  return (
+    <>
+      <article className="post" itemScope itemType="http://schema.org/BlogPosting">
+        <header className="post-header">
+          <h1 className="post-title" itemProp="name headline">
+            {post.title}
+          </h1>
+          <p className="post-meta">
+            <time dateTime={post.date} itemProp="datePublished">
+              {formatDate(post.date)}
+            </time>
+          </p>
+        </header>
+
+        <div
+          className="post-content"
+          itemProp="articleBody"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </article>
+
+      {post.comments && <Disqus />}
+    </>
+  );
+}
