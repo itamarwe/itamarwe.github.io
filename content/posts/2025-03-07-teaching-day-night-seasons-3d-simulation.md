@@ -36,4 +36,4 @@ I'm still surprised by how quickly Cursor let me build something I never could h
 
 That's what actually changed here. Before AI coding tools, building something like this cost more than it was worth. Now it costs less than drawing it on paper.
 
-You can [try the simulation live](https://www.itamar-weiss.com/solar-system/) or browse the [code on GitHub](https://github.com/itamarwe/solar-system-simulation).
+You can [try the simulation live](/solar-system/) or browse the [code on GitHub](https://github.com/itamarwe/solar-system-simulation).
