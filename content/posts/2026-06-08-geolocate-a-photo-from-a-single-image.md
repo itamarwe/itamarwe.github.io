@@ -20,7 +20,9 @@ A classic computer vision algorithm called **Perspective-n-Point (PnP)** can est
 
 The idea is surprisingly simple. If you can identify several points whose coordinates are known both in the real world and in the image, PnP can solve for the camera pose that best explains what the camera sees.
 
-![Perspective-n-Point: known 3D world points project through the camera centre onto the image plane, and PnP solves for the rigid transform (R, t) between the world and camera coordinate frames.](/img/photo-geolocation/pnp-diagram.png)
+<iframe src="/pnp/index.html" title="Interactive Perspective-n-Point (PnP) diagram — drag to rotate" loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin:1rem 0;background:#000"></iframe>
+
+*Known 3D world points project through the camera centre onto the image plane; PnP solves for the rigid transform (R, t) between the world and camera coordinate frames. Drag to rotate the scene.*
 
 In practice, this means estimating:
 
