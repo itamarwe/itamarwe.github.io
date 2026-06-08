@@ -270,6 +270,7 @@ export default function PhotoUpload() {
         overflow: 'hidden',
         background: '#0a0a0a',
         cursor: canPlaceAnchor ? 'crosshair' : 'auto',
+        touchAction: 'none',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

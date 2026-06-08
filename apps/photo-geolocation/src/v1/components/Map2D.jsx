@@ -611,7 +611,7 @@ export default function Map2D() {
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#e8e6e1' }}>
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', display: 'block', cursor }}
+        style={{ width: '100%', height: '100%', display: 'block', cursor, touchAction: 'none' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
