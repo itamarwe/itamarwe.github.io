@@ -5,7 +5,7 @@
   "description": "Personal blog of Itamar Weiss — Next.js / Vercel.",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:photo-geolocation && next build",
+    "build": "npm run build:photo-geolocation && node scripts/inject-ga.mjs && next build",
     "build:photo-geolocation": "cd apps/photo-geolocation && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --include=dev --no-audit --no-fund && npm run build",
     "start": "next start",
     "lint": "next lint"

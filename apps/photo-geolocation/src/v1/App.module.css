@@ -49,6 +49,12 @@
 
 .link {
   color: var(--text-muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .active {
