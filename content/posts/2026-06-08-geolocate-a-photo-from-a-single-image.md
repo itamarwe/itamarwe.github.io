@@ -36,11 +36,7 @@ The algorithm searches for the camera configuration that minimizes the *reprojec
 
 To demonstrate this, I built a small tool connected to Tel Aviv's open municipal GIS datasets, including building footprints and elevation information.
 
-![The GeoPhoto tool: the photograph on the left, Tel Aviv's building map on the right](/img/photo-geolocation/tool-overview.png)
-
 Given a photo, you select matching visual anchors in both the image and the map — building corners work particularly well — and the system estimates the camera location.
-
-![Matching anchors on building corners in both views; the estimated camera pose appears on the right](/img/photo-geolocation/anchors-and-pose.jpeg)
 
 Here's the full workflow end to end:
 
