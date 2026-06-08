@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perspective-n-Point — interactive diagram</title>
+  <style>
+    /* Pure black to match the blog theme (styles/globals.scss $background-color). */
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #app { position: fixed; inset: 0; }
+    .label {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      color: #ededed;
+      white-space: nowrap;
+      text-shadow: 0 0 4px #000, 0 0 4px #000;
+      pointer-events: none;
+      user-select: none;
+    }
+    .label.axis { color: #9aa4b2; }
+    .label.world { color: #e0a64b; }
+    .label.cam { color: #e06c4b; font-weight: 600; }
+    .label.rt { color: #e06c4b; font-weight: 700; font-size: 16px; }
+    #hint {
+      position: fixed; left: 12px; bottom: 10px;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 12px; color: #6b7280; pointer-events: none; user-select: none;
+    }
+  </style>
+  <!-- Three.js is vendored under ./vendor/ so the page has no runtime CDN dependency. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hint">Drag to rotate · scroll to zoom</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+    const COL = {
+      axis: 0x9aa4b2,
+      ray: 0x22c55e,
+      obj: 0xe0a64b,
+      point: 0x3291ff,
+      accent: 0xe06c4b,
+      plane: 0x3b4759,
+    };
+
+    const app = document.getElementById("app");
+    const scene = new THREE.Scene();
+
+    const view = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    view.position.set(1.5, 4.5, 13);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 1); // pure black, matches blog
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    app.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.domElement.style.position = "absolute";
+    labelRenderer.domElement.style.top = "0";
+    labelRenderer.domElement.style.pointerEvents = "none";
+    app.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(view, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(0, 0.3, 0);
+    controls.minDistance = 6;
+    controls.maxDistance = 26;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.position.set(5, 10, 7);
+    scene.add(dir);
+
+    // ---- helpers ------------------------------------------------------------
+    const v = (x, y, z) => new THREE.Vector3(x, y, z);
+
+    function label(text, pos, cls) {
+      const el = document.createElement("div");
+      el.className = "label " + (cls || "");
+      el.innerHTML = text;
+      const obj = new CSS2DObject(el);
+      obj.position.copy(pos);
+      scene.add(obj);
+      return obj;
+    }
+
+    function axis(origin, d, len, text, cls) {
+      const arrow = new THREE.ArrowHelper(
+        d.clone().normalize(), origin, len, COL.axis, len * 0.22, len * 0.12
+      );
+      scene.add(arrow);
+      label(text, origin.clone().add(d.clone().normalize().multiplyScalar(len + 0.35)),
+            cls || "axis");
+    }
+
+    function dot(pos, color, r = 0.09) {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 16, 16),
+        new THREE.MeshBasicMaterial({ color })
+      );
+      m.position.copy(pos);
+      scene.add(m);
+      return m;
+    }
+
+    function solidLine(a, b, color, w = 2) {
+      const g = new THREE.BufferGeometry().setFromPoints([a, b]);
+      return scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color, linewidth: w })));
+    }
+
+    function dashedLine(a, b, color) {
+      const g = new THREE.BufferGeometry().setFromPoints([a, b]);
+      const line = new THREE.Line(
+        g, new THREE.LineDashedMaterial({ color, dashSize: 0.22, gapSize: 0.16 })
+      );
+      line.computeLineDistances();
+      return scene.add(line);
+    }
+
+    // ---- camera coordinate system ------------------------------------------
+    const C = v(-5, 0, 0); // optical centre
+    dot(C, COL.accent, 0.1);
+    axis(C, v(1, 0, 0), 1.2, "Z<sub>c</sub>", "axis");   // forward, toward the world
+    axis(C, v(0, -1, 0), 1.2, "Y<sub>c</sub>", "axis");  // down
+    axis(C, v(0, 0, 1), 1.2, "X<sub>c</sub>", "axis");   // right
+    label("camera coordinate system", v(-5, -2.0, 0), "cam");
+
+    // ---- image plane --------------------------------------------------------
+    const PLANE_X = -3;
+    const planeGeo = new THREE.PlaneGeometry(3, 2.6);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color: COL.plane, transparent: true, opacity: 0.28, side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    plane.rotation.y = Math.PI / 2;     // normal -> X axis
+    plane.position.set(PLANE_X, 0, 0);
+    scene.add(plane);
+    const planeEdges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(planeGeo),
+      new THREE.LineBasicMaterial({ color: COL.plane })
+    );
+    planeEdges.rotation.copy(plane.rotation);
+    planeEdges.position.copy(plane.position);
+    scene.add(planeEdges);
+    label("image plane", v(PLANE_X, 1.7, 0), "axis");
+
+    // principal point + image axes (u, v) — placed in a clear corner of the plane
+    const pp = v(PLANE_X, -0.55, -1.15);
+    dot(pp, COL.accent, 0.06);
+    label("(u<sub>0</sub>, v<sub>0</sub>)", pp.clone().add(v(0, 0.26, -0.2)), "axis");
+    scene.add(new THREE.ArrowHelper(v(0, 0, 1), pp, 0.7, COL.axis, 0.16, 0.1)); // u
+    scene.add(new THREE.ArrowHelper(v(0, -1, 0), pp, 0.7, COL.axis, 0.16, 0.1)); // v
+    label("u", pp.clone().add(v(0, 0, 0.95)), "axis");
+    label("v", pp.clone().add(v(0, -0.95, 0)), "axis");
+
+    // ---- world coordinate system + object ----------------------------------
+    const boxMin = v(3.4, -0.5, -1.1), boxMax = v(5.6, 1.7, 1.1);
+    const boxGeo = new THREE.BoxGeometry(
+      boxMax.x - boxMin.x, boxMax.y - boxMin.y, boxMax.z - boxMin.z
+    );
+    const boxCenter = boxMin.clone().add(boxMax).multiplyScalar(0.5);
+    const box = new THREE.Mesh(
+      boxGeo,
+      new THREE.MeshBasicMaterial({ color: COL.obj, transparent: true, opacity: 0.12 })
+    );
+    box.position.copy(boxCenter);
+    scene.add(box);
+    const boxEdges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(boxGeo),
+      new THREE.LineBasicMaterial({ color: COL.obj })
+    );
+    boxEdges.position.copy(boxCenter);
+    scene.add(boxEdges);
+
+    const wo = v(3.4, -2.6, 1.6);
+    axis(wo, v(0, 1, 0), 1.2, "Z<sub>w</sub>", "axis");
+    axis(wo, v(1, 0, 0), 1.2, "X<sub>w</sub>", "axis");
+    axis(wo, v(0, 0, -1), 1.2, "Y<sub>w</sub>", "axis");
+    label("world coordinate system", v(4.7, -3.4, 1.6), "world");
+
+    // three known world points (corners of the box)
+    const Pw = [
+      { p: v(3.4, 1.7, -1.1), t: "P<sub>1</sub><sup>w</sup>", off: v(0, 0.3, 0),
+        plab: v(0, 0.2, -0.35) },
+      { p: v(3.4, -0.5, 1.1), t: "P<sub>2</sub><sup>w</sup>", off: v(0, -0.3, 0),
+        plab: v(0, -0.28, 0.2) },
+      { p: v(5.6, 1.7, -1.1), t: "P<sub>3</sub><sup>w</sup>", off: v(0, 0.3, 0),
+        plab: v(0, 0.2, 0.35) },
+    ];
+
+    // ---- projection: rays from C through the image plane to each world point
+    const projPts = [];
+    Pw.forEach((W, i) => {
+      const t = (PLANE_X - C.x) / (W.p.x - C.x);
+      const p = C.clone().add(W.p.clone().sub(C).multiplyScalar(t));
+      projPts.push(p);
+      dot(W.p, COL.point, 0.09);
+      label(W.t, W.p.clone().add(W.off), "world");
+      dot(p, COL.point, 0.06);
+      label("p<sub>" + (i + 1) + "</sub>", p.clone().add(W.plab), "axis");
+      solidLine(C, p, COL.ray);          // camera centre -> image point
+      dashedLine(p, W.p, COL.ray);       // image point -> world point
+    });
+    // outline of the projected object on the image plane
+    solidLine(projPts[0], projPts[1], COL.obj);
+    solidLine(projPts[1], projPts[2], COL.obj);
+    solidLine(projPts[2], projPts[0], COL.obj);
+
+    // ---- (R, t) = ? transform between the two frames ------------------------
+    const rtArrow = new THREE.ArrowHelper(
+      wo.clone().sub(C).normalize().multiplyScalar(-1), // points world -> camera
+      v(3.0, -3.1, 0.8), 6.0, COL.accent, 0.5, 0.3
+    );
+    scene.add(rtArrow);
+    label("(R, t) = ?", v(0, -3.4, 0.4), "rt");
+
+    // ---- render loop --------------------------------------------------------
+    function resize() {
+      const w = app.clientWidth, h = app.clientHeight;
+      renderer.setSize(w, h);
+      labelRenderer.setSize(w, h);
+      view.aspect = w / h;
+      view.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, view);
+      labelRenderer.render(scene, view);
+    }
+    animate();
+  </script>
+</body>
+</html>
