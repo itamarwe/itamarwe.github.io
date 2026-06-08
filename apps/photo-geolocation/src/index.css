@@ -1,0 +1,81 @@
+:root {
+  --bg: #141414;
+  --surface: #1e1e1e;
+  --surface2: #2a2a2a;
+  --border: #383838;
+  --text: #e8e8e8;
+  --text-muted: #888;
+  --accent: #4a9eff;
+  --accent-dim: #1e4a80;
+  --red: #e63946;
+  --green: #57cc99;
+  --yellow: #ffd166;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+button:hover { background: var(--accent-dim); border-color: var(--accent); }
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+/* Don't show hover affordances on disabled buttons. */
+button:disabled:hover { background: var(--surface2); border-color: var(--border); }
+button.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover { background: #2a6ccc; }
+button.primary:disabled:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+input[type="number"], input[type="text"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  width: 70px;
+}
+input[type="number"]:focus, input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }

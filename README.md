@@ -30,8 +30,45 @@ content/
 lib/                    Post loading, URL logic, markdown rendering, redirects
 components/             Header, Footer, Disqus, Analytics
 styles/globals.scss     Ported theme + dark mode + syntax highlighting
+apps/
+  photo-geolocation/    Embedded Vite app — see "Embedded apps" below
 public/                 img/, solar-system/ (WebGL demo), favicon.ico
 ```
+
+## Embedded apps
+
+Standalone interactive demos live under `apps/<name>/` and are served at
+`/<name>/`. They are built into `public/<name>/` and shipped as static assets
+by `next build`:
+
+- **`apps/photo-geolocation/`** — a Vite + React photo-geolocation tool
+  (estimate where a Tel Aviv photo was taken via Perspective-n-Point), served
+  at **`/photo-geolocation/`**.
+
+How it is wired:
+
+- The root `build` script runs `build:photo-geolocation` before `next build`.
+  That step installs the app's own dependencies and runs its Vite build with
+  `base: './'`, emitting straight into `public/photo-geolocation/`.
+- `public/photo-geolocation/` is **git-ignored** — it is generated on every
+  build (locally and on Vercel), so the source of truth is `apps/`.
+- `next.config.ts` rewrites `/photo-geolocation/` to the app's `index.html`,
+  and `app/sitemap.ts` lists the URL.
+
+To work on the app on its own:
+
+```bash
+cd apps/photo-geolocation
+npm install
+npm run dev      # http://localhost:5173
+```
+
+> Note: because `public/photo-geolocation/` is generated, run `npm run build`
+> at the repo root once before `npm run dev` (Next) if you want the embedded
+> app reachable at `/photo-geolocation/` during local Next.js development.
+
+The Sun–Earth WebGL demo at `public/solar-system/` predates this layout: its
+build output is committed directly (its source lives in a separate repo).
 
 ## Local development
 

@@ -1,0 +1,26 @@
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+
+.iconBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(91, 158, 255, 0.08);
+}
