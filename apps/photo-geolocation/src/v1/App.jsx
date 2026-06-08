@@ -15,6 +15,7 @@ export default function App() {
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
+        <a className={styles.link} href="/" title="Back to itamarweiss.com">← itamarweiss.com</a>
         <span className={styles.logo}>📍 GeoPhoto Tool</span>
         <span className={styles.subtitle}>Tel Aviv photo geolocation</span>
         <span className={styles.badges}>

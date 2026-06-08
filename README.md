@@ -55,6 +55,14 @@ How it is wired:
 - `next.config.ts` rewrites `/photo-geolocation/` to the app's `index.html`,
   and `app/sitemap.ts` lists the URL.
 
+Both embedded apps (`/photo-geolocation/` and `/solar-system/`) link back to the
+site root and report to the same GA4 property as the rest of the site. Because
+they are static HTML — not rendered by Next — the `<Analytics />` component
+doesn't reach them; instead `scripts/inject-ga.mjs` runs during the root build
+and stamps the gtag snippet into each app's `index.html` using
+`NEXT_PUBLIC_GA_ID`. When that var is unset (typical local build) it's a no-op,
+so committed files stay clean and analytics only ships from Vercel.
+
 To work on the app on its own:
 
 ```bash
