@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Designing a Microphone Array to Hear FPV Drones"
+title: "Designing a Microphone Array to Detect FPV Drones"
 comments: true
 date: 2026-06-09
 categories: drones
@@ -12,7 +12,7 @@ categories: drones
 @media (max-width: 600px) { .viz-frame { aspect-ratio: 3/4; } }
 </style>
 
-You can hear an FPV drone before you can see it. The motors and props throw off a
+You can detect an FPV drone before you can see it. The motors and props throw off a
 characteristic whine — a blade-pass fundamental and its harmonics — sitting right
 in the **300–4000 Hz** band. So a natural question: if I wanted to *detect* and
 *classify* drones acoustically with a small array of microphones, **what shape
@@ -228,5 +228,5 @@ the band. The line is 1-D only and, at 1.2 m, fully ambiguous up high.
 The whole thing — the geometry library, the response-curve simulations, and the
 manim animations above — is a couple hundred lines of Python. The physics is old
 (spatial Nyquist, aperiodic phased arrays from the acoustic-camera world); the new
-part is realizing that when a 16-channel network is doing the listening, the right
+part is realizing that when a 16-channel network is doing the detection, the right
 objective isn't a pretty beam, it's **baseline diversity**.
