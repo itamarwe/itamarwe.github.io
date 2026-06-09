@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One living memory — the team sync</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #ededed; }
+    #app { position: fixed; inset: 0; }
+    .label { font-size: 12px; color: #cdd6e0; text-shadow: 0 0 5px #000, 0 0 5px #000;
+      pointer-events: none; user-select: none; white-space: nowrap; }
+    .label.brain { font-size: 14px; font-weight: 700; color: #fff; }
+    .label.agent { color: #c9a8ff; }
+    .label.src { font-size: 10px; color: #7b8694; }
+    #ui { position: fixed; left: 12px; top: 12px; display: flex; flex-direction: column;
+      gap: 9px; background: rgba(14,17,22,.72); padding: 12px 14px; border-radius: 10px;
+      backdrop-filter: blur(4px); max-width: 240px; }
+    .ttl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+    label.chk { font-size: 12px; color: #cdd6e0; display: flex; gap: 7px; align-items: center; }
+    .legend { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+    .legend div { display:flex; align-items:center; gap:7px; }
+    .dot { width:10px;height:10px;border-radius:50%;flex:none; }
+    button { background:#1b2128; color:#cdd6e0; border:1px solid #2a323c; border-radius:6px;
+      padding:7px 11px; font-size:12px; cursor:pointer; }
+    button:hover { border-color:#3fc1ff; }
+    #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; color: #6b7280;
+      pointer-events: none; max-width: 60%; }
+    @media (max-width: 600px){
+      #ui{ padding:8px 10px; gap:6px; max-width:52vw; }
+      .legend, label.chk { font-size:11px; }
+      #hint{ display:none; }
+    }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui">
+    <div><span class="ttl">One living memory</span></div>
+    <label class="chk"><input type="checkbox" id="srcChk" checked /> show data sources</label>
+    <label class="chk"><input type="checkbox" id="agentChk" /> show agents on top</label>
+    <div><span class="ttl">Legend</span></div>
+    <div class="legend">
+      <div><span class="dot" style="background:#3fc1ff"></span>the brain (git)</div>
+      <div><span class="dot" style="background:#ffd166"></span>builders</div>
+      <div><span class="dot" style="background:#7b8694"></span>data sources</div>
+      <div><span class="dot" style="background:#c9a8ff"></span>autonomous agents</div>
+    </div>
+  </div>
+  <div id="hint">Drag to rotate. Each builder runs a cron job: pulses flow <i>in</i> (push new
+    context) and <i>out</i> (pull the latest memory), so everyone stays aligned without a single
+    sync meeting. Toggle the agents to see them act on top of the same brain.</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+    const CYAN=0x3fc1ff, GOLD=0xffd166, GREY=0x7b8694, VIOLET=0xc9a8ff, WHITE=0xffffff;
+
+    const app=document.getElementById("app");
+    const scene=new THREE.Scene();
+    const view=new THREE.PerspectiveCamera(46,1,0.1,300);
+    view.position.set(0,12,17);
+    const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    renderer.setClearColor(0x000000,1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    app.appendChild(renderer.domElement);
+    const labelRenderer=new CSS2DRenderer();
+    labelRenderer.domElement.style.position="absolute"; labelRenderer.domElement.style.top="0";
+    labelRenderer.domElement.style.pointerEvents="none"; app.appendChild(labelRenderer.domElement);
+    const controls=new OrbitControls(view, renderer.domElement);
+    controls.enableDamping=true; controls.dampingFactor=0.08;
+    controls.minDistance=10; controls.maxDistance=46;
+    controls.autoRotate=true; controls.autoRotateSpeed=0.45;
+    scene.add(new THREE.AmbientLight(0xffffff,1.0));
+
+    function mkLabel(text,pos,cls){
+      const el=document.createElement("div"); el.className="label "+(cls||""); el.textContent=text;
+      const o=new CSS2DObject(el); o.position.copy(pos); scene.add(o); return o;
+    }
+
+    // ---- the brain at the centre: a small glowing knowledge-graph core --------
+    const brain=new THREE.Group(); scene.add(brain);
+    const ico=new THREE.IcosahedronGeometry(2.0, 1);
+    const verts=[]; const pa=ico.getAttribute("position");
+    const seen=new Set();
+    for(let i=0;i<pa.count;i++){
+      const x=+pa.getX(i).toFixed(3),y=+pa.getY(i).toFixed(3),z=+pa.getZ(i).toFixed(3);
+      const k=x+","+y+","+z; if(seen.has(k))continue; seen.add(k);
+      verts.push(new THREE.Vector3(x,y,z));
+    }
+    const coreMat=new THREE.MeshBasicMaterial({color:CYAN});
+    verts.forEach(v=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),coreMat);
+      m.position.copy(v); brain.add(m); });
+    brain.add(new THREE.LineSegments(new THREE.WireframeGeometry(ico),
+      new THREE.LineBasicMaterial({color:0x2f6b86, transparent:true, opacity:0.7})));
+    const halo=new THREE.Mesh(new THREE.SphereGeometry(2.05,24,24),
+      new THREE.MeshBasicMaterial({color:CYAN, transparent:true, opacity:0.07}));
+    brain.add(halo);
+    mkLabel("the brain", new THREE.Vector3(0,3.0,0), "brain");
+
+    // ---- builders on a ring in the XZ plane (viewed from above) ---------------
+    const PEOPLE=["PM","Designer","GTM Lead","Engineer","Engineer","Researcher","Designer","PM"];
+    const SOURCES=["Note Taker","Slack","WhatsApp","Docs"];
+    const builders=[];
+    const Rp=8.0;
+    PEOPLE.forEach((name,i)=>{
+      const a=i/PEOPLE.length*Math.PI*2;
+      const pos=new THREE.Vector3(Rp*Math.cos(a), 0, Rp*Math.sin(a));
+      const m=new THREE.Mesh(new THREE.SphereGeometry(0.42,16,16),
+        new THREE.MeshBasicMaterial({color:GOLD}));
+      m.position.copy(pos); scene.add(m);
+      mkLabel(name, pos.clone().add(new THREE.Vector3(0,0.85,0)), "");
+      // data sources feeding this builder
+      const srcGroup=new THREE.Group(); scene.add(srcGroup);
+      const outward=pos.clone().normalize();
+      SOURCES.forEach((s,j)=>{
+        const off=outward.clone().multiplyScalar(2.2)
+          .add(new THREE.Vector3(0,1,0).cross(outward).multiplyScalar((j-1.5)*0.85));
+        const sp=pos.clone().add(off);
+        const sm=new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8),
+          new THREE.MeshBasicMaterial({color:GREY}));
+        sm.position.copy(sp); srcGroup.add(sm);
+        if(i===0) mkLabelSrc(s, sp, srcGroup);   // label sources on one builder only
+        srcGroup.add(line(sp,pos,0x3a4250,0.5));
+      });
+      builders.push({name,pos,mesh:m,srcGroup,phase:Math.random()});
+      scene.add(line(pos,new THREE.Vector3(0,0,0),0x2a3340,0.5)); // spoke to brain
+    });
+    function mkLabelSrc(text,pos,group){
+      const el=document.createElement("div"); el.className="label src"; el.textContent=text;
+      const o=new CSS2DObject(el); o.position.copy(pos.clone().add(new THREE.Vector3(0,0.35,0)));
+      group.add(o);
+    }
+    function line(a,b,color,op){
+      const g=new THREE.BufferGeometry().setFromPoints([a,b]);
+      return new THREE.Line(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:op}));
+    }
+
+    // ---- agents on an outer ring (hidden by default) -------------------------
+    const agentGroup=new THREE.Group(); agentGroup.visible=false; scene.add(agentGroup);
+    const AGENTS=["Design agent","Product agent","GTM agent","R&D agent","Siena (WhatsApp)"];
+    const agents=[];
+    const Ra=12.5;
+    AGENTS.forEach((name,i)=>{
+      const a=i/AGENTS.length*Math.PI*2 + 0.4;
+      const pos=new THREE.Vector3(Ra*Math.cos(a), 0, Ra*Math.sin(a));
+      const m=new THREE.Mesh(new THREE.OctahedronGeometry(0.5,0),
+        new THREE.MeshBasicMaterial({color:VIOLET}));
+      m.position.copy(pos); agentGroup.add(m);
+      const el=document.createElement("div"); el.className="label agent"; el.textContent=name;
+      const o=new CSS2DObject(el); o.position.copy(pos.clone().add(new THREE.Vector3(0,0.9,0)));
+      agentGroup.add(o);
+      agentGroup.add(line(pos,new THREE.Vector3(0,0,0),0x4a3a66,0.5));
+      agents.push({name,pos,mesh:m,phase:Math.random()});
+    });
+
+    // ---- flowing sync pulses (instanced) -------------------------------------
+    const pulseMesh=new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.16,8,8),
+      new THREE.MeshBasicMaterial({color:WHITE}), 256);
+    scene.add(pulseMesh);
+    const tmp=new THREE.Object3D();
+    const cIn=new THREE.Color(GOLD), cOut=new THREE.Color(CYAN), cAg=new THREE.Color(VIOLET);
+    // per-instance colour
+    const icol=new Float32Array(256*3);
+    pulseMesh.instanceColor=new THREE.InstancedBufferAttribute(icol,3);
+    pulseMesh.material.vertexColors=true;
+
+    let showSrc=true, showAgents=false;
+    document.getElementById("srcChk").onchange=e=>{
+      showSrc=e.target.checked; builders.forEach(b=>b.srcGroup.visible=showSrc);
+    };
+    document.getElementById("agentChk").onchange=e=>{
+      showAgents=e.target.checked; agentGroup.visible=showAgents;
+    };
+
+    const center=new THREE.Vector3(0,0,0);
+    let pulseCount=0;
+    function emit(from,to,u,color){
+      if(pulseCount>=256) return;
+      tmp.position.lerpVectors(from,to,u);
+      const sc=0.7+0.6*Math.sin(u*Math.PI);
+      tmp.scale.setScalar(sc); tmp.updateMatrix();
+      pulseMesh.setMatrixAt(pulseCount,tmp.matrix);
+      icol[pulseCount*3]=color.r; icol[pulseCount*3+1]=color.g; icol[pulseCount*3+2]=color.b;
+      pulseCount++;
+    }
+
+    function frame(){
+      requestAnimationFrame(frame);
+      const t=performance.now()/1000;
+      pulseCount=0;
+
+      // brain breathing
+      const b=1+0.05*Math.sin(t*1.6);
+      brain.scale.setScalar(b);
+      halo.material.opacity=0.06+0.04*(0.5+0.5*Math.sin(t*1.6));
+
+      // builder <-> brain: two streams per spoke (push in gold, pull out cyan)
+      builders.forEach((bd,i)=>{
+        const speed=0.55;
+        for(let s=0;s<3;s++){
+          const phase=bd.phase + s/3;
+          const u=((t*speed+phase)%1);
+          emit(bd.pos, center, u, cIn);                 // push: builder -> brain
+          emit(center, bd.pos, ((t*speed+phase+0.5)%1), cOut); // pull: brain -> builder
+        }
+        bd.mesh.scale.setScalar(1+0.12*Math.sin(t*2+i));
+        // sources trickle into builder
+        if(showSrc){
+          bd.srcGroup.children.forEach(ch=>{
+            if(ch.geometry && ch.geometry.type==="SphereGeometry"){
+              const u=((t*0.8+ch.id*0.13)%1);
+              emit(ch.position, bd.pos, u, cIn);
+            }
+          });
+        }
+      });
+
+      // agents read from brain and act
+      if(showAgents){
+        agents.forEach((ag,i)=>{
+          for(let s=0;s<2;s++){
+            const u=((t*0.5+ag.phase+s/2)%1);
+            emit(center, ag.pos, u, cAg);   // brain -> agent (context)
+          }
+          ag.mesh.rotation.y=t*0.8+i; ag.mesh.rotation.x=t*0.5;
+        });
+      }
+
+      pulseMesh.count=pulseCount;
+      pulseMesh.instanceMatrix.needsUpdate=true;
+      pulseMesh.instanceColor.needsUpdate=true;
+
+      controls.update();
+      renderer.render(scene,view);
+      labelRenderer.render(scene,view);
+    }
+
+    function resize(){const w=app.clientWidth,h=app.clientHeight;renderer.setSize(w,h);
+      labelRenderer.setSize(w,h);view.aspect=w/h;view.updateProjectionMatrix();}
+    window.addEventListener("resize",resize); resize(); frame();
+  </script>
+</body>
+</html>
