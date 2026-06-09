@@ -42,6 +42,43 @@ Here's the full workflow end to end:
 
 <video src="/img/photo-geolocation/demo.mp4" controls autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
+## Getting the building heights
+
+PnP needs the real-world 3D coordinates of each anchor — and for a building corner that means not just its latitude and longitude, but its height. A rooftop corner is only useful if I know how high it sits above the ground, and above sea level.
+
+That turned out to be the fiddliest part, and it's worth a short detour into how elevation is modelled.
+
+### DEM, DSM, DTM
+
+Three closely related terms that are easy to mix up:
+
+- **DEM (Digital Elevation Model)** — the umbrella term: a raster grid of elevation values, one height per cell.
+- **DTM (Digital Terrain Model)** — the *bare-earth* surface, with buildings, trees and other objects stripped away. It's the ground you'd walk on.
+- **DSM (Digital Surface Model)** — the *top* surface: it follows treetops, rooftops and everything else the sky sees first.
+
+<video src="/img/photo-geolocation/building-heights.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0;background:#000"></video>
+
+*The DTM hugs the bare ground; the DSM drapes over the top of everything. The gap between them, sometimes called a normalised DSM (nDSM), is exactly the height of whatever sits on the ground:* `building height = DSM − DTM`.
+
+### Combining two open data sources
+
+I didn't have a ready-made DSM for Tel Aviv, so I reconstructed just the part I needed by combining two free, key-less open datasets:
+
+1. **Ground elevation (the DTM)** comes from AWS's open [Terrarium terrain-RGB tiles](https://github.com/tilezen/joerd) (based on SRTM/NED, ~30 m). They're served as ordinary PNGs where every pixel encodes metres above sea level, so a single tile fetch gives me the ground height under any point in the area.
+2. **Building footprints and heights** come from **OpenStreetMap**, queried through the Overpass API. Each building is a polygon, often tagged with a `height` or a number of floors.
+
+Adding a building's height to the ground elevation beneath it reconstructs the rooftop's absolute height above sea level — effectively the DSM value at that corner, which is exactly what PnP wants.
+
+### Estimating heights when the data is missing
+
+OpenStreetMap's height data is patchy. When a building had no explicit height, I fell back through a small ladder of estimates:
+
+- If a `height` tag exists, use it directly.
+- Otherwise, if the number of floors (`building:levels`) is tagged, multiply by ~3.2 m per storey — a typical residential floor including the slab.
+- If neither exists, fall back to a sensible default of ~12 m, roughly a four-storey building.
+
+Inferred corners are obviously less trustworthy than measured ones, so the tool flags them: it's better to anchor PnP on a corner whose height you actually know than on one you guessed.
+
 When I tested it on a photo I took in Tel Aviv, it recovered the shooting position with surprisingly high accuracy — down to the rooftop I was standing on.
 
 It's a nice example of how techniques developed decades ago for computer vision are still incredibly powerful today, and how much information can be extracted from a single image when geometry meets maps.
