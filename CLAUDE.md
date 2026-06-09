@@ -6,7 +6,8 @@ See `README.md` for the full project layout.
 ## Content model
 
 - **Blog posts** live in `content/posts/*.md` as `YYYY-MM-DD-slug.md` with
-  frontmatter (`title`, `date`, `categories`, `comments`). They are rendered
+  frontmatter (`title`, `date`, `categories`, `comments`, and optional `image`
+  for the social-share card — see "Social-share images" below). They are rendered
   statically by `app/blog/[slug]/page.tsx` and served at `/blog/<slug>/`.
 - **Pages** (`About`, `Portfolio`) live in `content/pages/*.md`.
 - **Legacy URLs**: every old Jekyll URL (e.g.
@@ -64,3 +65,54 @@ To embed demo videos in a post, use Playwright to record the live app rather tha
    ```html
    <video src="/img/folder/clip.mp4" autoplay loop muted playsinline style="width:100%"></video>
    ```
+
+## Interactive 3D visualizations (Three.js)
+
+For 3blue1brown-style interactive diagrams, build a **self-contained HTML page**
+under `public/<name>/` and embed it with an `<iframe>` — the established pattern,
+see `public/pnp/` and `public/mic-array-viz/`:
+
+- **Vendor Three.js locally** (copy `public/pnp/vendor/`) — no runtime CDN. Wire it
+  with an `importmap` pointing at `./vendor/three.module.js` and `./vendor/addons/`.
+- Pure-black `#000` background, `OrbitControls` (with damping), `CSS2DRenderer` for
+  HTML labels. Keep all the math in plain JS so it recomputes live on interaction.
+- Embed with `<iframe class="viz-frame" loading="lazy" src="/<name>/page.html">` and
+  add a scoped `<style>` block **in the post markdown** (rehype-raw passes raw
+  `<style>` through — there is no sanitizer in the pipeline). Give it a desktop
+  `aspect-ratio:16/10` and a `@media (max-width:600px)` rule with a taller `3/4`
+  frame plus compact control panels so it stays usable on phones.
+
+## Generated figures & animations
+
+- Work in a Python venv (`numpy scipy matplotlib manim`). Match the dark palette
+  used across the visuals: background `#0e1116` (or `#000`), text `#ededed`,
+  accents cyan `#3fc1ff`, gold `#ffd166`, green `#7CFC8A`, red `#ff5a5a`. Save PNGs
+  under `public/img/<post>/`.
+- **Manim**: no LaTeX is installed, so use `Text(...)`, never `Tex`/`MathTex`.
+  Render with `manim -qm --format=mp4` and embed the result as a `<video>` (above).
+
+## Social-share images
+
+Every post emits an OpenGraph/Twitter image. Frontmatter takes an optional
+`image:` (absolute site path, e.g. `/img/<post>/social.png`); it falls back to
+`DEFAULT_OG_IMAGE` (`/img/profile.jpg`) in `lib/posts.ts`. When a post sets a custom
+`image`, `app/blog/[slug]/page.tsx` upgrades the Twitter card to
+`summary_large_image`. Make the card **1200×630** on a pure-black background, with
+the post title and one strong visualization from the post — generate it like any
+other figure and save it under `public/img/<post>/`.
+
+## Verifying visuals headlessly
+
+There is no display and browser-CDN downloads are blocked, but a Chromium binary
+ships at `/opt/pw-browsers/chromium-*/chrome-linux/chrome`. Serve the site
+(`cd public && python -m http.server PORT`) and screenshot:
+
+```
+chrome --headless=new --no-sandbox --use-gl=angle --use-angle=swiftshader \
+  --enable-unsafe-swiftshader --window-size=1280,760 --virtual-time-budget=6000 \
+  --screenshot=out.png "http://localhost:PORT/<name>/page.html"
+```
+
+For numeric correctness of a JS visualization, port its core math to a small Node
+script and diff the outputs against the Python reference — don't trust the render
+alone.

@@ -4,6 +4,7 @@ title: "Designing a Microphone Array to Detect FPV Drones"
 comments: true
 date: 2026-06-09
 categories: drones
+image: /img/mic-array/social.png
 ---
 
 <style>
