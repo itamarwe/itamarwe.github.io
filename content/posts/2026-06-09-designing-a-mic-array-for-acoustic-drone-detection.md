@@ -131,10 +131,12 @@ directions as loud as the real one. An aperiodic spiral, with the *same* 16 mics
 and the *same* aperture, smears that energy into a low, diffuse sidelobe floor
 instead. There are no phantom directions, just slightly raised noise.
 
-Here are the polar beam patterns for the medium (40 cm) array across the band.
-Watch the petals multiply on the ring-based layouts as frequency climbs:
+Here are the polar beam patterns across the band, live. **Switch geometry, drag
+the frequency slider, and orbit the 3-D response "balloon"** — the bulges that
+sprout away from the blue look-direction as you raise the frequency on the ring
+(UCA) are grating lobes; the nested-aperiodic dome keeps them suppressed:
 
-![Delay-and-sum beam patterns at 300/1000/2000/4000 Hz for six geometries, 40 cm aperture](/img/mic-array/beampatterns_medium.png)
+<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency" loading="lazy" style="width:100%;aspect-ratio:16/10;border:0;border-radius:8px;margin:1rem 0;background:#000"></iframe>
 
 ## The insight that matters for a 16-channel network
 
@@ -150,7 +152,13 @@ spreads them across ~100 distinct baselines:
 
 <video src="/img/mic-array/CoArray.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-![Co-array (pairwise baselines) and baseline-length histograms: uniform ring vs aperiodic layouts](/img/mic-array/coarray_medium.png)
+<iframe src="/mic-array-viz/coarray.html" title="Interactive 3-D co-array explorer — switch geometry to compare baseline diversity" loading="lazy" style="width:100%;aspect-ratio:16/10;border:0;border-radius:8px;margin:1rem 0;background:#000"></iframe>
+
+Flip between the geometries above: the **UCA collapses its 120 pairs onto 8
+distinct baselines** (15× redundant — the cyan cloud snaps into a few rings),
+while the **nested dome spreads them across ~95** (1.3× redundant — a full 3-D
+cloud). That spread is exactly the spatial information a 16-channel network feeds
+on.
 
 More distinct baselines means more independent spatial features, which means
 easier detection and coarse bearing — **without** needing classical beamforming at
