@@ -62,7 +62,7 @@ Three closely related terms that are easy to mix up:
 
 ### Combining two open data sources
 
-I didn't have a ready-made DSM for Tel Aviv, so I reconstructed just the part I needed by combining two free, key-less open datasets:
+There's no ready-made DSM I could just look rooftop heights up in, so I had to *estimate* one — by combining two free, key-less open datasets:
 
 1. **Ground elevation (the DTM)** comes from AWS's open [Terrarium terrain-RGB tiles](https://github.com/tilezen/joerd) (based on SRTM/NED, ~30 m). They're served as ordinary PNGs where every pixel encodes metres above sea level, so a single tile fetch gives me the ground height under any point in the area.
 2. **Building footprints and heights** come from **OpenStreetMap**, queried through the Overpass API. Each building is a polygon, often tagged with a `height` or a number of floors.
@@ -71,10 +71,10 @@ Adding a building's height to the ground elevation beneath it reconstructs the r
 
 ### Estimating heights when the data is missing
 
-OpenStreetMap's height data is patchy. When a building had no explicit height, I fell back through a small ladder of estimates:
+OpenStreetMap's height data is patchy, so this is where most of the estimation happens. For each building I fell back through a small ladder:
 
-- If a `height` tag exists, use it directly.
-- Otherwise, if the number of floors (`building:levels`) is tagged, multiply by ~3.2 m per storey — a typical residential floor including the slab.
+- If an explicit `height` tag exists, use it directly — this is the only case where the height is actually measured.
+- Otherwise — and this is the common case — only the number of floors (`building:levels`) is tagged, not a height. I estimate the height as floors × ~3.2 m per storey (a typical residential floor including the slab).
 - If neither exists, fall back to a sensible default of ~12 m, roughly a four-storey building.
 
 Inferred corners are obviously less trustworthy than measured ones, so the tool flags them: it's better to anchor PnP on a corner whose height you actually know than on one you guessed.

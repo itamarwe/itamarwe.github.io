@@ -208,4 +208,11 @@ class BuildingHeights(Scene):
                               Create(rule),
                               FadeIn(l3, shift=UP * 0.2),
                               lag_ratio=0.5), run_time=2.4)
-        self.wait(2.0)
+        self.wait(1.8)
+
+        # ---- fade everything back to black so the clip loops seamlessly -----
+        # (the first frame is a pure-black background; ending on black makes the
+        #  last frame identical to it, so an autoplay loop has no visible seam).
+        self.play(FadeOut(Group(*self.mobjects)), run_time=1.2)
+        self.wait(0.3)
+
