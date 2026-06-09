@@ -32,14 +32,19 @@ python deck.py        # writes Neurovascular_Disease_in_Women.pdf next to the sc
   visualisations (balance, risk timeline, pre-eclampsia cascade, PRES brain,
   RCVS beading, CVT sinus, migraine multiplier, AF bars, lupus routes) in
   grouped panels.
-- `Neurovascular_Disease_in_Women*.pdf` — the rendered decks.
+- `narrative.py` — a 9-slide narrative pitch deck using the same data to make
+  the case for founding a Center for Women's Neurovascular Disease: how women's
+  cerebrovascular disease differs from men's (biology, risk factors, diagnosis),
+  what's overlooked, and where the opportunity is.
+- `*.pdf` — the rendered decks.
 
 Each script writes its PDF next to itself:
 
 ```bash
-python deck.py        # 14-slide deck
+python deck.py        # 14-slide clinical deck
 python summary.py     # 2-slide summary
 python condensed.py   # 3-slide condensed deck
+python narrative.py   # 9-slide founding-a-center narrative
 ```
 
 ## Source
