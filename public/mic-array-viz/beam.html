@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beam-pattern explorer — interactive</title>
+  <style>
+    /* Pure black to match the blog theme (styles/globals.scss $background-color). */
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #ededed; }
+    #app { position: fixed; inset: 0; }
+    .label { font-size: 12px; color: #9aa4b2; text-shadow: 0 0 4px #000, 0 0 4px #000;
+      pointer-events: none; user-select: none; }
+    #ui { position: fixed; left: 12px; top: 12px; display: flex; flex-direction: column;
+      gap: 8px; background: rgba(14,17,22,.72); padding: 12px 14px; border-radius: 10px;
+      backdrop-filter: blur(4px); max-width: 280px; }
+    #ui .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    button { background: #1b2128; color: #cdd6e0; border: 1px solid #2a323c;
+      border-radius: 6px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+    button.on { background: #3fc1ff; color: #08121a; border-color: #3fc1ff; font-weight: 600; }
+    .ttl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+    input[type=range] { width: 100%; accent-color: #ffd166; }
+    #freqval { color: #ffd166; font-weight: 600; }
+    #stats { position: fixed; right: 12px; top: 12px; background: rgba(14,17,22,.72);
+      padding: 12px 14px; border-radius: 10px; backdrop-filter: blur(4px); font-size: 13px;
+      line-height: 1.7; min-width: 190px; }
+    #stats b { color: #fff; } #stats .k { color: #6b7280; }
+    #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; color: #6b7280;
+      pointer-events: none; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+    @media (max-width: 600px) {
+      #ui { padding: 8px 9px; gap: 5px; max-width: 47vw; }
+      #ui .row { gap: 4px; }
+      button { padding: 4px 6px; font-size: 11px; }
+      .ttl { font-size: 10px; }
+      #freqval { font-size: 11px; }
+      #stats { top: auto; bottom: 8px; left: 8px; right: auto; padding: 8px 9px;
+        font-size: 11px; line-height: 1.4; min-width: 0; }
+      #hint { display: none; }
+    }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui">
+    <div><span class="ttl">Geometry</span></div>
+    <div class="row" id="geoRow"></div>
+    <div><span class="ttl">Aperture</span></div>
+    <div class="row" id="apRow"></div>
+    <div><span class="ttl">Frequency · <span id="freqval">2000 Hz</span></span></div>
+    <input type="range" id="freq" min="300" max="4000" step="50" value="2000" />
+  </div>
+  <div id="stats"></div>
+  <div id="hint">Drag to rotate · scroll to zoom · the balloon is the array's power response over all directions</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+    const C_SOUND = 343, GOLD = Math.PI * (3 - Math.sqrt(5)), M = 16;
+
+    // ---- geometries (positions in metres, (x,y,z)) --------------------------
+    const geos = {
+      "ULA": (ap) => Array.from({length: M}, (_, i) =>
+        [(-ap/2) + ap*i/(M-1), 0, 0]),
+      "UCA": (ap) => Array.from({length: M}, (_, i) => {
+        const a = i*2*Math.PI/M, R = ap/2; return [R*Math.cos(a), R*Math.sin(a), 0]; }),
+      "Spiral": (ap) => Array.from({length: M}, (_, i) => {
+        const R = ap/2, r = R*Math.sqrt((i+0.5)/M), th = i*GOLD;
+        return [r*Math.cos(th), r*Math.sin(th), 0]; }),
+      "Nested dome": (ap) => nestedDome(ap),
+    };
+    function nestedAperiodic(ap) {
+      const R = ap/2, rIn = Math.min(0.06, 0.18*R), nIn = 6, nOut = M-nIn, pts = [];
+      for (let m=0; m<nIn; m++){ const r=rIn*Math.sqrt((m+0.5)/nIn), th=m*GOLD;
+        pts.push([r*Math.cos(th), r*Math.sin(th), 0]); }
+      for (let m=0; m<nOut; m++){ const r=rIn+(R-rIn)*Math.sqrt((m+0.5)/nOut), th=m*GOLD+1.7;
+        pts.push([r*Math.cos(th), r*Math.sin(th), 0]); }
+      return pts;
+    }
+    function nestedDome(ap) {
+      const R = ap/2, pts = nestedAperiodic(ap);
+      return pts.map(([x,y]) => { const rho = Math.hypot(x,y);
+        return [x, y, 0.45*R*Math.sqrt(Math.max(0, 1-(rho/R)**2))]; });
+    }
+
+    // ---- response math ------------------------------------------------------
+    // DS power response to plane wave from unit dir u, steered to u0=(1,0,0).
+    function powerAt(pos, k, ux, uy, uz, u0) {
+      let re = 0, im = 0;
+      for (const [px,py,pz] of pos) {
+        const ph = k*((ux-u0[0])*px + (uy-u0[1])*py + (uz-u0[2])*pz);
+        re += Math.cos(ph); im += Math.sin(ph);
+      }
+      return (re*re + im*im) / (pos.length*pos.length);
+    }
+    function metrics(pos, f) {
+      const k = 2*Math.PI*f/C_SOUND, u0 = [1,0,0], N = 1440;
+      let psl = -99, peakIdx = 0; const P = new Float64Array(N);
+      for (let i=0;i<N;i++){ const a = -Math.PI + 2*Math.PI*i/N;
+        P[i] = powerAt(pos, k, Math.cos(a), Math.sin(a), 0, u0); }
+      // mainlobe at a=0 (index where cos=1) -> i = N/2
+      const i0 = Math.round(N/2);
+      const PdB = (x) => 10*Math.log10(x + 1e-12);
+      // -3 dB beamwidth
+      const edge = (step) => { let i=i0; while(PdB(P[i])>-3 && i>0 && i<N-1) i+=step;
+        return -Math.PI + 2*Math.PI*i/N; };
+      const bw = Math.abs(edge(1)-edge(-1))*180/Math.PI;
+      // peak sidelobe outside mainlobe
+      for (let i=0;i<N;i++){ const a=(-Math.PI+2*Math.PI*i/N)*180/Math.PI;
+        if (Math.abs(a) > Math.max(bw,4)) psl = Math.max(psl, PdB(P[i])); }
+      // distinct baselines + dmin
+      const Ls = []; let dmin = 1e9;
+      for (let i=0;i<pos.length;i++) for (let j=i+1;j<pos.length;j++){
+        const d = Math.hypot(pos[i][0]-pos[j][0], pos[i][1]-pos[j][1], pos[i][2]-pos[j][2]);
+        Ls.push(Math.round(d*1000)); dmin = Math.min(dmin, d); }
+      const distinct = new Set(Ls).size;
+      return { bw, psl, distinct, fAlias: C_SOUND/(2*dmin) };
+    }
+
+    // turbo-ish colormap t in [0,1] -> THREE.Color
+    const stops = [[0.19,0.07,0.23],[0.20,0.42,0.86],[0.10,0.80,0.72],
+                   [0.92,0.86,0.20],[0.90,0.20,0.16]];
+    function cmap(t){ t=Math.max(0,Math.min(1,t)); const x=t*(stops.length-1);
+      const i=Math.floor(x), f=x-i, a=stops[i], b=stops[Math.min(i+1,stops.length-1)];
+      return new THREE.Color(a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f); }
+
+    // ---- scene --------------------------------------------------------------
+    const app = document.getElementById("app");
+    const scene = new THREE.Scene();
+    const view = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    view.position.set(4.5, 3.2, 5.5);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    app.appendChild(renderer.domElement);
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.domElement.style.position = "absolute";
+    labelRenderer.domElement.style.top = "0";
+    labelRenderer.domElement.style.pointerEvents = "none";
+    app.appendChild(labelRenderer.domElement);
+    const controls = new OrbitControls(view, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+    controls.minDistance = 3; controls.maxDistance = 22;
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+
+    // steer-direction axis (+X)
+    scene.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0),
+      3.4, 0x3fc1ff, 0.25, 0.14));
+    const steerEl = document.createElement("div"); steerEl.className = "label";
+    steerEl.style.color = "#3fc1ff"; steerEl.textContent = "look direction (steered)";
+    const steerLbl = new CSS2DObject(steerEl); steerLbl.position.set(3.6,0,0); scene.add(steerLbl);
+
+    // ---- balloon mesh (lat-long sphere) -------------------------------------
+    const NLAT = 90, NLON = 180;
+    const dirs = []; // unit directions per vertex
+    const posArr = [], colArr = [], idx = [];
+    for (let i=0;i<=NLAT;i++){ const el = -Math.PI/2 + Math.PI*i/NLAT;
+      for (let j=0;j<=NLON;j++){ const az = -Math.PI + 2*Math.PI*j/NLON;
+        const ux = Math.cos(el)*Math.cos(az), uy = Math.cos(el)*Math.sin(az), uz = Math.sin(el);
+        dirs.push([ux,uy,uz]); posArr.push(ux,uy,uz); colArr.push(1,1,1); } }
+    const W = NLON+1;
+    for (let i=0;i<NLAT;i++) for (let j=0;j<NLON;j++){
+      const a=i*W+j, b=a+1, c=a+W, d=c+1; idx.push(a,c,b, b,c,d); }
+    const balloonGeo = new THREE.BufferGeometry();
+    balloonGeo.setAttribute("position", new THREE.Float32BufferAttribute(posArr, 3));
+    balloonGeo.setAttribute("color", new THREE.Float32BufferAttribute(colArr, 3));
+    balloonGeo.setIndex(idx);
+    const balloon = new THREE.Mesh(balloonGeo, new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+    scene.add(balloon);
+    const wire = new THREE.LineSegments(new THREE.WireframeGeometry(balloonGeo),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05 }));
+    scene.add(wire);
+
+    // ---- mics ---------------------------------------------------------------
+    let micGroup = new THREE.Group(); scene.add(micGroup);
+    const FLOOR_DB = -38, RMIN = 0.35, RSPAN = 3.0;
+
+    let state = { geo: "Nested dome", ap: 0.40, f: 2000 };
+
+    function update() {
+      const pos = geos[state.geo](state.ap);
+      const k = 2*Math.PI*state.f/C_SOUND, u0=[1,0,0];
+      const p = balloonGeo.attributes.position.array;
+      const c = balloonGeo.attributes.color.array;
+      for (let n=0;n<dirs.length;n++){ const [ux,uy,uz]=dirs[n];
+        const P = powerAt(pos, k, ux, uy, uz, u0);
+        let dB = 10*Math.log10(P+1e-12); dB = Math.max(FLOOR_DB, Math.min(0, dB));
+        const t = (dB-FLOOR_DB)/(-FLOOR_DB), r = RMIN + RSPAN*t;
+        p[n*3]=ux*r; p[n*3+1]=uy*r; p[n*3+2]=uz*r;
+        const col = cmap(t); c[n*3]=col.r; c[n*3+1]=col.g; c[n*3+2]=col.b; }
+      balloonGeo.attributes.position.needsUpdate = true;
+      balloonGeo.attributes.color.needsUpdate = true;
+      balloonGeo.computeVertexNormals();
+      wire.geometry.dispose(); wire.geometry = new THREE.WireframeGeometry(balloonGeo);
+
+      // redraw mics (scale array to ~0.9 units)
+      scene.remove(micGroup); micGroup.clear(); micGroup = new THREE.Group();
+      let mx = 1e-9; for (const [x,y,z] of pos) mx = Math.max(mx, Math.hypot(x,y,z));
+      const s = 0.95/mx;
+      for (const [x,y,z] of pos){
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12),
+          new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+        m.position.set(x*s, y*s, z*s); micGroup.add(m); }
+      scene.add(micGroup);
+
+      const mt = metrics(pos, state.f);
+      document.getElementById("stats").innerHTML =
+        `<div class="k">geometry</div><b>${state.geo}</b> · ${(state.ap*100)|0} cm<br>` +
+        `<div class="k">−3 dB beamwidth</div><b>${mt.bw.toFixed(0)}°</b><br>` +
+        `<div class="k">peak sidelobe</div><b>${mt.psl.toFixed(1)} dB</b>` +
+        `${mt.psl>-3? ' <span style="color:#ff5a5a">⚠ aliasing</span>':''}<br>` +
+        `<div class="k">alias-free to</div><b>${(mt.fAlias/1000).toFixed(1)} kHz</b><br>` +
+        `<div class="k">distinct baselines</div><b>${mt.distinct}</b> / 120 pairs`;
+    }
+
+    // ---- UI -----------------------------------------------------------------
+    const geoRow = document.getElementById("geoRow");
+    Object.keys(geos).forEach(name => { const b=document.createElement("button");
+      b.textContent=name; if(name===state.geo) b.classList.add("on");
+      b.onclick=()=>{ state.geo=name; [...geoRow.children].forEach(x=>x.classList.remove("on"));
+        b.classList.add("on"); update(); }; geoRow.appendChild(b); });
+    const apRow = document.getElementById("apRow");
+    [["medium 40 cm",0.40],["large 120 cm",1.20]].forEach(([lab,ap])=>{
+      const b=document.createElement("button"); b.textContent=lab;
+      if(ap===state.ap) b.classList.add("on");
+      b.onclick=()=>{ state.ap=ap; [...apRow.children].forEach(x=>x.classList.remove("on"));
+        b.classList.add("on"); update(); }; apRow.appendChild(b); });
+    const freq = document.getElementById("freq");
+    freq.oninput = () => { state.f = +freq.value;
+      document.getElementById("freqval").textContent = state.f + " Hz"; update(); };
+
+    function resize(){ const w=app.clientWidth, h=app.clientHeight;
+      renderer.setSize(w,h); labelRenderer.setSize(w,h);
+      view.aspect=w/h; view.updateProjectionMatrix(); }
+    window.addEventListener("resize", resize); resize(); update();
+    (function animate(){ requestAnimationFrame(animate); controls.update();
+      renderer.render(scene, view); labelRenderer.render(scene, view); })();
+  </script>
+</body>
+</html>
