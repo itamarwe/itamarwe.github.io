@@ -77,7 +77,7 @@ OpenStreetMap's height data is patchy, so this is where most of the estimation h
 - Otherwise — and this is the common case — only the number of floors (`building:levels`) is tagged, not a height. I estimate the height as floors × ~3.2 m per storey (a typical residential floor including the slab).
 - If neither exists, fall back to a sensible default of ~12 m, roughly a four-storey building.
 
-Inferred corners are obviously less trustworthy than measured ones, so the tool flags them: it's better to anchor PnP on a corner whose height you actually know than on one you guessed.
+This is also why the sharp corners of rectangular buildings make the best anchors: a right-angle corner is a single, unambiguous point that you can pin down exactly in both the photo and the map. A rounded rooftop has no such fixed point — the edge you see slides around as your viewpoint changes — so it's far harder to match the same physical spot in both views.
 
 When I tested it on a photo I took in Tel Aviv, it recovered the shooting position with surprisingly high accuracy — down to the rooftop I was standing on.
 
