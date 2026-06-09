@@ -11,6 +11,9 @@ import rehypeStringify from "rehype-stringify";
 
 const POSTS_DIR = path.join(process.cwd(), "content", "posts");
 
+/** Default social-share image when a post sets no `image` in its frontmatter. */
+export const DEFAULT_OG_IMAGE = "/img/profile.jpg";
+
 export interface Post {
   /** Filename-derived slug, e.g. "how-does-a-drone-fly" (case preserved). */
   slug: string;
@@ -21,6 +24,9 @@ export interface Post {
   categories: string;
   /** Whether Disqus comments are enabled. */
   comments: boolean;
+  /** Social-share (OpenGraph/Twitter) image path. Optional `image` in
+   *  frontmatter; falls back to {@link DEFAULT_OG_IMAGE}. */
+  image: string;
   /** Raw markdown body (frontmatter stripped). */
   body: string;
   /** Clean canonical path, e.g. "/blog/how-does-a-drone-fly/". */
@@ -79,6 +85,9 @@ function buildPost(filename: string): Post {
     date: iso,
     categories,
     comments: data.comments === true,
+    image: typeof data.image === "string" && data.image.trim()
+      ? data.image.trim()
+      : DEFAULT_OG_IMAGE,
     body: content,
     url: `/blog/${slug}/`,
     legacyUrl,

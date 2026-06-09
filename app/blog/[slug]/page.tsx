@@ -6,6 +6,7 @@ import {
   renderMarkdown,
   getExcerpt,
   formatDate,
+  DEFAULT_OG_IMAGE,
 } from "@/lib/posts";
 import Disqus from "@/components/Disqus";
 
@@ -22,6 +23,7 @@ export async function generateMetadata({
   const post = getPostBySlug(slug);
   if (!post) return {};
   const description = getExcerpt(post.body);
+  const hasCustomImage = post.image !== DEFAULT_OG_IMAGE;
   return {
     title: post.title,
     description,
@@ -31,6 +33,11 @@ export async function generateMetadata({
       description,
       url: post.url,
       type: "article",
+      images: [post.image],
+    },
+    twitter: {
+      card: hasCustomImage ? "summary_large_image" : "summary",
+      images: [post.image],
     },
   };
 }
