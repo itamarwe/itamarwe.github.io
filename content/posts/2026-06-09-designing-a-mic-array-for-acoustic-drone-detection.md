@@ -6,6 +6,12 @@ date: 2026-06-09
 categories: drones
 ---
 
+<style>
+.viz-frame { width: 100%; aspect-ratio: 16/10; border: 0; border-radius: 8px;
+  margin: 1rem 0; background: #000; }
+@media (max-width: 600px) { .viz-frame { aspect-ratio: 3/4; } }
+</style>
+
 You can hear an FPV drone before you can see it. The motors and props throw off a
 characteristic whine — a blade-pass fundamental and its harmonics — sitting right
 in the **300–4000 Hz** band. So a natural question: if I wanted to *detect* and
@@ -136,7 +142,7 @@ the frequency slider, and orbit the 3-D response "balloon"** — the bulges that
 sprout away from the blue look-direction as you raise the frequency on the ring
 (UCA) are grating lobes; the nested-aperiodic dome keeps them suppressed:
 
-<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency" loading="lazy" style="width:100%;aspect-ratio:16/10;border:0;border-radius:8px;margin:1rem 0;background:#000"></iframe>
+<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency" loading="lazy" class="viz-frame"></iframe>
 
 ## The insight that matters for a 16-channel network
 
@@ -152,7 +158,7 @@ spreads them across ~100 distinct baselines:
 
 <video src="/img/mic-array/CoArray.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-<iframe src="/mic-array-viz/coarray.html" title="Interactive 3-D co-array explorer — switch geometry to compare baseline diversity" loading="lazy" style="width:100%;aspect-ratio:16/10;border:0;border-radius:8px;margin:1rem 0;background:#000"></iframe>
+<iframe src="/mic-array-viz/coarray.html" title="Interactive 3-D co-array explorer — switch geometry to compare baseline diversity" loading="lazy" class="viz-frame"></iframe>
 
 Flip between the geometries above: the **UCA collapses its 120 pairs onto 8
 distinct baselines** (15× redundant — the cyan cloud snaps into a few rings),

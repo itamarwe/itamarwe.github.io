@@ -25,6 +25,16 @@
     #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; color: #6b7280;
       pointer-events: none; max-width: 60%; }
     label.chk { font-size: 12px; color: #cdd6e0; display: flex; gap: 6px; align-items: center; }
+    @media (max-width: 600px) {
+      #ui { padding: 8px 9px; gap: 5px; max-width: 56vw; }
+      .row { gap: 4px; }
+      button { padding: 4px 6px; font-size: 11px; }
+      .ttl { font-size: 10px; }
+      label.chk { font-size: 11px; }
+      #stats { top: auto; bottom: 8px; left: 8px; right: auto; padding: 8px 9px;
+        font-size: 11px; line-height: 1.4; min-width: 0; }
+      #hint { display: none; }
+    }
   </style>
   <script type="importmap">
   { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
