@@ -26,8 +26,21 @@ python deck.py        # writes Neurovascular_Disease_in_Women.pdf next to the sc
 ```
 
 - `manimlike.py` — shared 3b1b/manim-style palette and drawing helpers.
-- `deck.py` — the slides themselves.
-- `Neurovascular_Disease_in_Women.pdf` — the rendered deck.
+- `deck.py` — the full 14-slide deck.
+- `summary.py` — a 2-slide text-card summary.
+- `condensed.py` — a 3-slide condensed version that keeps the deck's
+  visualisations (balance, risk timeline, pre-eclampsia cascade, PRES brain,
+  RCVS beading, CVT sinus, migraine multiplier, AF bars, lupus routes) in
+  grouped panels.
+- `Neurovascular_Disease_in_Women*.pdf` — the rendered decks.
+
+Each script writes its PDF next to itself:
+
+```bash
+python deck.py        # 14-slide deck
+python summary.py     # 2-slide summary
+python condensed.py   # 3-slide condensed deck
+```
 
 ## Source
 
