@@ -19,6 +19,80 @@ target: **16 microphones**, the 300–4000 Hz band, and an algorithm that proces
 all 16 channels at once on an edge accelerator (Hailo / Jetson) — not necessarily
 classical "beamform-then-detect."
 
+## What the research says: algorithms and array shapes
+
+Two bodies of work bear on this design — how people *classify* drone audio, and
+how people *shape* the array.
+
+**Detecting and classifying drone audio.** A good map of the field is this
+[2025 holistic review of acoustic UAV detection](https://pubs.aip.org/aip/adv/article/15/12/120701/3373725/).
+It splits into three generations:
+
+1. **Classical signal processing.** A drone emits a quasi-periodic harmonic comb
+   (blade-pass fundamental plus harmonics), so early detectors used harmonic-line
+   and spectral-correlation detectors, matched filters, and energy thresholds.
+   Cheap and interpretable, but brittle to wind and to harmonics that drift with
+   throttle.
+2. **Feature-engineered ML.** Extract MFCCs / spectral statistics and classify
+   with SVM, kNN, or random forests. A cubic-kernel SVM on MFCCs reaches
+   [~96.7% accuracy](https://www.frontiersin.org/journals/communications-and-networks/articles/10.3389/frcmn.2024.1440727/full)
+   — very light to run, but dependent on hand-chosen features.
+3. **Deep learning on spectrograms.** CNNs, RNNs, and CRNNs over Mel/STFT
+   spectrograms now dominate; across studies CNN ≈ CRNN > RNN, with STFT-CNN
+   detection above 98% and hybrid MFCC+STFT CNNs around 98.5%. Data scarcity is
+   patched with [GAN-synthesised audio](https://pubmed.ncbi.nlm.nih.gov/34372189/),
+   and recent work pushes into drone-*type* recognition
+   ([AUDRON](https://arxiv.org/abs/2512.20407)).
+
+**One-step vs multi-step** is exactly the
+[sound-event-localization-and-detection (SELD) question](https://www.nature.com/articles/s44384-025-00036-3):
+
+- *Multi-step / cascaded* — detect-then-classify, or estimate direction with a
+  classical method (MUSIC, SRP-PHAT, beamforming) and feed a separate detector;
+  in SELD, train detection first and transfer those weights to a direction model.
+  Each stage is simple and swappable, but errors propagate and the pipeline is
+  fiddly.
+- *One-step / joint* — a single multichannel network takes raw channels or
+  GCC-PHAT features and emits detection (and optionally direction) together. The
+  [CRNN is the canonical SELD backbone](https://dcase.community/challenge2020/task-sound-event-localization-and-detection),
+  and the [ACCDOA formulation](https://arxiv.org/abs/2006.12014) folds detection
+  and direction into a single regression target. UAV-specific instances include
+  real-time joint detect-and-localize systems and a
+  [U-Net over dense beamformed energy maps](https://arxiv.org/abs/2508.00307).
+- *Verdict* — joint models win on deployment simplicity; a few studies find
+  cascaded better when detection and localization differ greatly in difficulty,
+  at the cost of training complexity. For a 16-channel edge detector, a **joint
+  CRNN / ACCDOA-style network fed GCC-PHAT** is the well-supported default — which
+  is precisely why the array should maximize spatial-feature richness rather than
+  form a pretty beam.
+
+**Array topologies.** The geometry space is just as well mapped:
+
+- **Uniform** (ULA, UCA): textbook baselines, excellent narrowband DOA, but
+  aliasing caps the band — a
+  [15-cm square drone array is unambiguous only to ~1.1 kHz](https://acta-acustica.edpsciences.org/articles/aacus/full_html/2026/01/aacus250134/aacus250134.html).
+- **Aperiodic planar**: spiral / sunflower and randomized layouts from the
+  acoustic-camera lineage, and
+  [genetic-algorithm-optimized positions tuned for UAV DOA](https://www.mdpi.com/2504-446X/9/2/149).
+- **Sparse / virtual-aperture**:
+  [coprime](https://pubmed.ncbi.nlm.nih.gov/26233043/), nested, minimum-redundancy
+  and [fractal](https://arxiv.org/abs/2001.01217) arrays break the λ/2 grid on
+  purpose to synthesize a large *co-array* from few mics — a coprime pair of
+  N+M−1 elements rivals an MN-element line. An
+  [indoor-localization benchmark](https://arxiv.org/abs/2406.09001) ranks
+  Open-Box > Nested > Billboard among sparse geometries. This is the formal
+  backbone of the baseline-diversity argument below.
+- **3-D / volumetric**:
+  [tetrahedral arrays with DNNs](https://www.mdpi.com/1424-8220/26/6/1778) and
+  [spherical arrays running spherical-harmonic MUSIC](https://ieeexplore.ieee.org/abstract/document/10051923/)
+  that have tracked two UAVs at once. These give full 3-D direction and remove
+  the up/down ambiguity of any flat array.
+
+The recommendation below — a **nested-aperiodic dome** — is the drone-tuned
+intersection of those last two families: a sparse, co-array-maximizing layout
+lifted into 3-D, with the smallest baseline deliberately held ≤4 cm so nothing
+aliases inside 300–4000 Hz.
+
 ## The one rule that fixes everything: λ/2
 
 An array localizes sound by comparing the *phase* of a wavefront across its
