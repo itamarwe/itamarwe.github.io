@@ -163,13 +163,10 @@ spreads them across ~100 distinct baselines:
 
 <video src="/img/mic-array/CoArray.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-<iframe src="/mic-array-viz/coarray.html" title="Interactive 3-D co-array explorer — switch geometry to compare baseline diversity" loading="lazy" class="viz-frame"></iframe>
-
-Flip between the geometries above: the **UCA collapses its 120 pairs onto 8
-distinct baselines** (15× redundant — the cyan cloud snaps into a few rings),
-while the **nested dome spreads them across ~95** (1.3× redundant — a full 3-D
-cloud). That spread is exactly the spatial information a 16-channel network feeds
-on.
+In the video, the **uniform ring collapses its 120 pairs onto just 8 distinct
+baseline lengths** (15× redundant), while the **aperiodic spiral spreads them
+across ~100**. That spread is exactly the spatial information a 16-channel
+network feeds on.
 
 Collapsing that cloud onto a 1-D histogram of baseline *lengths* makes the
 trade-offs even sharper — here for the 1.2 m arrays:

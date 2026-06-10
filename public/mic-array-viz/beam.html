@@ -52,6 +52,8 @@
     <div class="row" id="apRow"></div>
     <div><span class="ttl">Frequency · <span id="freqval">2000 Hz</span></span></div>
     <input type="range" id="freq" min="300" max="4000" step="50" value="2000" />
+    <div><span class="ttl">Microphones · <span id="mval">16</span></span></div>
+    <input type="range" id="mics" min="6" max="32" step="1" value="16" />
   </div>
   <div id="stats"></div>
   <div id="hint">Drag to rotate · scroll to zoom · the balloon is the array's power response over all directions</div>
@@ -61,35 +63,36 @@
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 
-    const C_SOUND = 343, GOLD = Math.PI * (3 - Math.sqrt(5)), M = 16;
-    // Fixed angular jitter (numpy RandomState(3)) so the ring matches the study.
-    const JIT = [0.1016, 0.4163, -0.4182, 0.0217, 0.7859, 0.7926, -0.7488, -0.5855,
-                 -0.8971, -0.1184, -0.9402, -0.0863, 0.2983, -0.4430, 0.3525, 0.1817];
+    const C_SOUND = 343, GOLD = Math.PI * (3 - Math.sqrt(5));
+    // deterministic [-1,1] jitter per index → an aperiodic ring for any mic count
+    const jit = (i) => { const x = Math.sin(i*12.9898 + 1.7) * 43758.5453;
+      return 2*((x - Math.floor(x)) - 0.5); };
 
-    // ---- geometries (positions in metres, (x,y,z)) --------------------------
+    // ---- geometries (positions in metres, (x,y,z)); m = mic count ----------
     const geos = {
-      "ULA": (ap) => Array.from({length: M}, (_, i) =>
-        [(-ap/2) + ap*i/(M-1), 0, 0]),
-      "UCA": (ap) => Array.from({length: M}, (_, i) => {
-        const a = i*2*Math.PI/M, R = ap/2; return [R*Math.cos(a), R*Math.sin(a), 0]; }),
-      "Circular aperiodic": (ap) => Array.from({length: M}, (_, i) => {
-        const R = ap/2, a = (i + 0.5*JIT[i]) * 2*Math.PI/M;
+      "ULA": (ap, m) => Array.from({length: m}, (_, i) =>
+        [(-ap/2) + ap*i/(m-1), 0, 0]),
+      "UCA": (ap, m) => Array.from({length: m}, (_, i) => {
+        const a = i*2*Math.PI/m, R = ap/2; return [R*Math.cos(a), R*Math.sin(a), 0]; }),
+      "Circular aperiodic": (ap, m) => Array.from({length: m}, (_, i) => {
+        const R = ap/2, a = (i + 0.5*jit(i)) * 2*Math.PI/m;
         return [R*Math.cos(a), R*Math.sin(a), 0]; }),
-      "Spiral": (ap) => Array.from({length: M}, (_, i) => {
-        const R = ap/2, r = R*Math.sqrt((i+0.5)/M), th = i*GOLD;
+      "Spiral": (ap, m) => Array.from({length: m}, (_, i) => {
+        const R = ap/2, r = R*Math.sqrt((i+0.5)/m), th = i*GOLD;
         return [r*Math.cos(th), r*Math.sin(th), 0]; }),
-      "Nested dome": (ap) => nestedDome(ap),
+      "Nested dome": (ap, m) => nestedDome(ap, m),
     };
-    function nestedAperiodic(ap) {
-      const R = ap/2, rIn = Math.min(0.06, 0.18*R), nIn = 6, nOut = M-nIn, pts = [];
-      for (let m=0; m<nIn; m++){ const r=rIn*Math.sqrt((m+0.5)/nIn), th=m*GOLD;
+    function nestedAperiodic(ap, m) {
+      const R = ap/2, rIn = Math.min(0.06, 0.18*R);
+      const nIn = Math.min(6, Math.floor(m/2)), nOut = m - nIn, pts = [];
+      for (let k=0; k<nIn; k++){ const r=rIn*Math.sqrt((k+0.5)/nIn), th=k*GOLD;
         pts.push([r*Math.cos(th), r*Math.sin(th), 0]); }
-      for (let m=0; m<nOut; m++){ const r=rIn+(R-rIn)*Math.sqrt((m+0.5)/nOut), th=m*GOLD+1.7;
+      for (let k=0; k<nOut; k++){ const r=rIn+(R-rIn)*Math.sqrt((k+0.5)/nOut), th=k*GOLD+1.7;
         pts.push([r*Math.cos(th), r*Math.sin(th), 0]); }
       return pts;
     }
-    function nestedDome(ap) {
-      const R = ap/2, pts = nestedAperiodic(ap);
+    function nestedDome(ap, m) {
+      const R = ap/2, pts = nestedAperiodic(ap, m);
       return pts.map(([x,y]) => { const rho = Math.hypot(x,y);
         return [x, y, 0.45*R*Math.sqrt(Math.max(0, 1-(rho/R)**2))]; });
     }
@@ -139,7 +142,7 @@
     const app = document.getElementById("app");
     const scene = new THREE.Scene();
     const view = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    view.position.set(4.5, 3.2, 5.5);
+    view.position.set(6.7, 4.8, 8.2);   // start zoomed out so it fits on mobile
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setClearColor(0x000000, 1);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -185,21 +188,22 @@
 
     // ---- mics ---------------------------------------------------------------
     let micGroup = new THREE.Group(); scene.add(micGroup);
-    const FLOOR_DB = -38, RMIN = 0.35, RSPAN = 3.0;
+    const RMIN = 0.25, RSPAN = 2.45;
 
-    let state = { geo: "Nested dome", ap: 0.40, f: 2000 };
+    let state = { geo: "Nested dome", ap: 0.40, f: 2000, M: 16 };
 
     function update() {
-      const pos = geos[state.geo](state.ap);
+      const pos = geos[state.geo](state.ap, state.M);
       const k = 2*Math.PI*state.f/C_SOUND, u0=[1,0,0];
       const p = balloonGeo.attributes.position.array;
       const c = balloonGeo.attributes.color.array;
       for (let n=0;n<dirs.length;n++){ const [ux,uy,uz]=dirs[n];
         const P = powerAt(pos, k, ux, uy, uz, u0);
-        let dB = 10*Math.log10(P+1e-12); dB = Math.max(FLOOR_DB, Math.min(0, dB));
-        const t = (dB-FLOOR_DB)/(-FLOOR_DB), r = RMIN + RSPAN*t;
+        // radius & colour from AMPLITUDE (sqrt of power) so the main lobe — at
+        // full amplitude 1 — clearly dominates the sidelobe floor.
+        const amp = Math.sqrt(P), r = RMIN + RSPAN*amp;
         p[n*3]=ux*r; p[n*3+1]=uy*r; p[n*3+2]=uz*r;
-        const col = cmap(t); c[n*3]=col.r; c[n*3+1]=col.g; c[n*3+2]=col.b; }
+        const col = cmap(amp); c[n*3]=col.r; c[n*3+1]=col.g; c[n*3+2]=col.b; }
       balloonGeo.attributes.position.needsUpdate = true;
       balloonGeo.attributes.color.needsUpdate = true;
       balloonGeo.computeVertexNormals();
@@ -216,13 +220,14 @@
       scene.add(micGroup);
 
       const mt = metrics(pos, state.f);
+      const nPairs = pos.length*(pos.length-1)/2;
       document.getElementById("stats").innerHTML =
-        `<div class="k">geometry</div><b>${state.geo}</b> · ${(state.ap*100)|0} cm<br>` +
+        `<div class="k">geometry</div><b>${state.geo}</b> · ${(state.ap*100)|0} cm · ${pos.length} mics<br>` +
         `<div class="k">−3 dB beamwidth</div><b>${mt.bw.toFixed(0)}°</b><br>` +
         `<div class="k">peak sidelobe</div><b>${mt.psl.toFixed(1)} dB</b>` +
         `${mt.psl>-3? ' <span style="color:#ff5a5a">⚠ aliasing</span>':''}<br>` +
         `<div class="k">alias-free to</div><b>${(mt.fAlias/1000).toFixed(1)} kHz</b><br>` +
-        `<div class="k">distinct baselines</div><b>${mt.distinct}</b> / 120 pairs`;
+        `<div class="k">distinct baselines</div><b>${mt.distinct}</b> / ${nPairs} pairs`;
     }
 
     // ---- UI -----------------------------------------------------------------
@@ -240,6 +245,9 @@
     const freq = document.getElementById("freq");
     freq.oninput = () => { state.f = +freq.value;
       document.getElementById("freqval").textContent = state.f + " Hz"; update(); };
+    const mics = document.getElementById("mics");
+    mics.oninput = () => { state.M = +mics.value;
+      document.getElementById("mval").textContent = state.M; update(); };
 
     function resize(){ const w=app.clientWidth, h=app.clientHeight;
       renderer.setSize(w,h); labelRenderer.setSize(w,h);
