@@ -7,12 +7,6 @@ categories: ai
 image: /img/team-brain/social.png
 ---
 
-<style>
-.viz-frame { width: 100%; aspect-ratio: 16/10; border: 0; border-radius: 8px;
-  margin: 1rem 0; background: #000; }
-@media (max-width: 600px) { .viz-frame { aspect-ratio: 3/4; } }
-</style>
-
 When a team starts building a brand-new product, the most valuable thing it owns
 isn't in the product yet. It's scattered across customer calls, Slack threads,
 WhatsApp arguments at midnight, hallway conversations, and half-finished decks.
@@ -49,16 +43,16 @@ linked pages once, and then keep it current. Answers that turn out to be useful
 get **written back into the wiki**, so the knowledge compounds instead of
 evaporating.
 
-The toggle below makes the difference concrete. Ask the same question over and
-over in each mode:
+Watch the same question get asked over and over on both sides:
 
-<iframe src="/team-brain/rag-vs-wiki.html" title="Interactive RAG vs. living-wiki comparison" loading="lazy" class="viz-frame"></iframe>
+<video src="/img/team-brain/rag-vs-wiki.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0;background:#000"></video>
 
-*In **RAG** mode, every ask re-scans the full corpus of raw chunks and keeps
-nothing — the work is identical the tenth time as the first. In **Living wiki**
-mode, the first ask synthesises a page (it turns green and stays), and every ask
-afterward is just a lookup. The plain-text wiki also has almost no failure modes:
-no running service, and it version-controls cleanly in Git.*
+*On the left, **RAG** re-scans the full corpus of raw chunks on every ask and keeps
+nothing — the "work per ask" meter pins to full every single time. On the right, the
+**living wiki** writes the answer into a page on the first ask (it turns green and
+stays); every ask after that is just a lookup, and the work meter barely moves. The
+plain-text wiki also has almost no failure modes: no running service, and it
+version-controls cleanly in Git.*
 
 A concrete example from the episode: a PM was wrestling with pricing. He opened the
 brain, worked through it, pulled in some competitor research, and distilled a table
@@ -76,19 +70,18 @@ go-to-market and engineering), **entities** (companies and people, by role),
 like Wikipedia. You land on one page, see a link to a related concept, and follow
 it.
 
-This is the centerpiece. Each node is a wiki page; each edge is a cross-link the
-model wrote between two pages:
+Each node is a wiki page; each edge is a cross-link the model wrote between two
+pages:
 
-<iframe src="/team-brain/graph.html" title="Interactive 3-D knowledge graph of the team brain" loading="lazy" class="viz-frame"></iframe>
+![The team brain as a knowledge graph: concepts, people, companies, meetings and decisions, all cross-linked. One meeting (gold) fans links out to many pages at once.](/img/team-brain/graph.png)
 
-*Drag to orbit; hover a node to trace its links and neighbours. Open the page for a
-concept like "API-First Architecture" and you can see which meetings raised it, who
-brought it up, how the team defined it, and whether competitors do the same thing.
-Now hit **Ingest a meeting**: watch a single conversation light up pages all over
-the graph — a competitor, a pricing page, a positioning concept, a decision. One
-meeting can touch a dozen-plus pages at once.*
+*Open the page for a concept like "API-First Architecture" and you can see which
+meetings raised it, who brought it up, how the team defined it, and whether
+competitors do the same thing. The gold node is a single meeting — "Competitor A
+demo" — and the gold edges are the cross-links it wrote in one pass: to a competitor,
+a pricing page, a positioning concept, the go-to-market page, and a person.*
 
-That last point is the crux of why it's a graph and not a folder of notes. A single
+That gold fan-out is the crux of why it's a graph and not a folder of notes. A single
 discovery call isn't *about* one thing — it touches a competitor, a feature, a
 pricing question, and an architectural constraint all at once, so ingesting it
 updates many pages simultaneously.
@@ -111,13 +104,13 @@ fetches new context from *their* sources, computes what to add, and pushes it ba
 Everyone's meetings flow into one shared brain, and everyone stays synced without a
 single alignment meeting.
 
-<iframe src="/team-brain/sync.html" title="Interactive diagram of the team syncing into one living memory" loading="lazy" class="viz-frame"></iframe>
+<video src="/img/team-brain/sync.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0;background:#000"></video>
 
 *The brain sits in the middle (it's just a Git repo). Each builder pulls data from
 their own sources — Note Taker, Slack, WhatsApp, Docs — and their cron job streams
-context **in** (push) and **out** (pull), so the memory is always live. Toggle
-**show agents on top** to reveal the next layer: autonomous agents, including a
-WhatsApp assistant the team named Siena, that read from the same brain and act.*
+context **in** (push, gold) and **out** (pull, cyan), so the memory is always live.
+The outer ring is the next layer: autonomous agents, including a WhatsApp assistant
+the team named Siena, that read from the same brain (violet) and act on top of it.*
 
 On top of the repo, the team exposed the brain in the ways humans actually work:
 a Wikipedia-style website you can read like a morning newspaper, the editors in
