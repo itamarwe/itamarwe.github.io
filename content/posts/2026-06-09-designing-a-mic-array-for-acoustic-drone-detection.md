@@ -73,6 +73,8 @@ It splits into three generations:
   is precisely why the array should maximize spatial-feature richness rather than
   form a pretty beam.
 
+![Multi-step (cascaded detect-then-localize) versus one-step (a single joint multichannel network) pipelines for acoustic drone detection](/img/mic-array/algorithms_pipeline.png)
+
 **Array topologies.** The geometry space is just as well mapped:
 
 - **Uniform** (ULA, UCA): textbook baselines, excellent narrowband DOA, but
@@ -94,6 +96,8 @@ It splits into three generations:
   [spherical arrays running spherical-harmonic MUSIC](https://ieeexplore.ieee.org/abstract/document/10051923/)
   that have tracked two UAVs at once. These give full 3-D direction and remove
   the up/down ambiguity of any flat array.
+
+![The microphone-array topology families: uniform line and ring, aperiodic planar spiral, sparse coprime and nested layouts, and a 3-D volumetric dome](/img/mic-array/topology_families.png)
 
 The recommendation below — a **nested-aperiodic dome** — is the drone-tuned
 intersection of those last two families: a sparse, co-array-maximizing layout
