@@ -171,6 +171,18 @@ while the **nested dome spreads them across ~95** (1.3× redundant — a full 3-
 cloud). That spread is exactly the spatial information a 16-channel network feeds
 on.
 
+Collapsing that cloud onto a 1-D histogram of baseline *lengths* makes the
+trade-offs even sharper — here for the 1.2 m arrays:
+
+![Histograms of the 120 pairwise baseline lengths for each array at 1.2 m aperture: the uniform ring piles them onto 8 lengths, aperiodic layouts spread them out, and only the nested array has both a cluster of tiny baselines and a spread of large ones](/img/mic-array/baseline_histograms_large.png)
+
+The uniform ring dumps all 120 pairs onto **8 lengths** (tall spikes, nothing
+below ~23 cm). A *circular aperiodic* ring spreads them richly but still keeps
+almost nothing small — which is why its high-frequency floor rises. Only the
+**nested** array shows the multi-scale signature: a cluster of tiny baselines
+*left of the 4.3 cm line* (which keep 4 kHz unambiguous) **plus** a spread out to
+the full aperture (which buys low-frequency resolution).
+
 More distinct baselines means more independent spatial features, which means
 easier detection and coarse bearing — **without** needing classical beamforming at
 all. This is the real reason to prefer an aperiodic array for a *learned*
