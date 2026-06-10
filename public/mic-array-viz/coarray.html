@@ -59,9 +59,13 @@
     import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 
     const GOLD = Math.PI*(3-Math.sqrt(5)), M = 16;
+    // Fixed angular jitter (numpy RandomState(3)) so the ring matches the study.
+    const JIT = [0.1016, 0.4163, -0.4182, 0.0217, 0.7859, 0.7926, -0.7488, -0.5855,
+                 -0.8971, -0.1184, -0.9402, -0.0863, 0.2983, -0.4430, 0.3525, 0.1817];
     const geos = {
       "ULA": (ap)=>Array.from({length:M},(_,i)=>[(-ap/2)+ap*i/(M-1),0,0]),
       "UCA": (ap)=>Array.from({length:M},(_,i)=>{const a=i*2*Math.PI/M,R=ap/2;return[R*Math.cos(a),R*Math.sin(a),0];}),
+      "Circular aperiodic": (ap)=>Array.from({length:M},(_,i)=>{const R=ap/2,a=(i+0.5*JIT[i])*2*Math.PI/M;return[R*Math.cos(a),R*Math.sin(a),0];}),
       "Spiral": (ap)=>Array.from({length:M},(_,i)=>{const R=ap/2,r=R*Math.sqrt((i+0.5)/M),th=i*GOLD;return[r*Math.cos(th),r*Math.sin(th),0];}),
       "Nested dome": (ap)=>nestedDome(ap),
     };
