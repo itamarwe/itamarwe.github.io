@@ -72,7 +72,7 @@ The recommendation below is the drone-tuned intersection of the last two: a spar
 co-array-maximizing layout lifted into 3-D, with the smallest baseline kept ≤4 cm
 so nothing aliases inside 300–4000 Hz.
 
-## The one constraint that drives everything
+## The tradeoff that drives everything
 
 Arrays localize sound by comparing the phase of a wavefront across microphones. The
 catch: if the spacing exceeds **half a wavelength**, two completely different arrival
