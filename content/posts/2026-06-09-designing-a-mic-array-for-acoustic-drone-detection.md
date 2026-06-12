@@ -103,9 +103,34 @@ most important contrast is uniform vs aperiodic:
 A uniform ring grows sharp, discrete grating lobes at high frequency — phantom
 directions as loud as the real one. An aperiodic spiral with the same mics and same
 aperture smears that energy into a low, diffuse floor instead. The interactive
-explorer below lets you sweep frequency and geometry and see this directly:
+explorer below lets you sweep frequency and geometry — and steer the **look
+direction** — to see this directly:
 
-<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency" loading="lazy" class="viz-frame"></iframe>
+<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency, steer the look direction" loading="lazy" class="viz-frame"></iframe>
+
+## A beam pattern depends on where you look
+
+There's a subtlety the beam patterns above hide if you only ever steer one way:
+**the response is not a property of the array, it's a property of the array *and*
+the look direction.** This bites the line array hardest. A ULA only senses the
+component of the wavefront along its axis, so what it does depends entirely on
+where the target is relative to that axis.
+
+Steer it **endfire** (along the line) and the main lobe balloons to ~40° — terrible
+resolution, because a tilt of the source barely changes the along-axis projection.
+Steer it **broadside** (perpendicular) and the lobe sharpens to ~7° — but now there
+are *two* of them, a mirror pair at ±90° the array can't tell apart. In full 3-D
+it's worse than a mirror: a broadside-steered line responds to the entire *cone* of
+directions at that angle (drag the explorer to the line array, hit "across (90°)",
+and orbit it — the lobe is a flat disk). A 2-D array has no privileged axis, so its
+beam stays essentially the same wherever you steer it:
+
+![The same array steered endfire vs broadside: the ULA swings from a fat low-resolution lobe to a sharp but mirror-ambiguous one, while the UCA and nested-aperiodic arrays barely change](/img/mic-array/directionality_large.png)
+
+This is the other half of the case against the line array for drone work: even
+ignoring aliasing, its performance swings wildly with bearing, and a drone can come
+from any direction. The 2-D and 3-D layouts are the ones you can actually trust to
+behave the same all around.
 
 ## The co-array: why geometry matters for a neural network
 
