@@ -200,6 +200,8 @@ measured mic positions carefully — aperiodic arrays depend on it. And MEMS mic
 place on a PCB dome or disk.
 
 The whole simulation — the geometry library, response-curve plots, and the
-animations above — is a few hundred lines of Python. The physics is old; the new
-part is realizing that when a 16-channel network is doing the detection, the right
-objective isn't a clean beam — it's **baseline diversity**.
+animations above — is a few hundred lines of Python, and it's
+[all on GitHub](https://github.com/itamarwe/itamarwe.github.io/tree/master/research/mic-array).
+The physics is old; the new part is realizing that when a 16-channel network is
+doing the detection, the right objective isn't a clean beam — it's **baseline
+diversity**.
