@@ -54,6 +54,9 @@
     <input type="range" id="freq" min="300" max="4000" step="50" value="2000" />
     <div><span class="ttl">Microphones · <span id="mval">16</span></span></div>
     <input type="range" id="mics" min="6" max="32" step="1" value="16" />
+    <div><span class="ttl">Look direction · <span id="steerval">0° (endfire)</span></span></div>
+    <div class="row" id="steerRow"></div>
+    <input type="range" id="steer" min="0" max="90" step="1" value="0" />
   </div>
   <div id="stats"></div>
   <div id="hint">Drag to rotate · scroll to zoom · the balloon is the array's power response over all directions</div>
@@ -107,21 +110,24 @@
       }
       return (re*re + im*im) / (pos.length*pos.length);
     }
-    function metrics(pos, f) {
-      const k = 2*Math.PI*f/C_SOUND, u0 = [1,0,0], N = 1440;
-      let psl = -99, peakIdx = 0; const P = new Float64Array(N);
-      for (let i=0;i<N;i++){ const a = -Math.PI + 2*Math.PI*i/N;
+    function metrics(pos, f, sa) {
+      const k = 2*Math.PI*f/C_SOUND, N = 1440;
+      const u0 = [Math.cos(sa), Math.sin(sa), 0];
+      let psl = -99; const P = new Float64Array(N);
+      const azAt = (i) => -Math.PI + 2*Math.PI*i/N;
+      for (let i=0;i<N;i++){ const a = azAt(i);
         P[i] = powerAt(pos, k, Math.cos(a), Math.sin(a), 0, u0); }
-      // mainlobe at a=0 (index where cos=1) -> i = N/2
-      const i0 = Math.round(N/2);
+      // mainlobe sits at the steer azimuth (az-plane cut)
+      const i0 = Math.round(((sa + Math.PI) / (2*Math.PI)) * N) % N;
       const PdB = (x) => 10*Math.log10(x + 1e-12);
-      // -3 dB beamwidth
-      const edge = (step) => { let i=i0; while(PdB(P[i])>-3 && i>0 && i<N-1) i+=step;
-        return -Math.PI + 2*Math.PI*i/N; };
-      const bw = Math.abs(edge(1)-edge(-1))*180/Math.PI;
-      // peak sidelobe outside mainlobe
-      for (let i=0;i<N;i++){ const a=(-Math.PI+2*Math.PI*i/N)*180/Math.PI;
-        if (Math.abs(a) > Math.max(bw,4)) psl = Math.max(psl, PdB(P[i])); }
+      // -3 dB beamwidth, walking out from the steered mainlobe (wrap-around)
+      const edge = (step) => { let i=i0, n=0;
+        while(PdB(P[(i+N)%N])>-3 && n<N){ i+=step; n++; } return azAt((i+N)%N); };
+      const bw = Math.min(360, Math.abs(edge(1)-edge(-1))*180/Math.PI);
+      // peak sidelobe outside the mainlobe (angular distance from steer az)
+      for (let i=0;i<N;i++){ let da = Math.abs(azAt(i)-sa)*180/Math.PI;
+        if (da>180) da = 360-da;
+        if (da > Math.max(bw,4)) psl = Math.max(psl, PdB(P[i])); }
       // distinct baselines + dmin
       const Ls = []; let dmin = 1e9;
       for (let i=0;i<pos.length;i++) for (let j=i+1;j<pos.length;j++){
@@ -157,12 +163,17 @@
     controls.minDistance = 3; controls.maxDistance = 22;
     scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-    // steer-direction axis (+X)
-    scene.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0),
-      3.4, 0x3fc1ff, 0.25, 0.14));
+    // steer-direction axis — rotates with the "Look direction" control
+    const steerArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0),
+      new THREE.Vector3(0,0,0), 3.4, 0x3fc1ff, 0.25, 0.14);
+    scene.add(steerArrow);
     const steerEl = document.createElement("div"); steerEl.className = "label";
     steerEl.style.color = "#3fc1ff"; steerEl.textContent = "look direction (steered)";
     const steerLbl = new CSS2DObject(steerEl); steerLbl.position.set(3.6,0,0); scene.add(steerLbl);
+    // the array axis (+X), so you can see "along" vs "across" the line
+    const axisEl = document.createElement("div"); axisEl.className = "label";
+    axisEl.style.color = "#6b7280"; axisEl.textContent = "array axis";
+    const axisLbl = new CSS2DObject(axisEl); axisLbl.position.set(3.6,0,-0.35); scene.add(axisLbl);
 
     // ---- balloon mesh (lat-long sphere) -------------------------------------
     const NLAT = 90, NLON = 180;
@@ -190,11 +201,16 @@
     let micGroup = new THREE.Group(); scene.add(micGroup);
     const RMIN = 0.25, RSPAN = 2.45;
 
-    let state = { geo: "Nested dome", ap: 0.40, f: 2000, M: 16 };
+    let state = { geo: "Nested dome", ap: 0.40, f: 2000, M: 16, steer: 0 };
 
     function update() {
       const pos = geos[state.geo](state.ap, state.M);
-      const k = 2*Math.PI*state.f/C_SOUND, u0=[1,0,0];
+      const sa = state.steer * Math.PI/180;          // steer azimuth (rad)
+      const u0 = [Math.cos(sa), Math.sin(sa), 0];     // look direction
+      const k = 2*Math.PI*state.f/C_SOUND;
+      steerArrow.setDirection(new THREE.Vector3(u0[0], u0[1], u0[2]));
+      steerLbl.position.set(u0[0]*3.6, u0[1]*3.6, u0[2]*3.6);
+      axisLbl.visible = (state.geo === "ULA");        // axis only meaningful for the line
       const p = balloonGeo.attributes.position.array;
       const c = balloonGeo.attributes.color.array;
       for (let n=0;n<dirs.length;n++){ const [ux,uy,uz]=dirs[n];
@@ -219,7 +235,7 @@
         m.position.set(x*s, y*s, z*s); micGroup.add(m); }
       scene.add(micGroup);
 
-      const mt = metrics(pos, state.f);
+      const mt = metrics(pos, state.f, sa);
       const nPairs = pos.length*(pos.length-1)/2;
       document.getElementById("stats").innerHTML =
         `<div class="k">geometry</div><b>${state.geo}</b> · ${(state.ap*100)|0} cm · ${pos.length} mics<br>` +
@@ -248,6 +264,16 @@
     const mics = document.getElementById("mics");
     mics.oninput = () => { state.M = +mics.value;
       document.getElementById("mval").textContent = state.M; update(); };
+    const steer = document.getElementById("steer");
+    const steerLabel = (deg) => deg <= 1 ? `${deg}° (endfire)`
+      : deg >= 89 ? `${deg}° (broadside)` : `${deg}°`;
+    const setSteer = (deg) => { state.steer = deg; steer.value = deg;
+      document.getElementById("steerval").textContent = steerLabel(deg); update(); };
+    steer.oninput = () => setSteer(+steer.value);
+    const steerRow = document.getElementById("steerRow");
+    [["along array (0°)",0],["across (90°)",90]].forEach(([lab,deg])=>{
+      const b=document.createElement("button"); b.textContent=lab;
+      b.onclick=()=>setSteer(deg); steerRow.appendChild(b); });
 
     function resize(){ const w=app.clientWidth, h=app.clientHeight;
       renderer.setSize(w,h); labelRenderer.setSize(w,h);
