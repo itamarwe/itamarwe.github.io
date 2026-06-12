@@ -65,7 +65,7 @@
       <button id="playBtn">&#9654; Auto</button>
       <div class="grp">
         <span class="knob">Zoom &amp; dolly</span>
-        <input id="zoom" type="range" min="1" max="16" step="0.02" value="1" />
+        <input id="zoom" type="range" min="1" max="30" step="0.05" value="1" />
         <span id="zoomVal">1.00&times;</span>
       </div>
       <div id="stats">
@@ -84,6 +84,7 @@
   // ---- parameters --------------------------------------------------------
   const BASE_FOV = 55;        // vertical FOV (deg) at zoom = 1
   const BASE_DIST = 6;        // camera→subject distance (m) at zoom = 1
+  const MAX_ZOOM = 30;        // slider / auto-sweep ceiling
   const CAM_H = 1.68;         // camera / eye height
   const GAP = 100;            // metres the second soldier stands behind the subject
   const SUBJ = new THREE.Vector3(0, 0, 0);     // foreground soldier
@@ -93,7 +94,9 @@
   //  WORLD SCENE  (left panel — the dusk valley the camera looks down)
   // ======================================================================
   const world = new THREE.Scene();
-  world.fog = new THREE.Fog(0x3a3552, 55, 340);
+  // very light haze on the far ridgelines only — the action zone (0–250 m) stays
+  // crisp so foreground and background read as one continuous space.
+  world.fog = new THREE.Fog(0x6a5d68, 420, 1150);
 
   // dusk sky gradient dome
   const sky = new THREE.Mesh(
@@ -116,15 +119,16 @@
   );
   world.add(sky);
 
-  // lighting — low warm dusk sun (back/key) + cool frontal fill so faces read
-  const sunLight = new THREE.DirectionalLight(0xffb070, 1.1);
-  sunLight.position.set(-70, 22, -120);
+  // lighting — warm dusk sun (back/key) + strong cool frontal fill so the scene
+  // stays bright and legible while keeping the dusk mood.
+  const sunLight = new THREE.DirectionalLight(0xffc188, 1.35);
+  sunLight.position.set(-70, 26, -120);
   world.add(sunLight);
-  const fill = new THREE.DirectionalLight(0xbcc6e0, 0.7);   // from the camera side (+Z)
-  fill.position.set(18, 34, 130);
+  const fill = new THREE.DirectionalLight(0xc7d2ea, 1.15);  // from the camera side (+Z)
+  fill.position.set(18, 38, 130);
   world.add(fill);
-  world.add(new THREE.HemisphereLight(0x7c7caa, 0x161109, 0.85));
-  world.add(new THREE.AmbientLight(0x4a536e, 0.4));
+  world.add(new THREE.HemisphereLight(0x9aa0cc, 0x2a2418, 1.15));
+  world.add(new THREE.AmbientLight(0x6a7290, 0.6));
 
   // deterministic RNG so the scene is stable across reloads (and capture)
   let _s = 1337; const rnd = () => { _s = (_s*16807) % 2147483647; return (_s-1)/2147483646; };
@@ -133,7 +137,7 @@
   // valley floor
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(1400, 1400),
-    new THREE.MeshStandardMaterial({ color: 0x4a4632, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x67603f, roughness: 1 })
   );
   ground.rotation.x = -Math.PI/2; world.add(ground);
 
@@ -144,8 +148,8 @@
     m.scale.set(1, h/r, 1); m.position.set(x, -r*0.18, z); world.add(m);
   }
   for (let z=-20; z>-360; z-=rr(34,60)) {
-    hill(-rr(34,60), z, rr(22,40), rr(16,30), 0x3b4329);
-    hill( rr(34,60), z, rr(22,40), rr(16,30), 0x414a2d);
+    hill(-rr(34,60), z, rr(22,40), rr(16,30), 0x535d38);
+    hill( rr(34,60), z, rr(22,40), rr(16,30), 0x5a6640);
   }
 
   // distant mountain ridges (silhouette layers, blended into the dusk haze)
@@ -242,6 +246,7 @@
   const target = makeSoldier({ uniform:0x8a7c52, vest:0x6f6336, helmet:0x736637, skin:0xcda277 });
   target.position.copy(TARGET); target.rotation.y = 0.05; world.add(target);
   contactShadow(TARGET.x, TARGET.z, 0.6);
+  const FAR_Z = TARGET.z - 30;   // static far edge of the top-down map (and wedge extent)
 
   // ---- Mediterranean forest (cypress, pine, oak) -------------------------
   function makeTree(kind, scale) {
@@ -249,7 +254,7 @@
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12*scale,0.18*scale,1.2*scale,7),
       new THREE.MeshStandardMaterial({ color:0x3a2c1c, roughness:1 }));
     trunk.position.y = 0.6*scale; g.add(trunk);
-    const greens = [0x2c3f28, 0x33492b, 0x274033, 0x3b4a2a];
+    const greens = [0x3a5234, 0x456037, 0x375740, 0x4c6236];
     const mat = new THREE.MeshStandardMaterial({ color: greens[(rnd()*greens.length)|0], roughness:1 });
     if (kind === 0) {                       // cypress — tall thin
       const f = new THREE.Mesh(new THREE.ConeGeometry(0.9*scale, 5.2*scale, 9), mat);
@@ -322,8 +327,8 @@
   const grid = new THREE.GridHelper(800, 80, 0x1a2230, 0x121822);
   grid.position.y = -0.2; top.add(grid);
 
-  const troad = new THREE.Mesh(new THREE.PlaneGeometry(4, 700), flat(0x171b22));
-  troad.rotation.x = -Math.PI/2; troad.position.set(0,-0.1,-330); top.add(troad);
+  const troad = new THREE.Mesh(new THREE.PlaneGeometry(4, 1000), flat(0x171b22));
+  troad.rotation.x = -Math.PI/2; troad.position.set(0,-0.1,-160); top.add(troad);
 
   const treeDot = flat(0x294a32);          // trees as faint dots
   treeSpots.forEach(({x,z}) => {
@@ -339,8 +344,8 @@
     ring.rotation.x=-Math.PI/2; grp.add(ring);
     grp.position.set(x, 0, z); top.add(grp); return grp;
   }
-  marker(SUBJ.x, SUBJ.z, 1.6, 0x6fdc6f);          // subject (green)
-  marker(TARGET.x, TARGET.z, 1.6, 0xffb070);       // target soldier (tan)
+  marker(SUBJ.x, SUBJ.z, 5.5, 0x6fdc6f);          // subject (green)
+  marker(TARGET.x, TARGET.z, 5.5, 0xffb070);       // target soldier (tan)
 
   // FOV wedge (updated every frame)
   const wedgeGeo = new THREE.BufferGeometry();
@@ -356,14 +361,14 @@
     new THREE.LineDashedMaterial({ color:0x44505f, dashSize:1.4, gapSize:1.4 }));
   top.add(track);
 
-  const camGlyph = new THREE.Group();      // little camera triangle at the apex
-  const tri = new THREE.Shape(); tri.moveTo(0,1.7); tri.lineTo(-1.5,-1.3); tri.lineTo(1.5,-1.3); tri.closePath();
+  const camGlyph = new THREE.Group();      // camera triangle at the apex, pointing at the scene
+  const tri = new THREE.Shape(); tri.moveTo(0,9.5); tri.lineTo(-7.5,-7); tri.lineTo(7.5,-7); tri.closePath();
   const camBody = new THREE.Mesh(new THREE.ShapeGeometry(tri), flat(0x3fc1ff));
-  camBody.rotation.x = -Math.PI/2; camGlyph.add(camBody);
+  camBody.rotation.x = -Math.PI/2; camGlyph.add(camBody);    // shape +Y → world −Z (toward the scene)
   top.add(camGlyph);
 
   const topCam = new THREE.OrthographicCamera(-50,50,50,-50,0.1,1000);
-  topCam.position.set(0, 300, 0); topCam.up.set(0,0,-1); topCam.lookAt(0,0,0);
+  topCam.up.set(1, 0, 0);   // landscape: world +Z → screen right, world +X → screen up
 
   const labelLayer = new CSS2DRenderer();
   labelLayer.domElement.style.position = "absolute";
@@ -371,10 +376,11 @@
   labelLayer.domElement.style.pointerEvents = "none";
   function mkLabel(cls, txt) { const e=document.createElement("div"); e.className="lab "+cls;
     e.textContent=txt; const o=new CSS2DObject(e); top.add(o); return { e, o }; }
-  const lSubj = mkLabel("dim", "subject"); lSubj.o.position.set(SUBJ.x-5.5, 0, SUBJ.z);
-  const lTarg = mkLabel("dim", "target · 100 m back"); lTarg.o.position.set(TARGET.x+13, 0, TARGET.z);
+  // X offset = vertical shift on screen, Z offset = horizontal (landscape map)
+  const lSubj = mkLabel("dim", "subject"); lSubj.o.position.set(11, 0, SUBJ.z);
+  const lTarg = mkLabel("dim", "target · 100 m back"); lTarg.o.position.set(13, 0, TARGET.z);
   const lD   = mkLabel("m cyan", "d = 6.0 m");
-  const lGap = mkLabel("m", "Δ = 100 m"); lGap.o.position.set(-8, 0, (SUBJ.z+TARGET.z)/2);
+  const lGap = mkLabel("m", "Δ = 100 m"); lGap.o.position.set(-15, 0, (SUBJ.z+TARGET.z)/2);
   const lFov = mkLabel("m gold", "θ = 55°");
 
   // ======================================================================
@@ -414,10 +420,10 @@
     document.getElementById("vDist").textContent = d.toFixed(1) + " m";
     document.getElementById("vTarget").textContent = Math.round(d + GAP) + " m";
 
-    // ---- update the top-down schematic ----
+    // ---- update the top-down schematic (frame is STATIC; only the camera moves) ----
     const hfov = hfovFrom(vfov);
-    const apexZ = d;
-    const farZ = TARGET.z - 26;
+    const apexZ = d;                         // camera world-Z (slides along the road)
+    const farZ = FAR_Z;                       // fixed far edge of the wedge
     const len = apexZ - farZ;
     const halfW = Math.tan(hfov/2) * len;
     const wp = wedge.geometry.attributes.position.array;
@@ -430,25 +436,28 @@
     wedgeEdges.geometry.attributes.position.needsUpdate = true;
 
     camGlyph.position.set(0, 0.1, apexZ);
-    track.geometry.attributes.position.array.set([0,0,BASE_DIST, 0,0,BASE_DIST*16]);
+    track.geometry.attributes.position.array.set([0,0,BASE_DIST, 0,0,BASE_DIST*MAX_ZOOM]);
     track.geometry.attributes.position.needsUpdate = true; track.computeLineDistances();
 
-    lD.e.textContent = "d = " + d.toFixed(1) + " m"; lD.o.position.set(3.0, 0, apexZ*0.5);
-    lFov.e.innerHTML = "θ = " + vfov.toFixed(0) + "°"; lFov.o.position.set(halfW*0.12 + 3, 0, apexZ - len*0.10);
-
-    fitTop(apexZ);
+    lD.e.textContent = "d = " + d.toFixed(0) + " m"; lD.o.position.set(15, 0, (apexZ+SUBJ.z)/2);
+    lFov.e.innerHTML = "θ = " + vfov.toFixed(0) + "°"; lFov.o.position.set(-13, 0, apexZ - 12);
   }
 
   let topAspect = 1;
-  function fitTop(apexZ) {
-    const zTop = TARGET.z - 34;               // far edge (up on screen)
-    const zBot = apexZ + 8;                    // near edge (camera, bottom)
-    const cz = (zTop + zBot) / 2;
-    const halfH = Math.max(28, (zBot - zTop) / 2 * 1.12);
-    const halfW = halfH * topAspect;
-    topCam.top = halfH; topCam.bottom = -halfH;
-    topCam.left = -halfW; topCam.right = halfW;
-    topCam.position.set(0, 300, cz); topCam.lookAt(0, 0, cz);
+  // The map is fixed: it spans from a little past the far edge (left) to a little
+  // past where the camera ends up at MAX_ZOOM (right). Subjects never move; only
+  // the camera glyph and its view-cone slide across this static frame.
+  function fitStatic() {
+    const zL = FAR_Z - 12;                     // scene side (screen left)
+    const zR = BASE_DIST * MAX_ZOOM + 22;      // camera runway end (screen right)
+    const halfZ = (zR - zL) / 2;
+    const zc = (zR + zL) / 2;
+    const halfX = halfZ / topAspect;           // world-X half-extent (screen vertical)
+    topCam.left = -halfZ; topCam.right = halfZ;
+    topCam.top = halfX;  topCam.bottom = -halfX;
+    topCam.position.set(0, 300, zc);
+    topCam.up.set(1, 0, 0);
+    topCam.lookAt(0, 0, zc);
     topCam.updateProjectionMatrix();
   }
 
@@ -460,6 +469,7 @@
     rL.setSize(lw, lh); camera.aspect = lw/Math.max(1,lh); camera.updateProjectionMatrix();
     const tw = topWrap.clientWidth, th = topWrap.clientHeight;
     rR.setSize(tw, th); labelLayer.setSize(tw, th); topAspect = tw/Math.max(1,th);
+    fitStatic();
     applyZoom(parseFloat(slider.value));
   }
   addEventListener("resize", resize);
@@ -484,10 +494,10 @@
   function tick(now) {
     requestAnimationFrame(tick);
     if (auto) {
-      const t = ((now - autoT0) / 5200) % 2;          // ~10 s round trip
+      const t = ((now - autoT0) / 6800) % 2;          // ~13.6 s round trip
       const tri = t < 1 ? t : 2 - t;
       const ease = 0.5 - 0.5*Math.cos(Math.PI*tri);
-      const z = 1 + 15 * ease;
+      const z = 1 + (MAX_ZOOM - 1) * ease;
       slider.value = String(z); applyZoom(z);
     }
     rL.render(world, camera);

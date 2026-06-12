@@ -108,18 +108,20 @@ around too.
 ## Drive it yourself
 
 The demo below is fully interactive — drag the slider, or hit **Auto** to let it
-sweep. Push it from 1× toward 16× and watch the **lens** climb from a wide ~23 mm
-into deep telephoto past 300 mm, the **dolly distance** stretch from 6 m out to
-nearly 95 m, and the field of view collapse from 55° to a few degrees — all while
-the soldier stays exactly where he is.
+sweep. Push it from 1× toward 30× and watch the **lens** climb from a wide ~23 mm
+into deep telephoto near 700 mm, the **dolly distance** stretch from 6 m out to
+180 m, and the field of view collapse from 55° down to about 2° — all while the
+soldier stays exactly where he is.
 
 <iframe src="/dolly-zoom/" title="Interactive dolly-zoom demo — camera view and top-down map, side by side" loading="lazy" class="viz-frame"></iframe>
 
-Keep one eye on the top-down map. The cyan wedge is the camera's field of view; as
-it narrows, the camera glyph slides backwards down the road to hold the subject's
-green marker at the same apparent size — and the tan marker 100 m back ends up
-swallowed inside that thin sliver of a cone. The readouts along the bottom are the
-whole point: every parameter that produces the effect, live and coupled.
+Keep one eye on the top-down map, which is drawn to a **fixed** scale — the two
+soldiers never move on it. The cyan wedge is the camera's field of view; as it
+narrows, the camera glyph is the only thing that slides, rolling backwards down the
+road to hold the subject's green marker at the same apparent size. By 30× the tan
+marker 100 m back has been swallowed inside a 2°-wide sliver of a cone. The readouts
+along the bottom are the whole point: every parameter that produces the effect, live
+and coupled.
 
 ## How it's built
 
