@@ -20,14 +20,20 @@ the shot Hitchcock invented for *Vertigo*, and it shows up every time a director
 wants to put unease on screen without moving the actor. The **dolly zoom**.
 
 The effect feels like an optical illusion, but it's pure geometry. I wanted to
-take it apart — so I built a little 3-D scene where you can drive the effect with a
-slider and watch every number that produces it. Here it is running on its own:
+take it apart — so I built a 3-D scene with **two views side by side**: on the left,
+what the camera sees; on the right, a top-down map of where the camera actually is
+and how its field of view fans out across the scene. Drive the slider and both
+update together:
 
 <video src="/img/dolly-zoom/dolly-zoom.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-The person in the red shirt never changes size. Everything behind them does — the
-houses, the trees, and the second person standing **100 m back** who balloons from
-a distant speck into a looming presence right over the subject's shoulder.
+It's a soldier on a road through a valley in southern Lebanon — pine and cypress
+on the slopes, ridgelines on the horizon, a second soldier standing **100 m back**.
+The foreground soldier never changes size. Everything behind him does: the
+mountains swell, the forest crowds in, and the distant soldier balloons from a
+speck into a presence right over his shoulder. The top-down view tells you *why* —
+watch the camera slide backwards down the road while its view-cone narrows to a
+sliver.
 
 ## Two knobs, moving in lockstep
 
@@ -65,11 +71,13 @@ So when you narrow the field of view (smaller *θ*, longer lens), you must incre
 ![The dolly-zoom geometry: same subject size, different background slice](/img/dolly-zoom/geometry.png)
 
 Both cameras above frame the subject identically — the subject fills the frame
-either way. But trace each lens's cone out to the background plane: the **wide
-lens up close** spreads its rays into a *tall* slice of the world, so any given
-tree or wall occupies a small fraction of that slice and looks far away. The
+either way. But trace each lens's cone out to the background: the **wide lens up
+close** spreads its rays into a *tall* slice of the world, so any given tree or
+ridge occupies a small fraction of that slice and looks far away. The
 **telephoto, dollied back**, captures a *narrow* slice — the same tree now fills
-most of the frame and looks like it's breathing down the subject's neck.
+most of the frame and looks like it's breathing down the subject's neck. This is
+exactly the view-cone you can watch widen and narrow in the top-down panel of the
+demo.
 
 ## It's the dolly that compresses, not the zoom
 
@@ -99,23 +107,28 @@ around too.
 
 ## Drive it yourself
 
-The slider below is the same scene from the video, fully interactive. Push it from
-1× up to 20×: watch the **lens** climb from a wide ~20 mm into deep telephoto, the
-**camera distance** stretch from 5 m out past 50 m, and the field of view collapse
-— all while the subject stays exactly where they are.
+The demo below is fully interactive — drag the slider, or hit **Auto** to let it
+sweep. Push it from 1× toward 16× and watch the **lens** climb from a wide ~23 mm
+into deep telephoto past 300 mm, the **dolly distance** stretch from 6 m out to
+nearly 95 m, and the field of view collapse from 55° to a few degrees — all while
+the soldier stays exactly where he is.
 
-<iframe src="/dolly-zoom/" title="Interactive dolly-zoom demo — drag the slider to dolly and zoom together" loading="lazy" class="viz-frame"></iframe>
+<iframe src="/dolly-zoom/" title="Interactive dolly-zoom demo — camera view and top-down map, side by side" loading="lazy" class="viz-frame"></iframe>
 
-The readout in the corner is the whole point: every parameter that produces the
-effect, live. The lens length and the camera distance move together; the subject
-doesn't.
+Keep one eye on the top-down map. The cyan wedge is the camera's field of view; as
+it narrows, the camera glyph slides backwards down the road to hold the subject's
+green marker at the same apparent size — and the tan marker 100 m back ends up
+swallowed inside that thin sliver of a cone. The readouts along the bottom are the
+whole point: every parameter that produces the effect, live and coupled.
 
 ## How it's built
 
-The scene is a few hundred lines of [Three.js](https://threejs.org/) — a ground
-plane, a dirt path for depth cues, two stick-figure people, and a scatter of
-houses and trees. The dolly zoom itself is four lines in the render loop. Starting
-from a base field of view and distance, each slider value *z* maps to:
+The scene is a few hundred lines of [Three.js](https://threejs.org/) — a dusk sky,
+a valley floor, ridgelines, a scattered Mediterranean forest, and two soldiers
+built from boxes and cylinders. The left panel is a perspective camera; the right
+panel is an orthographic camera looking straight down, sharing the same world. The
+dolly zoom itself is four lines in the render loop. Starting from a base field of
+view and distance, each slider value *z* maps to:
 
 ```js
 const halfFovRad = Math.atan(baseHalfTan / z);   // narrow the FOV

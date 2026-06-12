@@ -1,375 +1,503 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dolly Zoom Demo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dolly Zoom — interactive</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      background: #87ceeb;
-      color: #fff;
-    }
-    canvas { display: block; }
+    :root { --cyan:#3fc1ff; --gold:#ffd166; --ink:#06080c; --muted:#8a94a3; --line:#1c232e; }
+    html, body { margin:0; height:100%; background:var(--ink); overflow:hidden;
+      font-family:-apple-system,"Segoe UI",system-ui,sans-serif; color:#e8edf3; }
+    #wrap { position:fixed; inset:0; display:flex; flex-direction:column; }
+    #panels { flex:1; display:flex; min-height:0; gap:2px; background:#000; }
+    .panel { position:relative; flex:1 1 0; min-width:0; overflow:hidden; background:#000; }
+    .panel canvas { display:block; }
+    .ptitle { position:absolute; top:10px; left:12px; z-index:3; pointer-events:none;
+      font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+      background:rgba(6,8,12,.5); padding:5px 9px; border-radius:6px;
+      border:1px solid var(--line); backdrop-filter:blur(3px); }
+    .ptitle b { color:#cfe8ff; font-weight:600; }
+    /* CSS2D labels for the schematic */
+    .lab { font-size:12px; color:#cfd8e3; pointer-events:none; white-space:nowrap;
+      text-shadow:0 0 4px #000,0 0 4px #000,0 0 6px #000; font-variant-numeric:tabular-nums; }
+    .lab.m { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .lab.cyan { color:var(--cyan); } .lab.gold { color:var(--gold); }
+    .lab.dim { color:var(--muted); font-size:11px; letter-spacing:.04em; }
 
-    #info {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(0, 0, 0, 0.55);
-      padding: 12px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      line-height: 1.45;
-      max-width: 320px;
-      pointer-events: none;
-    }
-    #info strong { font-size: 14px; }
+    /* control bar */
+    #bar { flex:0 0 auto; display:flex; align-items:center; gap:18px;
+      padding:13px 18px; background:#0a0d13; border-top:1px solid var(--line); }
+    #bar .grp { display:flex; align-items:center; gap:11px; }
+    #playBtn { background:#121821; color:#cfe0ee; border:1px solid #28323e; border-radius:8px;
+      padding:8px 13px; font-size:13px; cursor:pointer; font-weight:600; min-width:84px; }
+    #playBtn:hover { border-color:var(--cyan); color:#fff; }
+    #playBtn.on { background:var(--gold); color:#1a1405; border-color:var(--gold); }
+    .knob { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+    #zoom { width:min(38vw,360px); accent-color:var(--gold); }
+    #zoomVal { font-family:ui-monospace,Menlo,monospace; font-weight:700; font-size:15px;
+      color:var(--gold); min-width:54px; text-align:right; }
+    #stats { margin-left:auto; display:flex; gap:20px; }
+    #stats .s { text-align:right; }
+    #stats .k { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    #stats .v { font-family:ui-monospace,Menlo,monospace; font-size:16px; font-weight:600; color:#eef4fa; }
+    #stats .v.cyan { color:var(--cyan); } #stats .v.gold { color:var(--gold); }
 
-    #controls {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.6);
-      padding: 14px 22px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      min-width: 360px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    @media (max-width:760px) {
+      #panels { flex-direction:column; }
+      #zoom { width:46vw; }
+      #stats { gap:12px; } #stats .v { font-size:13px; } #stats .k { font-size:9px; }
+      #bar { gap:10px; padding:10px; flex-wrap:wrap; }
+      .ptitle { font-size:10px; padding:4px 7px; }
+      #stats .s:nth-child(3) { display:none; }
     }
-    #controls label {
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      opacity: 0.85;
-    }
-    #zoom { flex: 1; accent-color: #ff7043; }
-    #zoomVal {
-      font-variant-numeric: tabular-nums;
-      min-width: 56px;
-      text-align: right;
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    #stats {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: rgba(0, 0, 0, 0.55);
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      line-height: 1.6;
-      pointer-events: none;
-    }
-    #stats span { color: #ffd180; }
   </style>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+  </script>
 </head>
 <body>
-  <div id="info">
-    <strong>Dolly Zoom Demo</strong><br>
-    The foreground person stays the same size on screen.<br>
-    As you zoom in, the camera dollies back to compensate.<br>
-    Watch the second person — 100&nbsp;m behind — appear to grow,
-    and the surroundings compress.
+  <div id="wrap">
+    <div id="panels">
+      <div class="panel" id="camwrap"><div class="ptitle">What the <b>camera</b> sees</div></div>
+      <div class="panel" id="topwrap"><div class="ptitle">Top&#8209;down view &mdash; <b>camera + scene</b></div></div>
+    </div>
+    <div id="bar">
+      <button id="playBtn">&#9654; Auto</button>
+      <div class="grp">
+        <span class="knob">Zoom &amp; dolly</span>
+        <input id="zoom" type="range" min="1" max="16" step="0.02" value="1" />
+        <span id="zoomVal">1.00&times;</span>
+      </div>
+      <div id="stats">
+        <div class="s"><div class="k">Lens</div><div class="v gold" id="vFocal">24 mm</div></div>
+        <div class="s"><div class="k">FOV</div><div class="v" id="vFov">55&deg;</div></div>
+        <div class="s"><div class="k">Dolly&nbsp;d</div><div class="v cyan" id="vDist">6.0 m</div></div>
+        <div class="s"><div class="k">To target</div><div class="v" id="vTarget">106 m</div></div>
+      </div>
+    </div>
   </div>
 
-  <div id="stats">
-    Lens:&nbsp;&nbsp;&nbsp;<span id="focalVal">24 mm</span><br>
-    FOV:&nbsp;&nbsp;&nbsp;&nbsp;<span id="fovVal">60.0°</span><br>
-    Cam&nbsp;dist:&nbsp;<span id="distVal">5.0 m</span><br>
-    To&nbsp;person&nbsp;2:&nbsp;<span id="dist2Val">105.0 m</span>
-  </div>
-
-  <div id="controls">
-    <label for="zoom">Zoom</label>
-    <input id="zoom" type="range" min="1" max="20" step="0.05" value="1">
-    <span id="zoomVal">1.00×</span>
-  </div>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "./three.module.js"
-    }
-  }
-  </script>
   <script type="module">
-  import * as THREE from 'three';
+  import * as THREE from "three";
+  import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 
-  const BASE_FOV = 60;            // degrees, at zoom = 1
-  const BASE_DISTANCE = 5;        // metres from camera to subject at zoom = 1
-  const CAM_HEIGHT = 1.65;        // eye height
-  const PERSON2_OFFSET = 100;     // metres behind subject
-
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x9bd3ee);
-  scene.fog = new THREE.Fog(0xb8dff0, 220, 900);
-
-  const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth / innerHeight, 0.1, 2000);
-  camera.position.set(0, CAM_HEIGHT, BASE_DISTANCE);
-  camera.lookAt(0, CAM_HEIGHT, 0);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  document.body.appendChild(renderer.domElement);
-
-  // --- Lighting -----------------------------------------------------------
-  const sun = new THREE.DirectionalLight(0xfff2d6, 1.15);
-  sun.position.set(60, 100, 40);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  const s = sun.shadow.camera;
-  s.left = -120; s.right = 120; s.top = 120; s.bottom = -120;
-  s.near = 1; s.far = 400;
-  scene.add(sun);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-  scene.add(new THREE.HemisphereLight(0x9bd3ee, 0x4a6b2a, 0.45));
-
-  // --- Ground -------------------------------------------------------------
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(2000, 2000),
-    new THREE.MeshLambertMaterial({ color: 0x6fa84a })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  // Dirt path running from in front of subject far back past person 2
-  const path = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.2, 320),
-    new THREE.MeshLambertMaterial({ color: 0x927043 })
-  );
-  path.rotation.x = -Math.PI / 2;
-  path.position.set(0, 0.01, -150);
-  path.receiveShadow = true;
-  scene.add(path);
-
-  // --- Helpers ------------------------------------------------------------
-  const rand = (a, b) => a + Math.random() * (b - a);
-
-  function makePerson(shirtColor, pantsColor = 0x223366, hatColor = null) {
-    const g = new THREE.Group();
-    const skin = new THREE.MeshLambertMaterial({ color: 0xf2c79c });
-    const shirt = new THREE.MeshLambertMaterial({ color: shirtColor });
-    const pants = new THREE.MeshLambertMaterial({ color: pantsColor });
-
-    const lLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.85, 12), pants);
-    lLeg.position.set(-0.13, 0.43, 0);
-    const rLeg = lLeg.clone(); rLeg.position.x = 0.13;
-    g.add(lLeg, rLeg);
-
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.78, 16), shirt);
-    body.position.y = 1.24;
-    g.add(body);
-
-    const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.72, 12), shirt);
-    lArm.position.set(-0.37, 1.24, 0);
-    const rArm = lArm.clone(); rArm.position.x = 0.37;
-    g.add(lArm, rArm);
-
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), skin);
-    head.position.y = 1.81;
-    g.add(head);
-
-    if (hatColor !== null) {
-      const hat = new THREE.Mesh(
-        new THREE.ConeGeometry(0.22, 0.26, 16),
-        new THREE.MeshLambertMaterial({ color: hatColor })
-      );
-      hat.position.y = 2.04;
-      g.add(hat);
-    }
-
-    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    return g;
-  }
-
-  function makeTree(scale = 1) {
-    const g = new THREE.Group();
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28 * scale, 0.38 * scale, 2.4 * scale, 8),
-      new THREE.MeshLambertMaterial({ color: 0x5a3a1e })
-    );
-    trunk.position.y = 1.2 * scale;
-    g.add(trunk);
-
-    const greens = [0x2e7d32, 0x388e3c, 0x4a8b3a, 0x356b29, 0x4f9b48];
-    const foliage = new THREE.Mesh(
-      new THREE.ConeGeometry(2 * scale, 5 * scale, 12),
-      new THREE.MeshLambertMaterial({ color: greens[Math.floor(Math.random() * greens.length)] })
-    );
-    foliage.position.y = (2.4 + 5 / 2) * scale;
-    g.add(foliage);
-
-    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    return g;
-  }
-
-  function makeHouse() {
-    const g = new THREE.Group();
-    const w = rand(5, 8);
-    const d = rand(5, 8);
-    const h = rand(3, 4.5);
-    const wallColor = new THREE.Color().setHSL(0.07 + Math.random() * 0.08, 0.45, 0.7);
-    const walls = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshLambertMaterial({ color: wallColor })
-    );
-    walls.position.y = h / 2;
-    g.add(walls);
-
-    const roofColors = [0x8a3324, 0x5d4037, 0x6d4c41, 0x7b3f00];
-    const roof = new THREE.Mesh(
-      new THREE.ConeGeometry(Math.max(w, d) * 0.78, h * 0.75, 4),
-      new THREE.MeshLambertMaterial({ color: roofColors[Math.floor(Math.random() * roofColors.length)] })
-    );
-    roof.position.y = h + h * 0.375;
-    roof.rotation.y = Math.PI / 4;
-    g.add(roof);
-
-    // Door
-    const door = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.9, 1.6),
-      new THREE.MeshLambertMaterial({ color: 0x3e2a14 })
-    );
-    door.position.set(0, 0.8, d / 2 + 0.01);
-    g.add(door);
-
-    // Windows
-    const winMat = new THREE.MeshLambertMaterial({ color: 0xfff7c2, emissive: 0x222200 });
-    const w1 = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), winMat);
-    w1.position.set(-w / 3, h / 2 + 0.2, d / 2 + 0.01);
-    const w2 = w1.clone(); w2.position.x = w / 3;
-    g.add(w1, w2);
-
-    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    return g;
-  }
-
-  // --- Scene populating ---------------------------------------------------
-  // Subject (foreground person), facing camera
-  const subject = makePerson(0xd24343, 0x223366);
-  subject.position.set(0, 0, 0);
-  subject.rotation.y = Math.PI; // face +z (towards camera)
-  scene.add(subject);
-
-  // Second person, 100 m behind subject, offset slightly to one side so
-  // they're never fully occluded by the foreground person, and facing camera.
-  const person2 = makePerson(0x3d6cb4, 0x222222, 0xf6c84c);
-  person2.position.set(1.4, 0, -PERSON2_OFFSET);
-  person2.rotation.y = Math.PI;
-  scene.add(person2);
-
-  // Trees scattered along both sides, well behind the subject
-  // (kept out of the immediate space between camera and subject)
-  // Keep a clear corridor on the path centerline so person 2 stays visible
-  // even at the narrow FOVs reached at high zoom.
-  for (let i = 0; i < 90; i++) {
-    const t = makeTree(0.85 + Math.random() * 0.6);
-    const side = Math.random() < 0.5 ? -1 : 1;
-    const xOff = side * rand(8, 70);
-    const z = rand(-220, -2);
-    t.position.set(xOff, 0, z);
-    t.rotation.y = Math.random() * Math.PI * 2;
-    scene.add(t);
-  }
-
-  // Distant tree line
-  for (let i = 0; i < 80; i++) {
-    const t = makeTree(1 + Math.random() * 0.9);
-    t.position.set(rand(-260, 260), 0, rand(-320, -230));
-    scene.add(t);
-  }
-
-  // Houses scattered along the sides
-  const housePositions = [
-    [-18, -12], [22, -25], [-30, -55], [28, -68], [-24, -90],
-    [32, -105], [-38, -130], [26, -148], [-20, -170], [34, -190],
-    [-44, -210], [40, -40], [-15, -78], [18, -125]
-  ];
-  housePositions.forEach(([x, z]) => {
-    const h = makeHouse();
-    h.position.set(x, 0, z);
-    h.rotation.y = (x > 0 ? -1 : 1) * (Math.PI / 2 + rand(-0.4, 0.4));
-    scene.add(h);
-  });
-
-  // A few fence posts along the path for extra depth cue
-  const fenceMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3c });
-  for (let z = -10; z >= -210; z -= 6) {
-    for (const side of [-1, 1]) {
-      const post = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 1.1, 0.12),
-        fenceMat
-      );
-      post.position.set(side * 2.4, 0.55, z);
-      post.castShadow = true;
-      scene.add(post);
-    }
-  }
-
-  // --- Resize -------------------------------------------------------------
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
-
-  // --- Dolly zoom ---------------------------------------------------------
-  // Keep subject screen size constant: d * tan(fov/2) = const
-  // Increasing zoom -> narrower fov + camera moves back proportionally.
+  // ---- parameters --------------------------------------------------------
+  const BASE_FOV = 55;        // vertical FOV (deg) at zoom = 1
+  const BASE_DIST = 6;        // camera→subject distance (m) at zoom = 1
+  const CAM_H = 1.68;         // camera / eye height
+  const GAP = 100;            // metres the second soldier stands behind the subject
+  const SUBJ = new THREE.Vector3(0, 0, 0);     // foreground soldier
   const baseHalfTan = Math.tan(THREE.MathUtils.degToRad(BASE_FOV) / 2);
 
-  const slider = document.getElementById('zoom');
-  const zoomVal = document.getElementById('zoomVal');
-  const fovVal = document.getElementById('fovVal');
-  const distVal = document.getElementById('distVal');
-  const dist2Val = document.getElementById('dist2Val');
-  const focalVal = document.getElementById('focalVal');
+  // ======================================================================
+  //  WORLD SCENE  (left panel — the dusk valley the camera looks down)
+  // ======================================================================
+  const world = new THREE.Scene();
+  world.fog = new THREE.Fog(0x3a3552, 55, 340);
 
-  // 35mm-equivalent focal length from the vertical FOV (24 mm sensor height):
-  // f = (24/2) / tan(vfov/2). Wide-angle at zoom 1, telephoto when zoomed in.
-  const SENSOR_HALF = 12; // mm
+  // dusk sky gradient dome
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(760, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      uniforms: {
+        top: { value: new THREE.Color(0x0c1030) },
+        mid: { value: new THREE.Color(0x46365e) },
+        hor: { value: new THREE.Color(0xc8703c) },
+      },
+      vertexShader: `varying float vh; void main(){ vh = normalize(position).y;
+        gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `varying float vh; uniform vec3 top; uniform vec3 mid; uniform vec3 hor;
+        void main(){ float h=vh;
+          vec3 c = h>0.0 ? mix(mid, top, clamp(h*1.4,0.0,1.0))
+                         : mix(mid, hor, clamp(-h*4.0,0.0,1.0));
+          gl_FragColor = vec4(c,1.0); }`,
+    })
+  );
+  world.add(sky);
+
+  // lighting — low warm dusk sun (back/key) + cool frontal fill so faces read
+  const sunLight = new THREE.DirectionalLight(0xffb070, 1.1);
+  sunLight.position.set(-70, 22, -120);
+  world.add(sunLight);
+  const fill = new THREE.DirectionalLight(0xbcc6e0, 0.7);   // from the camera side (+Z)
+  fill.position.set(18, 34, 130);
+  world.add(fill);
+  world.add(new THREE.HemisphereLight(0x7c7caa, 0x161109, 0.85));
+  world.add(new THREE.AmbientLight(0x4a536e, 0.4));
+
+  // deterministic RNG so the scene is stable across reloads (and capture)
+  let _s = 1337; const rnd = () => { _s = (_s*16807) % 2147483647; return (_s-1)/2147483646; };
+  const rr = (a,b) => a + (b-a)*rnd();
+
+  // valley floor
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(1400, 1400),
+    new THREE.MeshStandardMaterial({ color: 0x4a4632, roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI/2; world.add(ground);
+
+  // side hills flanking the valley (flattened mounds, hazed by fog)
+  function hill(x, z, r, h, c) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14),
+      new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
+    m.scale.set(1, h/r, 1); m.position.set(x, -r*0.18, z); world.add(m);
+  }
+  for (let z=-20; z>-360; z-=rr(34,60)) {
+    hill(-rr(34,60), z, rr(22,40), rr(16,30), 0x3b4329);
+    hill( rr(34,60), z, rr(22,40), rr(16,30), 0x414a2d);
+  }
+
+  // distant mountain ridges (silhouette layers, blended into the dusk haze)
+  function ridge(z, height, color) {
+    const w = 1100, seg = 60, pts = [];
+    let y = height*0.5;
+    for (let i=0;i<=seg;i++){ const x=-w/2 + w*i/seg;
+      y += (rnd()-0.5)*height*0.5; y = Math.max(height*0.18, Math.min(height, y));
+      pts.push(new THREE.Vector2(x, y)); }
+    const shape = new THREE.Shape();
+    shape.moveTo(-w/2, -10); shape.lineTo(pts[0].x, pts[0].y);
+    pts.forEach(p => shape.lineTo(p.x, p.y));
+    shape.lineTo(w/2, -10); shape.closePath();
+    const geo = new THREE.ShapeGeometry(shape);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog:false }));
+    m.position.set(0, 0, z); world.add(m);
+  }
+  ridge(-470, 150, 0x2c2b4a);
+  ridge(-430, 120, 0x33324f);
+  ridge(-395, 95, 0x3b3a55);
+
+  // the road (dolly axis), with a faint centre line
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(4, 720),
+    new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: 1 }));
+  road.rotation.x = -Math.PI/2; road.position.set(0, 0.01, -340); world.add(road);
+  const cline = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 720),
+    new THREE.MeshStandardMaterial({ color: 0xbfa94a, roughness: 1 }));
+  cline.rotation.x = -Math.PI/2; cline.position.set(0, 0.02, -340); world.add(cline);
+  for (const sx of [-2.4, 2.4]) {
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 720),
+      new THREE.MeshStandardMaterial({ color: 0x3a3626, roughness: 1 }));
+    sh.rotation.x = -Math.PI/2; sh.position.set(sx, 0.015, -340); world.add(sh);
+  }
+
+  // soft contact-shadow texture (used under soldiers / props)
+  const shadowTex = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const rad = g.createRadialGradient(64,64,4,64,64,62);
+    rad.addColorStop(0,"rgba(0,0,0,0.55)"); rad.addColorStop(1,"rgba(0,0,0,0)");
+    g.fillStyle = rad; g.fillRect(0,0,128,128);
+    return new THREE.CanvasTexture(c);
+  })();
+  function contactShadow(x, z, r) {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24),
+      new THREE.MeshBasicMaterial({ map: shadowTex, transparent:true, depthWrite:false }));
+    m.rotation.x = -Math.PI/2; m.position.set(x, 0.025, z); world.add(m);
+  }
+
+  // ---- nicer soldier model ----------------------------------------------
+  function makeSoldier(p = {}) {
+    const uniform = p.uniform ?? 0x5d6038, vest = p.vest ?? 0x3b3d24,
+          helmet = p.helmet ?? 0x474a2c, skin = p.skin ?? 0xc89b6a;
+    const g = new THREE.Group();
+    const M = (c, r=0.95) => new THREE.MeshStandardMaterial({ color:c, roughness:r, metalness:0 });
+    const uni=M(uniform), ves=M(vest,0.85), hel=M(helmet,0.55), sk=M(skin,0.7),
+          blk=M(0x14140f,0.7), boot=M(0x1a1812,0.7);
+    const add=(geo,mat,x,y,z)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); g.add(m); return m; };
+
+    for (const sx of [-0.12, 0.12]) {                      // boots + legs
+      add(new THREE.BoxGeometry(0.17,0.13,0.34), boot, sx, 0.07, 0.05);
+      add(new THREE.CylinderGeometry(0.10,0.115,0.86,12), uni, sx, 0.56, 0);
+    }
+    add(new THREE.BoxGeometry(0.42,0.24,0.26), uni, 0, 1.04, 0);   // pelvis
+    add(new THREE.BoxGeometry(0.46,0.52,0.27), uni, 0, 1.40, 0);   // torso
+    add(new THREE.BoxGeometry(0.50,0.48,0.33), ves, 0, 1.41, 0);   // plate carrier
+    add(new THREE.BoxGeometry(0.12,0.14,0.06), blk, -0.13, 1.30, 0.18);
+    add(new THREE.BoxGeometry(0.12,0.14,0.06), blk,  0.13, 1.30, 0.18);
+    add(new THREE.BoxGeometry(0.14,0.10,0.06), blk,  0.0,  1.52, 0.18);
+    add(new THREE.BoxGeometry(0.40,0.40,0.18), M(uniform,0.95), 0, 1.40, -0.23); // daypack
+    for (const sx of [-0.31, 0.31]) {                      // arms + hands
+      add(new THREE.CylinderGeometry(0.085,0.08,0.60,12), uni, sx, 1.34, 0.0);
+      add(new THREE.SphereGeometry(0.072,10,10), sk, sx, 1.02, 0.02);
+    }
+    add(new THREE.CylinderGeometry(0.07,0.07,0.10,10), sk, 0, 1.70, 0);  // neck
+    add(new THREE.SphereGeometry(0.128,16,16), sk, 0, 1.80, 0);          // head
+    const h = add(new THREE.SphereGeometry(0.155,18,14), hel, 0, 1.83, 0); h.scale.set(1.0,0.92,1.08);
+    add(new THREE.BoxGeometry(0.20,0.05,0.12), hel, 0, 1.74, 0.10);      // brim
+    add(new THREE.BoxGeometry(0.05,0.06,0.05), blk, 0, 1.84, 0.15);      // NVG mount
+    const rifle = new THREE.Group();                        // slung rifle
+    rifle.add(new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.74), blk));
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.18,0.10), blk); mag.position.set(0,-0.11,0.02); rifle.add(mag);
+    rifle.position.set(0.04,1.24,0.20); rifle.rotation.set(0.2,0,-0.5); g.add(rifle);
+    return g;
+  }
+
+  // foreground soldier (olive) — the subject, faces +Z toward the camera
+  const subject = makeSoldier({ uniform:0x5d6038, vest:0x3b3d24, helmet:0x474a2c });
+  subject.position.copy(SUBJ); world.add(subject);
+  contactShadow(SUBJ.x, SUBJ.z, 0.6);
+
+  // the soldier 100 m back (desert tan) — the one that looms in
+  const TARGET = new THREE.Vector3(1.5, 0, -GAP);
+  const target = makeSoldier({ uniform:0x8a7c52, vest:0x6f6336, helmet:0x736637, skin:0xcda277 });
+  target.position.copy(TARGET); target.rotation.y = 0.05; world.add(target);
+  contactShadow(TARGET.x, TARGET.z, 0.6);
+
+  // ---- Mediterranean forest (cypress, pine, oak) -------------------------
+  function makeTree(kind, scale) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12*scale,0.18*scale,1.2*scale,7),
+      new THREE.MeshStandardMaterial({ color:0x3a2c1c, roughness:1 }));
+    trunk.position.y = 0.6*scale; g.add(trunk);
+    const greens = [0x2c3f28, 0x33492b, 0x274033, 0x3b4a2a];
+    const mat = new THREE.MeshStandardMaterial({ color: greens[(rnd()*greens.length)|0], roughness:1 });
+    if (kind === 0) {                       // cypress — tall thin
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.9*scale, 5.2*scale, 9), mat);
+      f.position.y = 3.6*scale; g.add(f);
+    } else if (kind === 1) {                // pine — layered
+      for (let k=0;k<3;k++){ const f=new THREE.Mesh(
+        new THREE.ConeGeometry((1.7-0.45*k)*scale, 2.0*scale, 9), mat);
+        f.position.y=(1.4+1.0*k)*scale; g.add(f); }
+    } else {                                // oak — rounded
+      const f = new THREE.Mesh(new THREE.SphereGeometry(1.5*scale, 12, 10), mat);
+      f.position.y = 2.6*scale; f.scale.y = 0.85; g.add(f);
+    }
+    return g;
+  }
+  const treeSpots = []; // {x,z} for the schematic
+  function plantTree(x, z, scale, kind) {
+    const t = makeTree(kind ?? (rnd()*3)|0, scale);
+    t.position.set(x, 0, z); t.rotation.y = rnd()*6.28; world.add(t);
+    treeSpots.push({ x, z });
+  }
+  for (let i=0;i<70;i++) {                  // both sides of the road
+    const side = rnd()<0.5 ? -1 : 1;
+    plantTree(side*rr(5.5,46), rr(-300,-4), 0.8+rnd()*0.9);
+  }
+  for (let i=0;i<60;i++) plantTree(rr(-220,220), rr(-360,-300), 1.0+rnd()*0.8, 0); // far tree line
+
+  // ---- minimal military presence: a watchtower + a parked jeep ----------
+  (function watchtower(){
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({color:0x4a4636,roughness:1});
+    const leg = (x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.16,5,0.16),wood); m.position.set(x,2.5,z); g.add(m); };
+    leg(-1,-1); leg(1,-1); leg(-1,1); leg(1,1);
+    const plat=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.2,2.6),
+      new THREE.MeshStandardMaterial({color:0x55503c,roughness:1})); plat.position.y=5; g.add(plat);
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.9,2.6),
+      new THREE.MeshStandardMaterial({color:0x3f3b2c,roughness:1,transparent:true,opacity:0.85}));
+    rail.position.y=5.5; g.add(rail);
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(2.2,1.0,4),
+      new THREE.MeshStandardMaterial({color:0x2e2b20,roughness:1})); roof.position.y=6.4; roof.rotation.y=Math.PI/4; g.add(roof);
+    g.position.set(-8.5,0,-30); world.add(g);
+    contactShadow(-8.5,-30,2.4);
+  })();
+  (function jeep(){
+    const g=new THREE.Group();
+    const body=new THREE.MeshStandardMaterial({color:0x4c5232,roughness:0.9});
+    const dark=new THREE.MeshStandardMaterial({color:0x14140f,roughness:0.8});
+    const b1=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.7,4.4),body); b1.position.y=0.85; g.add(b1);
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.7,2.0),body); cab.position.set(0,1.45,-0.3); g.add(cab);
+    const hood=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.45,1.2),body); hood.position.set(0,1.0,1.6); g.add(hood);
+    for (const [x,z] of [[-1.0,1.4],[1.0,1.4],[-1.0,-1.4],[1.0,-1.4]]) {
+      const w=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.35,16),dark);
+      w.rotation.z=Math.PI/2; w.position.set(x,0.5,z); g.add(w);
+    }
+    g.position.set(7,0,-46); g.rotation.y=-0.5; world.add(g);
+    contactShadow(7,-46,2.2);
+  })();
+
+  // ======================================================================
+  //  PERSPECTIVE CAMERA  (the dolly-zoom camera)
+  // ======================================================================
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 1600);
+  const lookAt = new THREE.Vector3(0, 1.35, 0);
+
+  // ======================================================================
+  //  TOP-DOWN SCHEMATIC SCENE  (right panel — 3b1b style)
+  // ======================================================================
+  const top = new THREE.Scene();
+  const flat = (c, o=1) => new THREE.MeshBasicMaterial({ color:c, transparent:o<1, opacity:o });
+
+  const grid = new THREE.GridHelper(800, 80, 0x1a2230, 0x121822);
+  grid.position.y = -0.2; top.add(grid);
+
+  const troad = new THREE.Mesh(new THREE.PlaneGeometry(4, 700), flat(0x171b22));
+  troad.rotation.x = -Math.PI/2; troad.position.set(0,-0.1,-330); top.add(troad);
+
+  const treeDot = flat(0x294a32);          // trees as faint dots
+  treeSpots.forEach(({x,z}) => {
+    const d = new THREE.Mesh(new THREE.CircleGeometry(0.9, 8), treeDot);
+    d.rotation.x = -Math.PI/2; d.position.set(x, 0, z); top.add(d);
+  });
+
+  function marker(x, z, r, color) {
+    const grp = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 28), flat(color));
+    disc.rotation.x=-Math.PI/2; grp.add(disc);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r*1.3, r*1.5, 28), flat(color,0.9));
+    ring.rotation.x=-Math.PI/2; grp.add(ring);
+    grp.position.set(x, 0, z); top.add(grp); return grp;
+  }
+  marker(SUBJ.x, SUBJ.z, 1.6, 0x6fdc6f);          // subject (green)
+  marker(TARGET.x, TARGET.z, 1.6, 0xffb070);       // target soldier (tan)
+
+  // FOV wedge (updated every frame)
+  const wedgeGeo = new THREE.BufferGeometry();
+  wedgeGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
+  const wedge = new THREE.Mesh(wedgeGeo, flat(0x3fc1ff, 0.12)); wedge.renderOrder = 1; top.add(wedge);
+  const wedgeEdges = new THREE.LineSegments(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(12),3)),
+    new THREE.LineBasicMaterial({ color:0x3fc1ff, transparent:true, opacity:0.85 }));
+  top.add(wedgeEdges);
+
+  const track = new THREE.Line(new THREE.BufferGeometry()
+    .setAttribute("position", new THREE.BufferAttribute(new Float32Array(6),3)),
+    new THREE.LineDashedMaterial({ color:0x44505f, dashSize:1.4, gapSize:1.4 }));
+  top.add(track);
+
+  const camGlyph = new THREE.Group();      // little camera triangle at the apex
+  const tri = new THREE.Shape(); tri.moveTo(0,1.7); tri.lineTo(-1.5,-1.3); tri.lineTo(1.5,-1.3); tri.closePath();
+  const camBody = new THREE.Mesh(new THREE.ShapeGeometry(tri), flat(0x3fc1ff));
+  camBody.rotation.x = -Math.PI/2; camGlyph.add(camBody);
+  top.add(camGlyph);
+
+  const topCam = new THREE.OrthographicCamera(-50,50,50,-50,0.1,1000);
+  topCam.position.set(0, 300, 0); topCam.up.set(0,0,-1); topCam.lookAt(0,0,0);
+
+  const labelLayer = new CSS2DRenderer();
+  labelLayer.domElement.style.position = "absolute";
+  labelLayer.domElement.style.top = "0"; labelLayer.domElement.style.left = "0";
+  labelLayer.domElement.style.pointerEvents = "none";
+  function mkLabel(cls, txt) { const e=document.createElement("div"); e.className="lab "+cls;
+    e.textContent=txt; const o=new CSS2DObject(e); top.add(o); return { e, o }; }
+  const lSubj = mkLabel("dim", "subject"); lSubj.o.position.set(SUBJ.x-5.5, 0, SUBJ.z);
+  const lTarg = mkLabel("dim", "target · 100 m back"); lTarg.o.position.set(TARGET.x+13, 0, TARGET.z);
+  const lD   = mkLabel("m cyan", "d = 6.0 m");
+  const lGap = mkLabel("m", "Δ = 100 m"); lGap.o.position.set(-8, 0, (SUBJ.z+TARGET.z)/2);
+  const lFov = mkLabel("m gold", "θ = 55°");
+
+  // ======================================================================
+  //  RENDERERS
+  // ======================================================================
+  const camWrap = document.getElementById("camwrap");
+  const topWrap = document.getElementById("topwrap");
+  const rL = new THREE.WebGLRenderer({ antialias:true });
+  rL.setPixelRatio(Math.min(devicePixelRatio,2)); camWrap.appendChild(rL.domElement);
+  const rR = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  rR.setPixelRatio(Math.min(devicePixelRatio,2)); rR.setClearColor(0x06080c, 1);
+  topWrap.appendChild(rR.domElement); topWrap.appendChild(labelLayer.domElement);
+
+  // ======================================================================
+  //  DOLLY-ZOOM UPDATE
+  // ======================================================================
+  function hfovFrom(vfovDeg) {
+    const a = camera.aspect || 1;
+    return 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(vfovDeg)/2) * a);
+  }
 
   function applyZoom(z) {
-    const halfFovRad = Math.atan(baseHalfTan / z);
-    const fovDeg = THREE.MathUtils.radToDeg(halfFovRad * 2);
-    const distance = BASE_DISTANCE * z;
+    // keep subject screen size constant:  d · tan(fov/2) = const
+    const halfFov = Math.atan(baseHalfTan / z);
+    const vfov = THREE.MathUtils.radToDeg(halfFov * 2);
+    const d = BASE_DIST * z;
 
-    camera.fov = fovDeg;
-    camera.position.set(0, CAM_HEIGHT, distance);
-    camera.lookAt(0, CAM_HEIGHT, 0);
+    camera.fov = vfov;
+    camera.position.set(0, CAM_H, d);
+    camera.lookAt(lookAt);
     camera.updateProjectionMatrix();
 
-    const focal = SENSOR_HALF / Math.tan(halfFovRad);
-    zoomVal.textContent = z.toFixed(2) + '×';
-    focalVal.textContent = Math.round(focal) + ' mm';
-    fovVal.textContent = fovDeg.toFixed(1) + '°';
-    distVal.textContent = distance.toFixed(1) + ' m';
-    dist2Val.textContent = (distance + PERSON2_OFFSET).toFixed(1) + ' m';
+    const focal = 12 / Math.tan(halfFov);          // 35mm-equiv (24mm sensor height)
+    document.getElementById("zoomVal").innerHTML = z.toFixed(2) + "&times;";
+    document.getElementById("vFocal").textContent = Math.round(focal) + " mm";
+    document.getElementById("vFov").innerHTML = vfov.toFixed(0) + "&deg;";
+    document.getElementById("vDist").textContent = d.toFixed(1) + " m";
+    document.getElementById("vTarget").textContent = Math.round(d + GAP) + " m";
+
+    // ---- update the top-down schematic ----
+    const hfov = hfovFrom(vfov);
+    const apexZ = d;
+    const farZ = TARGET.z - 26;
+    const len = apexZ - farZ;
+    const halfW = Math.tan(hfov/2) * len;
+    const wp = wedge.geometry.attributes.position.array;
+    wp[0]=0; wp[1]=0; wp[2]=apexZ;
+    wp[3]=-halfW; wp[4]=0; wp[5]=farZ;
+    wp[6]= halfW; wp[7]=0; wp[8]=farZ;
+    wedge.geometry.attributes.position.needsUpdate = true;
+    wedge.geometry.computeBoundingSphere();
+    wedgeEdges.geometry.attributes.position.array.set([0,0,apexZ, -halfW,0,farZ,  0,0,apexZ,  halfW,0,farZ]);
+    wedgeEdges.geometry.attributes.position.needsUpdate = true;
+
+    camGlyph.position.set(0, 0.1, apexZ);
+    track.geometry.attributes.position.array.set([0,0,BASE_DIST, 0,0,BASE_DIST*16]);
+    track.geometry.attributes.position.needsUpdate = true; track.computeLineDistances();
+
+    lD.e.textContent = "d = " + d.toFixed(1) + " m"; lD.o.position.set(3.0, 0, apexZ*0.5);
+    lFov.e.innerHTML = "θ = " + vfov.toFixed(0) + "°"; lFov.o.position.set(halfW*0.12 + 3, 0, apexZ - len*0.10);
+
+    fitTop(apexZ);
   }
 
-  slider.addEventListener('input', () => applyZoom(parseFloat(slider.value)));
-  applyZoom(1);
+  let topAspect = 1;
+  function fitTop(apexZ) {
+    const zTop = TARGET.z - 34;               // far edge (up on screen)
+    const zBot = apexZ + 8;                    // near edge (camera, bottom)
+    const cz = (zTop + zBot) / 2;
+    const halfH = Math.max(28, (zBot - zTop) / 2 * 1.12);
+    const halfW = halfH * topAspect;
+    topCam.top = halfH; topCam.bottom = -halfH;
+    topCam.left = -halfW; topCam.right = halfW;
+    topCam.position.set(0, 300, cz); topCam.lookAt(0, 0, cz);
+    topCam.updateProjectionMatrix();
+  }
 
-  // --- Render loop --------------------------------------------------------
-  function tick() {
+  // ======================================================================
+  //  RESIZE
+  // ======================================================================
+  function resize() {
+    const lw = camWrap.clientWidth, lh = camWrap.clientHeight;
+    rL.setSize(lw, lh); camera.aspect = lw/Math.max(1,lh); camera.updateProjectionMatrix();
+    const tw = topWrap.clientWidth, th = topWrap.clientHeight;
+    rR.setSize(tw, th); labelLayer.setSize(tw, th); topAspect = tw/Math.max(1,th);
+    applyZoom(parseFloat(slider.value));
+  }
+  addEventListener("resize", resize);
+
+  // ======================================================================
+  //  CONTROLS  (slider + auto-sweep)
+  // ======================================================================
+  const slider = document.getElementById("zoom");
+  slider.addEventListener("input", () => { stopAuto(); applyZoom(parseFloat(slider.value)); });
+
+  const playBtn = document.getElementById("playBtn");
+  let auto = false, autoT0 = 0;
+  function startAuto(){ auto=true; autoT0=performance.now(); playBtn.classList.add("on");
+    playBtn.innerHTML = "&#10073;&#10073; Stop"; }
+  function stopAuto(){ if(!auto) return; auto=false; playBtn.classList.remove("on");
+    playBtn.innerHTML = "&#9654; Auto"; }
+  playBtn.addEventListener("click", () => auto ? stopAuto() : startAuto());
+
+  // ======================================================================
+  //  RENDER LOOP
+  // ======================================================================
+  function tick(now) {
     requestAnimationFrame(tick);
-    renderer.render(scene, camera);
+    if (auto) {
+      const t = ((now - autoT0) / 5200) % 2;          // ~10 s round trip
+      const tri = t < 1 ? t : 2 - t;
+      const ease = 0.5 - 0.5*Math.cos(Math.PI*tri);
+      const z = 1 + 15 * ease;
+      slider.value = String(z); applyZoom(z);
+    }
+    rL.render(world, camera);
+    rR.render(top, topCam);
+    labelLayer.render(top, topCam);
   }
-  tick();
+
+  resize();
+  applyZoom(1);
+  requestAnimationFrame(tick);
   </script>
 </body>
 </html>
