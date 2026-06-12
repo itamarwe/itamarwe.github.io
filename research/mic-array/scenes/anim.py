@@ -126,6 +126,113 @@ class Aliasing(Scene):
 
 
 # --------------------------------------------------------------------------
+class Resolution(Scene):
+    """The real tradeoff at a FIXED frequency and a FIXED mic count: packing the
+    mics tight (small aperture) gives a wide main lobe — poor angular resolution
+    (the diffraction limit, beamwidth ~ λ/aperture) — while spreading them out
+    for resolution eventually slides grating-lobe replicas into view (ambiguity).
+    Drawn in u = sin(θ) space, where the main lobe narrows ∝ λ/D and the
+    replicas sit a fixed Δu = λ/d apart, marching inward as the spacing grows."""
+
+    N = 16
+
+    def af_db(self, q, u):
+        """Array-factor power (dB) of an N-mic uniform line steered broadside,
+        as a function of u = sin(θ); q = spacing / wavelength."""
+        n = np.arange(self.N) - (self.N - 1) / 2
+        # phase at mic n = 2π·n·q·u  → coherent sum, normalised to N
+        phases = 2 * np.pi * np.outer(u, n) * q          # (len(u), N)
+        af = np.abs(np.exp(1j * phases).sum(axis=1)) / self.N
+        return 10 * np.log10(af ** 2 + 1e-12)
+
+    def construct(self):
+        title = Text("The real tradeoff: resolution vs. ambiguity",
+                     font_size=32).to_edge(UP)
+        sub = Text("16 mics · one frequency · sweeping how far apart they sit",
+                   font_size=24, color=GREY).next_to(title, DOWN, buff=0.12)
+        self.play(Write(title), FadeIn(sub))
+
+        ax = Axes(x_range=[-1.5, 1.5, 0.5], y_range=[-30, 0, 10],
+                  x_length=11.4, y_length=3.2,
+                  axis_config={"color": GREY, "include_tip": False},
+                  tips=False).shift(UP * 0.15)
+        xlab = Text("look direction   u = sin θ      ·      |u| ≤ 1 = real directions",
+                    font_size=22, color=GREY).next_to(ax, DOWN, buff=0.18)
+        self.play(Create(ax), FadeIn(xlab))
+
+        # the only real, physical directions live in |u| ≤ 1
+        vis = Rectangle(width=ax.c2p(1, 0)[0] - ax.c2p(-1, 0)[0],
+                        height=ax.c2p(0, 0)[1] - ax.c2p(0, -30)[1],
+                        stroke_width=0, fill_color=ACC, fill_opacity=0.05)
+        vis.move_to(ax.c2p(0, -15))
+        edge_l = DashedLine(ax.c2p(-1, -30), ax.c2p(-1, 0), color=GREY, stroke_width=1.5)
+        edge_r = DashedLine(ax.c2p(1, -30), ax.c2p(1, 0), color=GREY, stroke_width=1.5)
+        self.play(FadeIn(vis), Create(edge_l), Create(edge_r))
+
+        # two drones to resolve, ~11° apart around broadside (Δu = 0.2)
+        ut = 0.10
+        ticks = VGroup(*[DashedLine(ax.c2p(s * ut, -30), ax.c2p(s * ut, 0),
+                                    color=GOLD, stroke_width=2) for s in (-1, 1)])
+        tklab = Text("two drones · ~11° apart", font_size=20,
+                     color=GOLD).to_corner(UL).shift(DOWN * 1.4)
+
+        q = ValueTracker(0.15)
+        uu = np.linspace(-1.5, 1.5, 1400)
+
+        def beam():
+            db = np.clip(self.af_db(q.get_value(), uu), -30, 0)
+            pts = [ax.c2p(u, y) for u, y in zip(uu, db)]
+            return VMobject().set_points_as_corners(pts).set_stroke(ACC, width=3)
+        curve = always_redraw(beam)
+        self.add(curve)
+
+        readout = always_redraw(lambda: Text(
+            f"spacing d = {q.get_value():.2f} λ     aperture D = {q.get_value()*(self.N-1):.1f} λ",
+            font_size=24, color=GOLD).to_corner(UR).shift(DOWN * 1.4 + LEFT * 0.2))
+        self.add(readout)
+
+        # 1) tight pack → wide main lobe, can't separate the two drones
+        self.play(FadeIn(ticks), FadeIn(tklab))
+        m1 = Text("packed tight → one fat lobe: the two drones blur into one\n"
+                  "angular resolution ≈ λ / aperture (the diffraction limit)",
+                  font_size=24, color=WARN, line_spacing=0.6).to_edge(DOWN)
+        self.play(Write(m1))
+        self.wait(1.2)
+
+        # 2) grow the aperture to λ/2 spacing → lobe narrows, drones resolved
+        self.play(q.animate.set_value(0.5), run_time=2.5, rate_func=smooth)
+        m2 = Text("spread out to d = λ/2 → lobe sharpens, the two are resolved\n"
+                  "and no phantom is in view — the safe spacing",
+                  font_size=24, color=GOOD, line_spacing=0.6).to_edge(DOWN)
+        self.play(ReplacementTransform(m1, m2))
+        self.wait(1.2)
+
+        # 3) keep spreading for ever-finer resolution → replicas march inward
+        self.play(q.animate.set_value(1.0), run_time=2.2, rate_func=linear)
+        m3 = Text("push further for resolution → grating-lobe copies (Δu = λ/d)\n"
+                  "slide toward the real directions…",
+                  font_size=24, color=GOLD, line_spacing=0.6).to_edge(DOWN)
+        self.play(ReplacementTransform(m2, m3))
+        self.play(q.animate.set_value(1.35), run_time=2.0, rate_func=linear)
+        # flash the phantom replicas now folded into |u| ≤ 1 (at u = ±λ/d)
+        self.play(Flash(ax.c2p(1 / 1.35, 0), color=WARN, flash_radius=0.45),
+                  Flash(ax.c2p(-1 / 1.35, 0), color=WARN, flash_radius=0.45))
+        m4 = Text("a phantom drone the array can't reject — spatial aliasing",
+                  font_size=26, color=WARN).to_edge(DOWN)
+        self.play(ReplacementTransform(m3, m4))
+        self.wait(1.2)
+
+        # closing tradeoff statement
+        self.play(FadeOut(m4), FadeOut(tklab), FadeOut(xlab))
+        cap = Text("Too close → no resolution.   Too far → phantoms.\n"
+                   "With only 16 mics you can't beat both across 300–4000 Hz —\n"
+                   "so the array goes multi-scale instead of uniform.",
+                   font_size=26, color=ACC, line_spacing=0.6).to_edge(DOWN)
+        self.play(Write(cap))
+        self.wait(2)
+
+
+# --------------------------------------------------------------------------
 def polar_curve(pos, f, center, rscale=2.1, floor=-30, az0=0.0, n=720):
     az = np.linspace(-np.pi, np.pi, n)
     P = A.beampattern_az(pos, f, az, az0=az0)

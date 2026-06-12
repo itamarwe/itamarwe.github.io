@@ -77,6 +77,11 @@ so nothing aliases inside 300–4000 Hz.
 
 ## The tradeoff that drives everything
 
+Two opposing pressures fight over the spacing between microphones, and with a fixed
+number of them you can't satisfy both at once.
+
+### Too far apart, and directions alias
+
 Arrays localize sound by comparing the phase of a wavefront across microphones. The
 catch: if the spacing exceeds **half a wavelength**, two completely different arrival
 directions produce identical phase samples at every mic — a grating lobe. The array
@@ -84,16 +89,33 @@ cannot tell them apart.
 
 <video src="/img/mic-array/Aliasing.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-At 4 kHz the wavelength is 8.6 cm, so the **smallest spacing must be ≤ 4.3 cm**.
-But angular resolution scales with aperture relative to wavelength. At 300 Hz the
-wavelength is 1.14 m, so you need a *large* aperture for any bearing resolution at
-the bottom of the band.
+At 4 kHz the wavelength is 8.6 cm, so to stay unambiguous across the band the
+**smallest spacing must be ≤ 4.3 cm**.
+
+### Too close together, and you can't resolve anything
+
+So pack every mic in tight and the aliasing goes away — but now you've thrown away
+*resolution*. Angular resolution is set by the array's **aperture** (its overall
+span) measured in wavelengths: the main lobe is roughly **λ / D** wide, so a small
+aperture smears every direction into one fat blob and two drones a few degrees apart
+merge into a single blip. This is the diffraction limit — the same reason a bigger
+telescope mirror sees finer detail. At 300 Hz (λ = 1.14 m) you need a *large*
+aperture just to get a usable bearing, which is the exact opposite of packing tight.
+
+The video below sweeps a fixed 16-mic line from tightly packed to widely spread, all
+at one frequency. Watch the main lobe sharpen as the aperture grows — resolution
+improving — and then watch phantom copies march in from the edges as the spacing
+pushes past λ/2, until a false drone sits right among the real directions. That's
+the whole bind in a single motion:
+
+<video src="/img/mic-array/Resolution.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
 ![The spacing-vs-frequency tradeoff](/img/mic-array/tradeoff.png)
 
-With 16 mics you can't have a λ/2 uniform grid across a wide aperture — a 1.2 m
-line at 4.3 cm spacing needs ~28 mics. That tension is what drives you toward
-**non-uniform, multi-scale** layouts.
+Tight spacing buys an alias-free band; a wide aperture buys resolution; and with only
+16 mics a uniform grid can't deliver both — a 1.2 m line at 4.3 cm spacing would need
+~28 of them. That irreconcilable pull is what drives the design toward **non-uniform,
+multi-scale** layouts: some baselines kept small, others stretched wide.
 
 ## How geometry shapes the beam
 
