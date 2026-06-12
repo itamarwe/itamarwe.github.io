@@ -92,7 +92,7 @@ cannot tell them apart.
 At 4 kHz the wavelength is 8.6 cm, so to stay unambiguous across the band the
 **smallest spacing must be ≤ 4.3 cm**.
 
-### Too close together, and you can't resolve anything
+### Too close together, and resolution is lost
 
 So pack every mic in tight and the aliasing goes away — but now you've thrown away
 *resolution*. Angular resolution is set by the array's **aperture** (its overall
