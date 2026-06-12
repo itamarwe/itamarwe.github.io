@@ -58,9 +58,12 @@ narrowband DOA, but aliasing caps the usable band hard: a
 Aperiodic planar layouts (spiral, [GA-optimized](https://www.mdpi.com/2504-446X/9/2/149))
 break the grating lobes into a diffuse floor. Sparse / virtual-aperture designs —
 [coprime](https://pubmed.ncbi.nlm.nih.gov/26233043/), nested,
-[fractal](https://arxiv.org/abs/2001.01217) — synthesize a large co-array from few
-mics; a [benchmark study](https://arxiv.org/abs/2406.09001) ranks Open-Box > Nested
-> Billboard. And 3-D volumetric arrays —
+[fractal](https://arxiv.org/abs/2001.01217) — deliberately drop mics off the
+uniform grid so the *gaps* between them synthesize a much larger virtual array
+(a richer co-array) than the mic count alone would suggest; head-to-head
+[benchmarks](https://arxiv.org/abs/2406.09001) of these layouts back up how much
+localization accuracy you can wring from a handful of elements. And 3-D volumetric
+arrays —
 [tetrahedral](https://www.mdpi.com/1424-8220/26/6/1778),
 [spherical-harmonic MUSIC](https://ieeexplore.ieee.org/abstract/document/10051923/)
 — give full elevation coverage and remove the up/down ambiguity every flat array
