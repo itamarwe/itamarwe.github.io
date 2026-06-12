@@ -32,8 +32,15 @@ components/             Header, Footer, Disqus, Analytics
 styles/globals.scss     Ported theme + dark mode + syntax highlighting
 apps/
   photo-geolocation/    Embedded Vite app — see "Embedded apps" below
+research/
+  mic-array/            Python sim + manim source behind the mic-array post
+manim/                  Manim scene source for post figures/videos
 public/                 img/, solar-system/ (WebGL demo), favicon.ico
 ```
+
+> `research/` and `manim/` hold the scripts that *generate* a post's figures and
+> animations (their image/video outputs are committed under `public/img/<post>/`,
+> the source is kept for reproducibility). They are not part of the Next.js build.
 
 ## Embedded apps
 

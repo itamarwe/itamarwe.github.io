@@ -5,6 +5,11 @@
 # embedded apps' build output (apps/*/) emitted into public/ at build time
 /public/photo-geolocation/
 
+# research scripts: generated figures/videos and python caches
+/research/*/out/
+__pycache__/
+*.pyc
+
 # next.js
 /.next/
 /out/
