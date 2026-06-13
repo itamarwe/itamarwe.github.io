@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Gaussian Splatting: a Million Soft Blobs That Learn to Look Like a Scene"
+title: "3D Gaussian Splatting, Explained"
 comments: true
 date: 2026-06-13
 categories: graphics
