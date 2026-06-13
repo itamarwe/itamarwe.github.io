@@ -408,7 +408,57 @@ def fig_tiling():
     fig.savefig(f"{OUT}/tiling.png", facecolor=BG); plt.close(fig)
     print("tiling.png")
 
+# ---------------------------------------------------------------------------
+# Figure: adaptive density control (clone / split / prune) during training
+# ---------------------------------------------------------------------------
+def fig_densification():
+    fig, ax = newfig(9.8, 3.7)
+    ax.set_xlim(0, 9.8); ax.set_ylim(0, 3.7)
+    ext = [0, 9.8, 0, 3.7]
+    centers = [1.63, 4.9, 8.16]
+    for x in (3.27, 6.53):
+        ax.plot([x, x], [0.35, 3.05], color=MUT, lw=0.6, alpha=0.4)
+    by = 1.75
+    titles = [("Clone", "under-reconstructed", GREEN),
+              ("Split", "Gaussian too large", GOLD),
+              ("Prune", "near-transparent", RED)]
+    for c, (t, sub, col) in zip(centers, titles):
+        ax.text(c, 3.35, t, color=col, ha="center", fontsize=14, fontweight="bold")
+        ax.text(c, 3.02, sub, color=MUT, ha="center", fontsize=9.5, style="italic")
+
+    def tarrow(c):  # before -> after transform arrow
+        arrow(ax, (c-0.02, by), (c+0.32, by), color=MUT, lw=1.4, ms=10)
+
+    # CLONE: one small blob -> two small blobs (spread along the gradient)
+    c = centers[0]
+    gauss_field(ax, c-0.78, by, cov_from([0.30, 0.28], 0), GOLD, ext, peak=0.9)
+    arrow(ax, (c-0.78, by), (c-0.45, by+0.42), color=GREEN, lw=1.3, ms=8)  # ∇ hint
+    ax.text(c-0.30, by+0.52, "∇", color=GREEN, fontsize=12, ha="center")
+    tarrow(c)
+    gauss_field(ax, c+0.6, by+0.13, cov_from([0.29, 0.27], 0), GOLD, ext, peak=0.9)
+    gauss_field(ax, c+0.98, by-0.13, cov_from([0.29, 0.27], 0), GOLD, ext, peak=0.9)
+
+    # SPLIT: one large blob -> two smaller blobs
+    c = centers[1]
+    gauss_field(ax, c-0.72, by, cov_from([0.58, 0.5], 0), CYAN, ext, peak=0.9)
+    tarrow(c)
+    gauss_field(ax, c+0.62, by+0.18, cov_from([0.31, 0.27], 0), CYAN, ext, peak=0.9)
+    gauss_field(ax, c+1.0, by-0.18, cov_from([0.31, 0.27], 0), CYAN, ext, peak=0.9)
+
+    # PRUNE: a faint blob -> gone (red X)
+    c = centers[2]
+    gauss_field(ax, c-0.72, by, cov_from([0.33, 0.31], 0), PURP, ext, peak=0.30)
+    tarrow(c)
+    xx, yy, s = c+0.85, by, 0.2
+    ax.plot([xx-s, xx+s], [yy-s, yy+s], color=RED, lw=2.6)
+    ax.plot([xx-s, xx+s], [yy+s, yy-s], color=RED, lw=2.6)
+
+    ax.text(4.9, 0.32, "every few hundred steps · driven by each Gaussian's view-space position gradient",
+            color=MUT, ha="center", fontsize=10)
+    fig.savefig(f"{OUT}/densification.png", facecolor=BG); plt.close(fig)
+    print("densification.png")
+
 if __name__ == "__main__":
     fig_problem(); fig_nerf(); fig_implicit_vs_explicit()
-    fig_anatomy(); fig_pipeline(); fig_tiling(); fig_social()
+    fig_anatomy(); fig_pipeline(); fig_tiling(); fig_densification(); fig_social()
     print("all figures done")

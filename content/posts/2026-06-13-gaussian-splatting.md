@@ -236,33 +236,93 @@ gradient descent on the loss above. The source is in the repo.)
 ## How the GPU makes it real-time
 
 The "real-time 1080p" claim is the whole reason splatting took off, and it falls out
-of the fact that rendering is now *rasterization* — projecting and blending
-primitives — instead of NeRF's ray-marching with a network query at every sample.
-That maps onto a GPU almost perfectly. The quiet hero of the 2023 paper is a
-**tile-based differentiable rasterizer**:
+of the fact that both halves of the method — drawing a frame and learning the scene
+— are now *rasterization*: project primitives, sort them, blend them, instead of
+NeRF's ray-marching with a network query at every sample. That maps onto a GPU
+almost perfectly, and the quiet hero of the 2023 paper is the **tile-based
+differentiable rasterizer** that does it. Rendering is the forward pass; training
+wraps that same forward pass in a matching backward pass, so I'll take rendering
+first.
 
-![Tile-based rasterization: the image is split into tiles, splats are binned and depth-sorted once, and each tile is blended in parallel by a GPU thread block](/img/gaussian-splatting/tiling.png)
+### Rendering on the GPU
 
-1. **Project** every 3D Gaussian to 2D in parallel — one GPU thread per Gaussian
-   works out its screen-space center and 2D covariance.
-2. **Bin** the screen into 16×16-pixel tiles and assign each Gaussian to every tile
-   its ellipse overlaps.
-3. **Sort once.** Rather than sort splats separately for each pixel, do a single
-   global GPU radix sort of all `(tile, depth)` pairs per frame. This one move is
-   what makes the whole thing fast.
-4. **Blend in parallel.** Each tile goes to one GPU thread block; its threads walk
-   the tile's depth-sorted list front-to-back, alpha-blending, and bail out early
-   once a pixel's transmittance saturates. Tiles are independent, so the GPU chews
-   through thousands of them at once.
+![Tile-based rasterization: the image is split into 16×16 tiles, splats are binned and depth-sorted once, and each tile is blended in parallel by a GPU thread block](/img/gaussian-splatting/tiling.png)
 
-For **training**, the backward pass is a custom CUDA kernel that pushes gradients
-from the rendered pixels back onto each Gaussian's parameters — and because a full
-frame renders in milliseconds, you can run tens of thousands of optimization steps
-and finish a scene in minutes-to-an-hour on a single consumer GPU. For
-**inference**, it's just that forward rasterizer with no network in the loop, which
-is where the ≥30 fps comes from. The practical ceiling is **memory**: millions of
-explicit Gaussians have to fit in VRAM — which is exactly why the compression work
-below matters, and why genuinely huge scenes get partitioned across multiple GPUs.
+A frame is drawn in four GPU stages, and nothing in the loop touches a neural
+network:
+
+1. **Project & cull — one thread per Gaussian.** Every Gaussian gets its own GPU
+   thread that frustum-culls it if it's off-screen, projects its 3D mean to a pixel
+   location, and turns its 3D covariance $\Sigma$ into a 2D screen-space covariance
+   $\Sigma' = J\,W\,\Sigma\,W^{\top}J^{\top}$ — $W$ the viewing transform, $J$ the
+   Jacobian of the projection (the "EWA surface-splatting" formula). The same thread
+   evaluates the spherical-harmonic color for the current view direction and computes
+   a screen bounding box from the splat's ~$3\sigma$ radius.
+2. **Bin into tiles.** The frame is cut into **16×16-pixel tiles**. Each Gaussian
+   emits one entry for every tile its bounding box covers — so a big splat is
+   duplicated across many tiles — and each entry's 64-bit sort key packs the **tile
+   ID in the high bits and the depth in the low bits**.
+3. **One global sort.** A single GPU radix sort over all those keys *simultaneously*
+   groups entries by tile and orders them by depth within each tile. This is the
+   trick that makes it fast: you sort once per frame instead of once per pixel, and
+   all 256 pixels of a tile then share one ordered list. (The ordering is per-tile,
+   not strictly per-pixel — a cheap approximation that can cause occasional
+   "popping," and which the alias-free follow-ups tighten up.)
+4. **Blend — one thread block per tile.** Each tile is handed to a block of 256
+   threads, one per pixel. The block cooperatively loads its sorted splats into fast
+   shared memory in batches; each thread then walks that list front-to-back,
+   accumulating color $C = \sum_i c_i\,\alpha_i\,T_i$ while decaying the transmittance
+   $T \leftarrow T\,(1-\alpha_i)$, and **stops early** the instant its pixel saturates
+   ($T$ near zero). Tiles are independent, so thousands run at once.
+
+The payoff is ≥30 fps — often hundreds — at 1080p: the work is embarrassingly
+parallel, the depth sort is amortized over a whole frame, and the per-pixel inner
+loop is a handful of multiply-adds with an early-out, not a network evaluation. At
+inference this forward pass is the *entire* renderer.
+
+### Training on the GPU
+
+Training is that same rasterizer run *backwards*, ~30k times. Each iteration:
+
+1. **Forward render** a training viewpoint with the pipeline above, then compute the
+   loss $\mathcal{L}$ (the L1 + D-SSIM from earlier) against the real photo — both on
+   the GPU.
+2. **Backward rasterizer.** A second custom CUDA kernel mirrors the forward one,
+   walking each tile's sorted list **back-to-front** and turning $\partial\mathcal{L}/\partial C(p)$
+   into gradients for every Gaussian that touched the pixel — with respect to its
+   color, opacity, and 2D position and covariance. To avoid caching the blend state
+   of every splat at every pixel (which would exhaust memory), it reconstructs the
+   weights it needs from a little stored per-pixel state as it sweeps backward. Those
+   2D gradients are then chained back through the projection onto the 3D mean, the
+   scale and rotation that compose $\Sigma$, and the SH coefficients. Because one
+   splat lands in many pixels and tiles, contributions are summed with atomic adds.
+3. **Optimizer step.** Adam updates the parameters of all Gaussians at once — and
+   there are a lot of them: position (3), scale (3), a rotation quaternion (4),
+   opacity (1), and SH color (48 at degree 3) ≈ **59 numbers per Gaussian**, times
+   millions of Gaussians, every step.
+4. **Adaptive density control** (every few hundred steps) is the part unique to
+   splatting, and it runs off the gradients you just computed:
+
+![Adaptive density control: clone under-reconstructed Gaussians, split over-large ones, and prune near-transparent ones](/img/gaussian-splatting/densification.png)
+
+   - **Clone** — where the view-space position gradient is large but the Gaussians
+     there are small, the region is *under*-reconstructed, so small Gaussians are
+     duplicated and nudged along the gradient to add coverage.
+   - **Split** — where a single Gaussian has grown too large (over-reconstructed),
+     it's replaced by two smaller ones (scale divided by ≈1.6), with positions
+     sampled from the original's own distribution.
+   - **Prune** — Gaussians whose opacity has decayed below a threshold are deleted,
+     and opacities are periodically reset to flush out floaters.
+
+   These are all parallel operations over the parameter buffers (plus a compaction),
+   so the Gaussian count grows and shrinks mid-training without stalling the GPU.
+
+Because a forward-plus-backward pass is only milliseconds, tens of thousands of
+steps finish a scene in roughly **30–60 minutes on a single consumer GPU** (a
+3090/4090-class card). The hard ceiling is **VRAM**: every explicit Gaussian and its
+~59 parameters live in GPU memory, which is exactly why the compression work below
+matters — and why scaling to genuinely huge scenes means sharding the Gaussians
+across multiple GPUs.
 
 ## Why Gaussians, and not points or triangles?
 
