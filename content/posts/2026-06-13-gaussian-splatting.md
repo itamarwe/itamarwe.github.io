@@ -181,8 +181,10 @@ down. Because the renderer is differentiable, I can state exactly what we minimi
 them by depth, and accumulate:
 
 $$
-C(p) = \sum_i c_i\,\alpha_i(p) \prod_{j<i}\bigl(1-\alpha_j(p)\bigr),
-\qquad
+C(p) = \sum_i c_i\,\alpha_i(p) \prod_{j<i}\bigl(1-\alpha_j(p)\bigr)
+$$
+
+$$
 \alpha_i(p) = o_i\,\exp\!\Bigl(-\tfrac{1}{2}\,(p-\mu_i)^{\top}\,{\Sigma_i'}^{-1}\,(p-\mu_i)\Bigr)
 $$
 
@@ -204,10 +206,13 @@ $$
 $$
 
 $$
-\mathcal{L}_1 = \frac{1}{N}\sum_p \bigl|\,C(p)-\hat{C}(p)\,\bigr|,
-\qquad
+\mathcal{L}_1 = \frac{1}{N}\sum_p \bigl|\,C(p)-\hat{C}(p)\,\bigr|
+$$
+
+$$
 \mathcal{L}_{\text{D-SSIM}} = 1 - \mathrm{SSIM}(C,\hat{C})
 $$
+
 
 Why two terms? $\mathcal{L}_1$ pulls every pixel toward the right color, but on its
 own it tolerates a soft, slightly-blurry answer that's "close enough" on average.
@@ -228,10 +233,11 @@ sharpens into focus:
 
 <video src="/img/gaussian-splatting/training.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-(Full disclosure: this clip is an *illustration* of the loop, not a real training
-run. It follows the real shape — init → render → measure error → densify → prune —
-but uses a simple weighted-blend renderer and a greedy densifier rather than true
-gradient descent on the loss above. The source is in the repo.)
+This is a real — if miniature — **2D** Gaussian-splatting run: a couple of thousand
+Gaussians optimized by Adam on exactly the L1 + D-SSIM loss above, rendered with the
+front-to-back compositing equation above, and grown by the same gradient-driven
+clone / split / prune. Full 3DGS is this same loop in 3D, with view-dependent color
+and the tile rasterizer. The source is in the repo.
 
 ## How the GPU makes it real-time
 
