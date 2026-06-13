@@ -176,45 +176,49 @@ for step in range(training_steps):
 Step 5 hides the only real objective in the whole method, so it's worth writing
 down. Because the renderer is differentiable, I can state exactly what we minimize.
 
-**The forward render** for a pixel `p` is alpha compositing — the same front-to-back
-"over" operator as any graphics pipeline. Take the Gaussians that cover `p`, sort
+**The forward render** for a pixel $p$ is alpha compositing — the same front-to-back
+"over" operator as any graphics pipeline. Take the Gaussians that cover $p$, sort
 them by depth, and accumulate:
 
-```
-C(p) = Σ_i  c_i · α_i(p) · Π_{j<i} (1 − α_j(p))
+$$
+C(p) = \sum_i c_i\,\alpha_i(p) \prod_{j<i}\bigl(1-\alpha_j(p)\bigr),
+\qquad
+\alpha_i(p) = o_i\,\exp\!\Bigl(-\tfrac{1}{2}\,(p-\mu_i)^{\top}\,{\Sigma_i'}^{-1}\,(p-\mu_i)\Bigr)
+$$
 
-   with  α_i(p) = o_i · exp( −½ (p − μ_i)ᵀ Σ_i'⁻¹ (p − μ_i) )
-```
+Here $c_i$ is the splat's (view-dependent) color, $o_i$ its opacity, and $\mu_i$,
+$\Sigma_i'$ the center and $2\times2$ covariance of its *projected* 2D ellipse. The
+exponential is the Gaussian falloff — a pixel near the center of the ellipse gets
+nearly full $\alpha$, the edges almost none. The product term is the
+**transmittance**: how much light still gets through after the splats in front have
+taken their cut. Closer, more opaque splats dominate, and once transmittance reaches
+zero the rest of the list behind is invisible.
 
-Here `c_i` is the splat's (view-dependent) color, `o_i` its opacity, and `μ_i`, `Σ_i'`
-the center and 2×2 covariance of its *projected* 2D ellipse. The exponential is the
-Gaussian falloff — a pixel near the center of the ellipse gets nearly full `α`, the
-edges almost none. The product term is the **transmittance**: how much light still
-gets through after the splats in front have taken their cut. Closer, more opaque
-splats dominate, and once transmittance reaches zero the rest of the list behind is
-invisible.
-
-**The loss** then compares that rendered image `C` against the ground-truth photo
-`Ĉ`. The [3DGS paper](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)
+**The loss** then compares that rendered image $C$ against the ground-truth photo
+$\hat{C}$. The [3DGS paper](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)
 blends a pixel-wise term with a structural one:
 
-```
-L = (1 − λ) · L1  +  λ · L_D-SSIM            (λ ≈ 0.2)
+$$
+\mathcal{L} = (1-\lambda)\,\mathcal{L}_1 + \lambda\,\mathcal{L}_{\text{D-SSIM}},
+\qquad \lambda \approx 0.2
+$$
 
-   L1       = (1/N) Σ_p | C(p) − Ĉ(p) |      per-pixel color difference
-   L_D-SSIM = 1 − SSIM(C, Ĉ)                  structural dissimilarity
-```
+$$
+\mathcal{L}_1 = \frac{1}{N}\sum_p \bigl|\,C(p)-\hat{C}(p)\,\bigr|,
+\qquad
+\mathcal{L}_{\text{D-SSIM}} = 1 - \mathrm{SSIM}(C,\hat{C})
+$$
 
-Why two terms? **L1** pulls every pixel toward the right color, but on its own it
-tolerates a soft, slightly-blurry answer that's "close enough" on average.
+Why two terms? $\mathcal{L}_1$ pulls every pixel toward the right color, but on its
+own it tolerates a soft, slightly-blurry answer that's "close enough" on average.
 **D-SSIM** is built from SSIM, which compares *local* means, variances, and
 covariances over small windows — luminance, contrast, and structure — so it
-specifically punishes the blur and washed-out texture that L1 shrugs off. Writing it
-as `1 − SSIM` makes it zero when the images are identical, so both terms pull the
+specifically punishes the blur and washed-out texture that $\mathcal{L}_1$ shrugs
+off. Writing it as $1-\mathrm{SSIM}$ makes it zero when the images are identical, so both terms pull the
 same way.
 
-Everything feeding `C` — positions, covariances, opacities, color coefficients — is
-differentiable, so `∂L/∂(each parameter)` flows back through the compositing and the
+Everything feeding $C$ — positions, covariances, opacities, color coefficients — is
+differentiable, so $\partial\mathcal{L}/\partial(\text{each parameter})$ flows back through the compositing and the
 projection, and one gradient step nudges all of them at once.
 
 Watching it happen is the part that made it click for me. Here's the loop running
