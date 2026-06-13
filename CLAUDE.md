@@ -41,6 +41,15 @@ and the Gaussian-splatting post. When writing a new post, match them:
   visualizations"). Verify it renders headlessly before committing.
 - Prefer a non-redundant set: each figure / animation / demo should teach something
   the others don't.
+- **Keep the simulation / figure-generation code in the repo.** Commit every script
+  that produced a figure, animation, or numeric result under `research/<post>/`
+  (`sim/` for plots & data, `scenes/` for Manim) with a short `README.md` — see
+  `research/mic-array/` and `research/gaussian-splatting/`. The committed PNGs/MP4s
+  live in `public/img/<post>/`; the code that regenerates them lives in `research/`.
+  Make output paths repo-relative (derive from `__file__`), not absolute home paths.
+- **Be honest about what a visual is.** If a figure or animation is a simplified or
+  illustrative stand-in rather than the real computation, say so in the post (a brief
+  parenthetical) and in the script's docstring.
 
 ## Always verify links before adding them
 
