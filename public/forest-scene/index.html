@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Forest Scene</title>
+<title>Forest Scene — USAF Target</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; overflow: hidden; font-family: monospace; }
@@ -10,19 +10,19 @@
   #ui {
     position: fixed; top: 12px; left: 12px; color: #cde; font-size: 11px;
     background: rgba(0,0,0,.55); padding: 8px 12px; border-radius: 6px;
-    line-height: 1.85; pointer-events: none; max-width: 280px;
+    line-height: 1.85; pointer-events: none;
   }
   #ui.hidden { display: none; }
 </style>
 </head>
 <body>
 <div id="ui">
-  <b>Forest Scene</b><br>
+  <b>USAF 1951 Target Benchmark</b><br>
   Drag: orbit &nbsp;|&nbsp; Scroll: zoom<br>
-  <b>V</b>: toggle canopy &nbsp;|&nbsp; <b>T</b>: pause wind<br>
-  <b>H</b>: hide UI<br>
-  <span id="mode-label" style="color:#ffd166"></span>
+  <b>V</b>: toggle straw roof &nbsp;|&nbsp; <b>H</b>: hide UI<br>
+  <span id="cov-label" style="color:#ffd166"></span>
 </div>
+
 <script type="importmap">
 { "imports": {
     "three": "../pnp/vendor/three.module.js",
@@ -35,19 +35,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ── URL params ────────────────────────────────────────────────────────────────
 const P = new URLSearchParams(location.search);
-const CAM_AZ   = parseFloat(P.get('az')  ?? 30)  * Math.PI / 180;
-const CAM_EL   = parseFloat(P.get('el')  ?? 55)  * Math.PI / 180;
-const CAM_DIST = parseFloat(P.get('d')   ?? 22);
-const SHOW_VEG = (P.get('veg') ?? '1') !== '0';
-const WIND_T0  = parseFloat(P.get('t')   ?? 0);
+const CAM_AZ    = parseFloat(P.get('az')  ?? 20)  * Math.PI / 180;
+const CAM_EL    = parseFloat(P.get('el')  ?? 68)  * Math.PI / 180;
+const CAM_DIST  = parseFloat(P.get('d')   ?? 16);
+const SHOW_VEG  = (P.get('veg') ?? '1') !== '0';
+const COV       = parseFloat(P.get('cov') ?? 0.50);
 const INTERACTIVE = P.get('interactive') !== '0';
-// canopy='leaves' (default) | 'straw'  (flat thatch roof)
-const CANOPY   = P.get('canopy') ?? 'leaves';
-const COV      = parseFloat(P.get('cov') ?? 0.42); // straw coverage 0–1
-
 if (P.get('ui') === '0') document.getElementById('ui').classList.add('hidden');
-document.getElementById('mode-label').textContent =
-  CANOPY === 'straw' ? `straw roof  cov=${COV}` : 'leaf canopy';
+document.getElementById('cov-label').textContent = `straw coverage: ${Math.round(COV*100)}%`;
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -57,7 +52,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.05;
 document.body.appendChild(renderer.domElement);
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -65,46 +60,41 @@ window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// ── Scene / Fog ───────────────────────────────────────────────────────────────
+// ── Scene ─────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x6a9bb8);
-scene.fog = new THREE.FogExp2(0x6a9bb8, 0.015);
+scene.background = new THREE.Color(0x8aabcc);
+scene.fog = new THREE.FogExp2(0x8aabcc, 0.012);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 400);
-(function setCam(az, el, dist) {
-  camera.position.set(
-    dist * Math.cos(el) * Math.sin(az),
-    dist * Math.sin(el),
-    dist * Math.cos(el) * Math.cos(az));
-  camera.lookAt(0, 1.8, 0);
-})(CAM_AZ, CAM_EL, CAM_DIST);
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(
+  CAM_DIST * Math.cos(CAM_EL) * Math.sin(CAM_AZ),
+  CAM_DIST * Math.sin(CAM_EL),
+  CAM_DIST * Math.cos(CAM_EL) * Math.cos(CAM_AZ));
+camera.lookAt(0, 0, 0);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1.8, 0);
+controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
-controls.minDistance = 3; controls.maxDistance = 60;
+controls.minDistance = 3;
+controls.maxDistance = 50;
 if (!INTERACTIVE) controls.enabled = false;
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
-scene.add(new THREE.HemisphereLight(0x90b8e0, 0x3a6a28, 0.8));
+// Bright ambient so target is readable even in shadow
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
-const sun = new THREE.DirectionalLight(0xfff5d0, 2.0);
-sun.position.set(14, 28, 10);
+const sun = new THREE.DirectionalLight(0xfff8e8, 1.8);
+sun.position.set(10, 22, 8);
 sun.castShadow = true;
-// Large high-res shadow map → fine dapple detail
-sun.shadow.mapSize.setScalar(4096);
+sun.shadow.mapSize.setScalar(4096);  // high-res → fine stick shadows on target
 const sc = sun.shadow.camera;
-sc.left = sc.bottom = -28; sc.right = sc.top = 28;
-sc.near = 0.5; sc.far = 120;
-sun.shadow.bias = -0.0003;
-sun.shadow.normalBias = 0.02;
+sc.left = sc.bottom = -20; sc.right = sc.top = 20;
+sc.near = 0.5; sc.far = 60;
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0.01;
 scene.add(sun);
-
-const fill = new THREE.DirectionalLight(0x4060a0, 0.32);
-fill.position.set(-10, 6, -8);
-scene.add(fill);
 
 // ── Deterministic RNG ─────────────────────────────────────────────────────────
 function makeRng(seed) {
@@ -116,366 +106,290 @@ function makeRng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rng = makeRng(137);
 
 // ── Ground ────────────────────────────────────────────────────────────────────
 {
-  const geo = new THREE.PlaneGeometry(100, 100, 40, 40);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getY(i);
-    pos.setZ(i, Math.sin(x * 0.28) * Math.cos(z * 0.35) * 0.18 + Math.sin(x * 0.9 + z * 0.7) * 0.06);
-  }
-  pos.needsUpdate = true; geo.computeVertexNormals();
-  const g = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x2a4015, roughness: 0.97 }));
-  g.rotation.x = -Math.PI / 2; g.receiveShadow = true;
+  const g = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.MeshStandardMaterial({ color: 0x556644, roughness: 0.96 })
+  );
+  g.rotation.x = -Math.PI / 2;
+  g.receiveShadow = true;
   scene.add(g);
 }
 
-// ── Undergrowth ───────────────────────────────────────────────────────────────
-{
-  const r2 = makeRng(99);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x224a10, roughness: 0.95, side: THREE.DoubleSide });
-  for (let i = 0; i < 60; i++) {
-    const ang = r2() * Math.PI * 2, r = 1.8 + r2() * 14;
-    const b = new THREE.Mesh(new THREE.SphereGeometry(0.18 + r2() * 0.34, 6, 4), mat);
-    b.position.set(Math.cos(ang) * r, 0.1, Math.sin(ang) * r);
-    b.scale.y = 0.45 + r2() * 0.25; b.castShadow = true;
-    scene.add(b);
-  }
-}
-
-// ── Soldier ───────────────────────────────────────────────────────────────────
-function makeMat(hex, rough = 0.82, metal = 0) {
-  return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
-}
-const sMat  = makeMat(0x4a5a28);
-const hMat  = makeMat(0x38481a, 0.75);
-const bMat  = makeMat(0x18180a, 0.92);
-const pkMat = makeMat(0x384818, 0.90);
-const rMat  = makeMat(0x1c1c1c, 0.55, 0.5);
-
-function sh(m) { m.castShadow = m.receiveShadow = true; return m; }
-function box(w, h, d, mat) { return sh(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)); }
-function cyl(rt, rb, h, seg, mat) { return sh(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat)); }
-function sph(r, ws, hs, mat) { return sh(new THREE.Mesh(new THREE.SphereGeometry(r, ws, hs), mat)); }
-
-function createSoldier() {
-  const g = new THREE.Group();
-  const a = (mesh, x, y, z) => { mesh.position.set(x, y, z); g.add(mesh); return mesh; };
-
-  // Legs + boots
-  for (const [x, rz] of [[-0.12, 0.04], [0.12, -0.04]]) {
-    const leg = a(cyl(0.085, 0.095, 0.80, 8, sMat), x, 0.40, 0); leg.rotation.z = rz;
-    a(box(0.14, 0.10, 0.22, bMat), x, 0.03, 0.04);
-  }
-  // Torso + backpack
-  a(box(0.44, 0.64, 0.28, sMat), 0, 1.10, 0);
-  a(box(0.30, 0.42, 0.16, pkMat), 0, 1.10, -0.22);
-  // Neck + head
-  a(cyl(0.08, 0.09, 0.16, 7, sMat), 0, 1.47, 0);
-  a(sph(0.19, 10, 8, sMat), 0, 1.65, 0);
-  // Helmet dome
-  const hd = sh(new THREE.Mesh(
-    new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.65), hMat));
-  a(hd, 0, 1.68, 0);
-  a(cyl(0.27, 0.27, 0.035, 14, hMat), 0, 1.60, 0);
-  // Arms
-  for (const [x, rz] of [[-0.27, 0.28], [0.27, -0.28]]) {
-    const arm = a(cyl(0.07, 0.08, 0.56, 7, sMat), x, 1.05, 0.04); arm.rotation.z = rz;
-  }
-  // Rifle + barrel
-  a(box(0.055, 0.055, 0.88, rMat), 0.24, 1.08, 0.44);
-  const bar = a(cyl(0.018, 0.018, 0.30, 6, rMat), 0.24, 1.12, 0.84); bar.rotation.x = Math.PI / 2;
-
-  g.scale.setScalar(1.8); // 1.8 m tall
-  return g;
-}
-scene.add(createSoldier());
-
 // ═══════════════════════════════════════════════════════════════════════════════
-//  CANOPY SYSTEM
+//  USAF 1951 RESOLUTION TARGET
 // ═══════════════════════════════════════════════════════════════════════════════
+//
+//  Physical dimensions:  TARGET_SIZE × TARGET_SIZE metres on the ground.
+//  Texture:              1024 × 1024 px.
+//  Physical resolution:  1 px ≈ TARGET_SIZE/1024 m
+//
+//  Layout (4 groups, G1 coarsest → G4 finest):
+//
+//    +──────────+──────────+
+//    │          │  G2      │
+//    │   G1     ├────+─────+
+//    │          │ G3 │ G4  │
+//    +──────────+────+─────+
+//
+//  Each group: 6 elements (E1 coarsest → E6 finest, ratio 2^(1/6) per step)
+//  Each element: [3 vertical bars] | [3 horizontal bars]
+//  Bar width d, gap d, bar length 5d → element box ≈ 11d × 5d
+// ─────────────────────────────────────────────────────────────────────────────
+const TARGET_SIZE = 5.0;   // metres (physical side length)
 
-const vegGroup = new THREE.Group();
-scene.add(vegGroup);
-const leafPivots = [];      // for macro wind sway
-let   LEAF_TIME  = { value: WIND_T0 }; // shared uniform across all leaf shaders
-
-// ── Leaf texture (canvas-generated) ──────────────────────────────────────────
-function makeLeafTexture(hue, lightness) {
-  const N = 128;
+function makeUSAFTexture() {
+  const N = 1024;
   const cv = document.createElement('canvas');
   cv.width = cv.height = N;
-  const c = cv.getContext('2d');
+  const ctx = cv.getContext('2d');
 
-  // Pointed-oval leaf body with radial gradient
-  const grd = c.createRadialGradient(N/2, N*0.38, 4, N/2, N/2, N*0.48);
-  grd.addColorStop(0,   `hsl(${hue},64%,${lightness+12}%)`);
-  grd.addColorStop(0.65,`hsl(${hue},60%,${lightness}%)`);
-  grd.addColorStop(1,   `hsl(${hue},55%,${lightness-9}%)`);
+  // Calibration-target grey background
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, N, N);
 
-  c.fillStyle = grd;
-  c.beginPath();
-  c.moveTo(N/2, 7);                                       // apex
-  c.bezierCurveTo(96, 20, 110, 46, 107, 72);             // right side
-  c.bezierCurveTo(104, 97, 88, 114, N/2, 120);           // bottom right
-  c.bezierCurveTo(40, 114, 24, 97, 21, 72);              // bottom left
-  c.bezierCurveTo(18, 46, 32, 20, N/2, 7);               // back to apex
-  c.fill();
+  // Outer border
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, N - 4, N - 4);
 
-  // Main vein
-  c.strokeStyle = `hsla(${hue},68%,${lightness+22}%,0.70)`;
-  c.lineWidth = 2.8; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(N/2, 9); c.lineTo(N/2, 118); c.stroke();
-
-  // 5 pairs of lateral veins
-  c.lineWidth = 1.3;
-  c.strokeStyle = `hsla(${hue},62%,${lightness+18}%,0.45)`;
-  for (let i = 0; i < 5; i++) {
-    const y = 26 + i * 17, sp = 20 + i * 4;
-    c.beginPath(); c.moveTo(N/2, y); c.lineTo(N/2 - sp, y + 12); c.stroke();
-    c.beginPath(); c.moveTo(N/2, y); c.lineTo(N/2 + sp, y + 12); c.stroke();
+  // Draw 3 parallel bars (black)
+  // x,y = top-left, d = bar width, vertical = orientation
+  function bars(x, y, d, vertical) {
+    d = Math.max(1, Math.round(d));
+    ctx.fillStyle = '#0a0a0a';
+    for (let i = 0; i < 3; i++) {
+      if (vertical) ctx.fillRect(Math.round(x + i*2*d), Math.round(y),     d, 5*d);
+      else          ctx.fillRect(Math.round(x),          Math.round(y+i*2*d), 5*d, d);
+    }
   }
+
+  // One USAF element = vertical bars left + horizontal bars right
+  function element(x, y, d) {
+    d = Math.max(1, Math.round(d));
+    bars(x,         y, d, true);   // vertical bars:   5d wide × 5d tall
+    bars(x + 6*d,   y, d, false);  // horizontal bars: 5d wide × 5d tall (offset 6d)
+    // Total element footprint: 11d × 5d
+  }
+
+  // Draw a full group (6 elements stacked vertically) in a bounding box
+  function group(bx, by, bw, bh, d0, label) {
+    // Group number label
+    const fs = Math.min(22, Math.max(7, Math.round(d0 * 1.1)));
+    ctx.font = `bold ${fs}px sans-serif`;
+    ctx.fillStyle = '#111';
+    ctx.fillText(`G${label}`, bx + 4, by + fs + 2);
+
+    let cy = by + fs + 6;
+    for (let e = 1; e <= 6; e++) {
+      const d  = Math.max(1, Math.round(d0 * Math.pow(2, -(e-1)/6)));
+      const eh = 5 * d;                          // element height
+      if (cy + eh > by + bh - 2) break;          // won't fit — skip
+
+      element(bx + 4, cy, d);
+
+      // Element number label to the right
+      const efs = Math.min(11, Math.max(5, Math.round(d * 0.85)));
+      ctx.font = `${efs}px sans-serif`;
+      ctx.fillStyle = '#333';
+      ctx.fillText(`${e}`, bx + 11*d + 10, cy + eh * 0.65);
+
+      cy += eh + Math.max(2, Math.round(d * 0.4));
+    }
+  }
+
+  // ── Group placement ──────────────────────────────────────────────────────
+  // Each group's d0 halves → each occupies half the area of the previous.
+  // G1: left half full height, d0=32
+  // G2: right-upper quadrant,  d0=16
+  // G3: right-mid octant,      d0=8
+  // G4: right-lower 16th,      d0=4
+  group(  0,   0, 512, 1024, 32, 1);  // G1
+  group(512,   0, 512,  512, 16, 2);  // G2
+  group(512, 512, 256,  256,  8, 3);  // G3
+  group(768, 512, 256,  256,  4, 4);  // G4  (right of G3)
+
+  // ── Dividers ─────────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  // Vertical centre line
+  ctx.moveTo(512, 0);   ctx.lineTo(512, N);
+  // Horizontal line between G2 and G3/G4
+  ctx.moveTo(512, 512); ctx.lineTo(N, 512);
+  // Vertical line between G3 and G4
+  ctx.moveTo(768, 512); ctx.lineTo(768, N);
+  ctx.stroke();
+
+  // ── Scale legend ──────────────────────────────────────────────────────────
+  const mmPerPx = (TARGET_SIZE * 1000) / N;  // mm per texture pixel
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#555';
+  ctx.fillText(`1 px = ${mmPerPx.toFixed(1)} mm  |  target ${TARGET_SIZE}m × ${TARGET_SIZE}m`, 6, N - 6);
 
   return new THREE.CanvasTexture(cv);
 }
 
-// 4 texture variants covering the green-to-yellowy-green range
-const LEAF_TEXTURES = [
-  makeLeafTexture(112, 28),  // dark forest green
-  makeLeafTexture(108, 33),  // mid green
-  makeLeafTexture(100, 38),  // lighter / yellower
-  makeLeafTexture(118, 24),  // deep shade green
-];
-
-// ── Leaf material — MeshStandardMaterial + wind flutter via onBeforeCompile ──
-// All InstancedMesh leaf objects share this one material; uTime is global.
-function makeLeafMaterial(tex) {
-  const mat = new THREE.MeshStandardMaterial({
-    map: tex,
-    alphaTest: 0.28,
-    side: THREE.DoubleSide,
-    roughness: 0.88,
-    metalness: 0.0,
-  });
-
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = LEAF_TIME;
-    // Inject uTime declaration at the top of the vertex shader
-    shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader;
-    // Inject per-leaf flutter after `transformed` is declared
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-      #ifdef USE_INSTANCING
-        // World position of this leaf instance (used for spatial wind variation)
-        vec4 iWorld = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-        // Two sine waves → flutter along the leaf's own normal
-        float flut = sin(uTime * 3.2 + iWorld.x * 2.4 + iWorld.z * 1.8) * 0.038
-                   + cos(uTime * 1.9 + iWorld.z * 2.8 + iWorld.y * 1.5) * 0.026;
-        transformed += normal * flut;
-      #endif`
-    );
-  };
-  return mat;
-}
-const LEAF_MATS = LEAF_TEXTURES.map(makeLeafMaterial);
-
-// Shared depth materials for alpha-aware shadow casting (dappled light!)
-const LEAF_DEPTH_MATS = LEAF_TEXTURES.map(tex =>
-  new THREE.MeshDepthMaterial({
-    depthPacking: THREE.RGBADepthPacking,
-    map: tex,
-    alphaTest: 0.28,
-  })
+// Place USAF target flat on the ground
+const usafTex = makeUSAFTexture();
+usafTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const usafMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(TARGET_SIZE, TARGET_SIZE),
+  new THREE.MeshStandardMaterial({ map: usafTex, roughness: 0.7, metalness: 0.0 })
 );
+usafMesh.rotation.x = -Math.PI / 2;
+usafMesh.position.y = 0.005;   // just above ground
+usafMesh.receiveShadow = true;
+scene.add(usafMesh);
 
-// ── Shared leaf plane geometry ────────────────────────────────────────────────
-// 18 cm × 13 cm broadleaf — big enough to see, small enough for gaps
-const LEAF_GEO = new THREE.PlaneGeometry(0.18, 0.13);
+// ── Bullseye / crosshair  (localisation target alongside USAF) ────────────────
+function makeBullseyeTexture() {
+  const N = 512;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const ctx = cv.getContext('2d');
+  const cx = N / 2, cy = N / 2;
 
-// ── Tree trunk material ───────────────────────────────────────────────────────
-const TRUNK_MAT = new THREE.MeshStandardMaterial({ color: 0x5c3d1e, roughness: 0.93 });
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, N, N);
 
-// ── Create one tree ───────────────────────────────────────────────────────────
-function createTree(x, z, treeScale) {
-  const g = new THREE.Group();
-  g.position.set(x, 0, z);
+  // Border
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, N - 4, N - 4);
 
-  const H  = 5.5 * treeScale;
-  const TR = 0.17 * treeScale;
-
-  // Trunk (two segments for slight taper)
-  const tk1 = new THREE.Mesh(new THREE.CylinderGeometry(TR * 0.65, TR, H * 0.58, 9), TRUNK_MAT);
-  tk1.position.y = H * 0.29; tk1.castShadow = true; g.add(tk1);
-  const tk2 = new THREE.Mesh(new THREE.CylinderGeometry(TR * 0.35, TR * 0.65, H * 0.28, 8), TRUNK_MAT);
-  tk2.position.y = H * 0.72; tk2.castShadow = true; g.add(tk2);
-
-  // Pick leaf texture variant based on position
-  const vi = Math.abs(Math.round(x * 3.1 + z * 1.7)) % LEAF_MATS.length;
-
-  // One InstancedMesh for all leaves on this tree
-  const LEAF_N = 280;
-  const leaves = new THREE.InstancedMesh(LEAF_GEO, LEAF_MATS[vi], LEAF_N);
-  leaves.castShadow = true;
-  leaves.receiveShadow = false;
-  // Critical: alpha-aware depth → dappled shadows on ground
-  leaves.customDepthMaterial = LEAF_DEPTH_MATS[vi];
-
-  const dummy = new THREE.Object3D();
-  const col   = new THREE.Color();
-  const r2    = makeRng(Math.round(Math.abs(x * 37 + z * 53)));
-
-  for (let i = 0; i < LEAF_N; i++) {
-    // Conical crown: wider at base, narrows toward top
-    const frac  = r2();                             // 0 = canopy base, 1 = apex
-    const ly    = H * (0.50 + frac * 0.48);        // height in tree-local space
-    const maxR  = treeScale * (1.55 - frac * 1.15);// radius shrinks upward
-    const ang   = r2() * Math.PI * 2;
-    const dist  = maxR * Math.sqrt(r2());           // uniform radial distribution
-
-    dummy.position.set(dist * Math.cos(ang), ly, dist * Math.sin(ang));
-    // Mostly horizontal, but with some tilt variation — like real leaves
-    dummy.rotation.set(
-      (r2() - 0.5) * Math.PI * 0.7,
-      r2() * Math.PI * 2,
-      (r2() - 0.5) * Math.PI * 0.5
-    );
-    dummy.scale.setScalar(treeScale * (0.8 + r2() * 0.55));
-    dummy.updateMatrix();
-    leaves.setMatrixAt(i, dummy.matrix);
-
-    // Per-leaf colour variation (dark shaded leaves vs bright sunlit ones)
-    col.setHSL(
-      0.27 + r2() * 0.09,   // hue: 97–129° (green band)
-      0.42 + r2() * 0.38,   // saturation
-      0.20 + r2() * 0.22    // lightness
-    );
-    leaves.setColorAt(i, col);
+  // Alternating black/white concentric rings (5 pairs)
+  const nRings = 5;
+  for (let i = nRings; i >= 1; i--) {
+    const r = (i / nRings) * (N * 0.46);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = (i % 2 === 0) ? '#0a0a0a' : '#d4d4d4';
+    ctx.fill();
   }
-  leaves.instanceMatrix.needsUpdate = true;
-  leaves.instanceColor.needsUpdate = true;
 
-  // Wind pivot (macro sway — rotates the whole leaf cloud per tree)
-  const pivot = new THREE.Group();
-  const ph = x * 17.3 + z * 11.7;
-  pivot.userData = {
-    ph,
-    fq:  0.22 + Math.abs(ph % 1) * 0.32,
-    amp: 0.055,
-  };
-  leafPivots.push(pivot);
-  pivot.add(leaves);
-  g.add(pivot);
+  // Centre dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, N * 0.030, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fill();
 
-  return g;
+  // Crosshair lines (full span, thin)
+  ctx.strokeStyle = '#0a0a0a'; ctx.lineWidth = Math.max(1, N * 0.006);
+  ctx.beginPath();
+  ctx.moveTo(4, cy);     ctx.lineTo(N - 4, cy);
+  ctx.moveTo(cx, 4);     ctx.lineTo(cx, N - 4);
+  ctx.stroke();
+
+  // Tick marks at 45° diagonals (easier to detect in oblique views)
+  ctx.lineWidth = Math.max(1, N * 0.004);
+  for (const a of [45, 135, 225, 315]) {
+    const rad = a * Math.PI / 180;
+    const r0 = N * 0.50, r1 = N * 0.30;
+    ctx.beginPath();
+    ctx.moveTo(cx + r0 * Math.cos(rad), cy + r0 * Math.sin(rad));
+    ctx.lineTo(cx + r1 * Math.cos(rad), cy + r1 * Math.sin(rad));
+    ctx.stroke();
+  }
+
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'center';
+  ctx.fillText('BULLSEYE', cx, N - 8);
+  ctx.textAlign = 'left';
+
+  return new THREE.CanvasTexture(cv);
 }
 
-// ── Forest (leaf canopy mode) ─────────────────────────────────────────────────
-const MIN_C = 5.5;   // min distance from scene centre
-const MIN_B = 2.8;   // min distance between trees
-const placed = [];
-let attempt  = 0;
+const BULLSEYE_SIZE = 2.2;
+const bullseyeMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(BULLSEYE_SIZE, BULLSEYE_SIZE),
+  new THREE.MeshStandardMaterial({ map: makeBullseyeTexture(), roughness: 0.7 })
+);
+bullseyeMesh.rotation.x = -Math.PI / 2;
+// Place adjacent to USAF chart (to the right)
+bullseyeMesh.position.set(TARGET_SIZE / 2 + BULLSEYE_SIZE / 2 + 0.3, 0.005, 0);
+bullseyeMesh.receiveShadow = true;
+scene.add(bullseyeMesh);
 
-while (placed.length < 26 && attempt < 600) {
-  attempt++;
-  const ang = rng() * Math.PI * 2;
-  const r   = MIN_C + rng() * 11.5;
-  const tx  = Math.cos(ang) * r;
-  const tz  = Math.sin(ang) * r;
-  if (placed.some(([px, pz]) => Math.hypot(tx - px, tz - pz) < MIN_B)) continue;
-  placed.push([tx, tz]);
-  vegGroup.add(createTree(tx, tz, 0.82 + rng() * 0.52));
+// ── Target outlines (white border strip on ground for visibility) ──────────────
+{
+  const borderMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
+  const pad = 0.18;
+  const bw = TARGET_SIZE + 2 * pad;
+  const bh = (TARGET_SIZE + 2 * pad) * 0.06;
+  // Top & bottom strips
+  for (const z of [-(TARGET_SIZE / 2 + pad / 2), (TARGET_SIZE / 2 + pad / 2)]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(bw, pad), borderMat);
+    s.rotation.x = -Math.PI / 2; s.position.set(0, 0.003, z); s.receiveShadow = true;
+    scene.add(s);
+  }
+  // Left & right strips
+  for (const x of [-(TARGET_SIZE / 2 + pad / 2), (TARGET_SIZE / 2 + pad / 2)]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(pad, TARGET_SIZE + 2*pad), borderMat);
+    s.rotation.x = -Math.PI / 2; s.position.set(x, 0.003, 0); s.receiveShadow = true;
+    scene.add(s);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  STRAW / THATCH ROOF  (?canopy=straw)
-//  A flat horizontal grid of random sticks at canopy height.
-//  Controllable coverage fraction (0–1) via ?cov=0.42
+//  STRAW / THATCH ROOF
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Flat horizontal InstancedMesh of thin sticks at ROOF_H metres above ground.
+//  Coverage fraction COV ∈ [0,1] — exact, computed geometrically.
+//  Each stick: STICK_W × STICK_T × STICK_L (width, thickness, length)
+//  Random azimuth in [0, π] (sticks are symmetric so π suffices).
+// ─────────────────────────────────────────────────────────────────────────────
+const ROOF_H  = 5.5;     // metres above ground
+const STICK_W = 0.055;   // stick width (m)
+const STICK_T = 0.018;   // stick thickness (m)
+const STICK_L = 1.8;     // stick length (m)
+const ROOF_R  = 11.0;    // radius of covered area (m)
+
 function buildStrawRoof(coverage) {
-  const ROOF_H    = 6.0;    // height of the straw plane (m)
-  const AREA_R    = 14;     // radius of area to cover (m)
-  const AREA      = Math.PI * AREA_R * AREA_R;
-  const STICK_W   = 0.06;   // stick width (m)
-  const STICK_L   = 1.8;    // stick length (m)
-  const STICK_A   = STICK_W * STICK_L;
-  const N         = Math.round(coverage * AREA / STICK_A);
+  const area    = Math.PI * ROOF_R * ROOF_R;
+  const stickA  = STICK_W * STICK_L;
+  // Poisson model: coverage = 1 - exp(-N * stickA / area)
+  // → N = -area * ln(1 - coverage) / stickA
+  const N = Math.round(-area * Math.log(1 - Math.min(coverage, 0.99)) / stickA);
 
-  const geo = new THREE.BoxGeometry(STICK_W, 0.02, STICK_L);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xb8a050, roughness: 0.96 });
+  const geo = new THREE.BoxGeometry(STICK_W, STICK_T, STICK_L);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xc8a84a, roughness: 0.95, metalness: 0.0 });
   const mesh = new THREE.InstancedMesh(geo, mat, N);
   mesh.castShadow = true;
-
-  // Depth material without alpha — straw is fully opaque
   mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
     depthPacking: THREE.RGBADepthPacking,
   });
 
   const dummy = new THREE.Object3D();
-  const r2 = makeRng(77);
+  const rng   = makeRng(42);
   for (let i = 0; i < N; i++) {
-    // Uniform random point in disk
-    const a = r2() * Math.PI * 2;
-    const r = AREA_R * Math.sqrt(r2());
-    dummy.position.set(Math.cos(a) * r, ROOF_H, Math.sin(a) * r);
-    dummy.rotation.set(0, r2() * Math.PI, 0); // random azimuth
+    // Uniform point in disk
+    const ang = rng() * Math.PI * 2;
+    const r   = ROOF_R * Math.sqrt(rng());
+    dummy.position.set(Math.cos(ang) * r, ROOF_H, Math.sin(ang) * r);
+    dummy.rotation.set(0, rng() * Math.PI, 0);
     dummy.scale.setScalar(1);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   }
   mesh.instanceMatrix.needsUpdate = true;
-
-  // Add a subtle guide-plane so the "roof" height is visible
-  const planeMat = new THREE.MeshStandardMaterial({
-    color: 0x000000, transparent: true, opacity: 0.0, depthWrite: false
-  });
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(AREA_R*2, AREA_R*2), planeMat);
-  plane.rotation.x = -Math.PI / 2;
-  plane.position.y = ROOF_H;
-
-  const g = new THREE.Group();
-  g.add(mesh, plane);
-  return g;
+  return mesh;
 }
 
-// Overlay straw mode (hides tree canopy leaves, keeps trunks)
-let strawGroup = null;
-if (CANOPY === 'straw') {
-  // Hide just the leaf InstancedMeshes inside each tree (keep trunks)
-  vegGroup.traverse(obj => {
-    if (obj.isInstancedMesh) obj.visible = false;
-  });
-  strawGroup = buildStrawRoof(COV);
-  vegGroup.add(strawGroup);
-}
+const straw = buildStrawRoof(COV);
+const vegGroup = new THREE.Group();
+vegGroup.add(straw);
+vegGroup.visible = SHOW_VEG;
+scene.add(vegGroup);
 
-// ── Canopy group visibility toggle ────────────────────────────────────────────
-if (!SHOW_VEG) vegGroup.visible = false;
-
-// ── Wind ─────────────────────────────────────────────────────────────────────
-let windT     = WIND_T0;
-let windPause = false;
-
-function applyMacroWind(t) {
-  for (const piv of leafPivots) {
-    const { ph, fq, amp } = piv.userData;
-    piv.rotation.x = Math.sin(t * fq        + ph)        * amp;
-    piv.rotation.z = Math.cos(t * fq * 0.72 + ph + 1.4)  * amp * 0.85;
-    piv.rotation.y = Math.sin(t * fq * 0.45 + ph + 2.2)  * amp * 0.28;
-  }
-}
-
-// ── Public API (capture script) ───────────────────────────────────────────────
-window.__setVeg    = v => { vegGroup.visible = v; };
-window.__setTime   = t => { windT = t; LEAF_TIME.value = t; applyMacroWind(t); };
+// ── Public API ────────────────────────────────────────────────────────────────
+window.__setVeg = v => { vegGroup.visible = v; };
 window.__setCamera = (az, el, dist) => {
   camera.position.set(
-    dist * Math.cos(el * Math.PI/180) * Math.sin(az * Math.PI/180),
-    dist * Math.sin(el * Math.PI/180),
-    dist * Math.cos(el * Math.PI/180) * Math.cos(az * Math.PI/180));
-  controls.target.set(0, 1.8, 0);
+    dist * Math.cos(el*Math.PI/180) * Math.sin(az*Math.PI/180),
+    dist * Math.sin(el*Math.PI/180),
+    dist * Math.cos(el*Math.PI/180) * Math.cos(az*Math.PI/180));
+  controls.target.set(0, 0, 0);
   controls.update();
 };
 
@@ -483,26 +397,16 @@ window.__setCamera = (az, el, dist) => {
 document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'v') vegGroup.visible = !vegGroup.visible;
-  if (k === 't') windPause = !windPause;
   if (k === 'h') document.getElementById('ui').classList.toggle('hidden');
 });
 
 // ── Render loop ───────────────────────────────────────────────────────────────
-let lastTs = 0;
-function animate(ts) {
+function animate() {
   requestAnimationFrame(animate);
-  const dt = Math.min((ts - lastTs) / 1000, 0.05);
-  lastTs = ts;
-
-  if (!windPause && INTERACTIVE) windT += dt * 0.75;
-  LEAF_TIME.value = windT;
-  applyMacroWind(windT);
-
   if (INTERACTIVE) controls.update();
   renderer.render(scene, camera);
 }
-
-animate(0);
+animate();
 window.__sceneReady = true;
 document.title = 'READY';
 </script>
