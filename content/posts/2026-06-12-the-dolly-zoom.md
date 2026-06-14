@@ -107,16 +107,20 @@ demo.
 Forget lenses for a second. How big something looks comes down to one thing — its
 distance from the camera. Double the distance, halve the apparent size.
 
-Now take two soldiers standing 100 m apart, and put the camera close: one is at
-**100 m**, the other at **200 m**. The far one is at twice the distance, so he
-looks **half** as tall — $100/200 = 0.5$. That's a huge difference, and your eye
-reads it instantly as deep space.
+So fix a gap of $\Delta = 100\,\text{m}$ between our two soldiers and just move the
+camera. The far one's apparent height, relative to the near one, is simply the ratio
+of their distances:
 
-Keep the soldiers exactly 100 m apart, but walk the camera way back — until they
-sit at **1000 m** and **1100 m**. Now the ratio is $1000/1100 \approx 0.91$: the
-far one looks 91% the height of the near one. *Nearly identical.* The same 100 m
-gap has almost stopped registering. From far enough away, near and far collapse
-onto the same apparent plane — that's depth compression, and it's why a telephoto
+| Camera → near soldier | Far soldier is at | Far soldier's apparent height |
+|---|---|---|
+| **100 m** | 200 m | $100/200 =$ **50%** — half size |
+| **500 m** | 600 m | $500/600 \approx$ **83%** |
+| **1 km** | 1100 m | $1000/1100 \approx$ **91%** — only ~10% smaller |
+
+From up close, that fixed 100 m gap halves the far soldier — your eye reads deep
+space instantly. From a kilometre away, the *same* 100 m gap barely registers: the
+two are within 10% of each other, *nearly identical*. Near and far have collapsed
+onto the same apparent plane. That's depth compression, and it's why a telephoto
 shot of a city looks like the buildings are stacked flat against each other.
 
 A dolly zoom just *animates* this. As the camera in the demo retreats from 6 m to
