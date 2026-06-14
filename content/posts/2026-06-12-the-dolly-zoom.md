@@ -26,7 +26,13 @@ heights. But the most famous example is Spielberg's — the beach in *Jaws* (197
 the instant Chief Brody realises the shark is real and the world snaps tight around
 him:
 
-<iframe class="viz-frame" style="aspect-ratio:16/9" src="https://www.youtube-nocookie.com/embed/in_mAvHu9E4" title="The dolly zoom in Jaws (1975)" loading="lazy" allowfullscreen></iframe>
+<video src="/img/dolly-zoom/jaws-dolly-zoom.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
+
+<p style="text-align:center;font-size:0.85em;color:#9aa4b2;margin:-0.4rem 0 1.2rem">
+Chief Brody's reaction shot in <em>Jaws</em> (1975, dir. Steven Spielberg, Universal
+Pictures). Watch his head stay fixed while the beach behind him lurches —
+<a href="https://www.youtube.com/watch?v=in_mAvHu9E4">full clip on YouTube</a>.
+</p>
 
 From there it became cinematic shorthand for a mind lurching: the *Goodfellas*
 (1990) diner as Henry's paranoia closes in, the Ringwraith stalling the hobbits in
@@ -67,22 +73,23 @@ whole effect lives.
 
 ## The one equation
 
-An object of real height *H* sitting at distance *d* from the camera, seen through
-a lens with vertical field of view *θ*, fills this fraction of the frame:
+An object of real height $H$ sitting at distance $d$ from the camera, seen through
+a lens with vertical field of view $\theta$, fills this fraction of the frame:
 
-```
-screen size  ∝  H / ( d · tan(θ/2) )
-```
+$$
+\text{screen size} \;\propto\; \frac{H}{d \, \tan(\theta/2)}
+$$
 
 To keep the subject pinned at a constant on-screen size, you hold the denominator
 constant:
 
-```
-d · tan(θ/2)  =  constant
-```
+$$
+d \, \tan(\theta/2) \;=\; \text{constant}
+$$
 
-So when you narrow the field of view (smaller *θ*, longer lens), you must increase
-*d* by the same factor — dolly the camera back. That's the entire rig in one line.
+So when you narrow the field of view (smaller $\theta$, longer lens), you must
+increase $d$ by the same factor — dolly the camera back. That's the entire rig in
+one line.
 
 ![The dolly-zoom geometry: same subject size, different background slice](/img/dolly-zoom/geometry.png)
 
@@ -102,41 +109,41 @@ distance from the camera. Double the distance, halve the apparent size.
 
 Now take two soldiers standing 100 m apart, and put the camera close: one is at
 **100 m**, the other at **200 m**. The far one is at twice the distance, so he
-looks **half** as tall. That's a huge difference, and your eye reads it instantly
-as deep space.
+looks **half** as tall — $100/200 = 0.5$. That's a huge difference, and your eye
+reads it instantly as deep space.
 
 Keep the soldiers exactly 100 m apart, but walk the camera way back — until they
-sit at **1000 m** and **1100 m**. Now the ratio is 1000 / 1100 ≈ **0.91**: the far
-one looks 91% the height of the near one. *Nearly identical.* The same 100 m gap
-has almost stopped registering. From far enough away, near and far collapse onto
-the same apparent plane — that's depth compression, and it's why a telephoto shot
-of a city looks like the buildings are stacked flat against each other.
+sit at **1000 m** and **1100 m**. Now the ratio is $1000/1100 \approx 0.91$: the
+far one looks 91% the height of the near one. *Nearly identical.* The same 100 m
+gap has almost stopped registering. From far enough away, near and far collapse
+onto the same apparent plane — that's depth compression, and it's why a telephoto
+shot of a city looks like the buildings are stacked flat against each other.
 
 A dolly zoom just *animates* this. As the camera in the demo retreats from 6 m to
-240 m, the two soldiers slide from an obviously-deep 6 / 106 ratio to a nearly-flat
-240 / 340 — and you watch the depth drain out of the shot in real time. The long
+240 m, the two soldiers slide from an obviously-deep $6/106$ ratio to a nearly-flat
+$240/340$ — and you watch the depth drain out of the shot in real time. The long
 lens isn't doing the compressing; it's only there to blow that flattened image back
 up so the foreground soldier still fills the frame.
 
 ## It's the dolly that compresses, not the zoom
 
-Here's the part that surprised me. Put the background object at distance *d + Δ*,
-where *Δ* is the fixed gap behind the subject (100 m in my scene). Its size on
+Here's the part that surprised me. Put the background object at distance $d + \Delta$,
+where $\Delta$ is the fixed gap behind the subject (100 m in my scene). Its size on
 screen, *relative* to the subject, works out to:
 
-```
-background size / subject size  ∝  d / (d + Δ)
-```
+$$
+\frac{\text{background size}}{\text{subject size}} \;\propto\; \frac{d}{d + \Delta}
+$$
 
 Notice what's *not* in that expression: the focal length. The lens dropped out
 entirely. Zoom magnifies the subject and the background by the same factor, so it
-can never change their *ratio*. The only thing that moves the ratio is **d**, the
+can never change their *ratio*. The only thing that moves the ratio is $d$, the
 dolly distance.
 
-- Camera up close, *d* small: `d / (d + Δ)` is tiny, so the background is crushed
-  down — small and far.
-- Camera dollied back, *d* large: `d / (d + Δ)` climbs toward 1, the gap stops
-  mattering, and the background swells to nearly the subject's relative scale.
+- Camera up close, $d$ small: $\dfrac{d}{d + \Delta}$ is tiny, so the background is
+  crushed down — small and far.
+- Camera dollied back, $d$ large: $\dfrac{d}{d + \Delta}$ climbs toward 1, the gap
+  stops mattering, and the background swells to nearly the subject's relative scale.
 
 So the dolly is doing the dramatic work — collapsing or expanding depth. The zoom
 is just bookkeeping that holds the subject still so your eye has a fixed anchor to
@@ -165,4 +172,5 @@ and coupled.
 The physics here is over a century old, and the shot itself is 70. But there's
 something clarifying about being able to grab the two knobs yourself and feel how
 rigidly they're coupled — how the most disorienting shot in cinema is really just
-`d · tan(θ/2) = constant`, held steady while everything behind it gives way.
+$d \, \tan(\theta/2) = \text{constant}$, held steady while everything behind it
+gives way.
