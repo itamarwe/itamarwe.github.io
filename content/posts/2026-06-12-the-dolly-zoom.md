@@ -19,6 +19,22 @@ holds them dead centre at exactly the same size — and yet the walls seem to
 the shot Hitchcock invented for *Vertigo*, and it shows up every time a director
 wants to put unease on screen without moving the actor. The **dolly zoom**.
 
+## Where you've seen it
+
+Hitchcock built the first one for *Vertigo* (1958) to sell a detective's terror of
+heights. But the most famous example is Spielberg's — the beach in *Jaws* (1975),
+the instant Chief Brody realises the shark is real and the world snaps tight around
+him:
+
+<iframe class="viz-frame" style="aspect-ratio:16/9" src="https://www.youtube-nocookie.com/embed/in_mAvHu9E4" title="The dolly zoom in Jaws (1975)" loading="lazy" allowfullscreen></iframe>
+
+From there it became cinematic shorthand for a mind lurching: the *Goodfellas*
+(1990) diner as Henry's paranoia closes in, the Ringwraith stalling the hobbits in
+*The Lord of the Rings* (2001), even a wide-eyed *Ratatouille* (2007). There's a
+[whole supercut](https://slate.com/culture/2014/01/dolly-zoom-supercut-video-shows-the-vertigo-effect-in-jaws-goodfellas-raging-bull-hitchcock-and-more.html)
+of them set to Bernard Herrmann's *Vertigo* score. Once you know the move you can't
+unsee it — so what is actually happening?
+
 The effect feels like an optical illusion, but it's pure geometry. I wanted to
 take it apart — so I built a 3-D scene with **two views side by side**: on the left,
 what the camera sees; on the right, a top-down map of where the camera actually is
@@ -79,6 +95,29 @@ most of the frame and looks like it's breathing down the subject's neck. This is
 exactly the view-cone you can watch widen and narrow in the top-down panel of the
 demo.
 
+## The intuition: it's all about relative distance
+
+Forget lenses for a second. How big something looks comes down to one thing — its
+distance from the camera. Double the distance, halve the apparent size.
+
+Now take two soldiers standing 100 m apart, and put the camera close: one is at
+**100 m**, the other at **200 m**. The far one is at twice the distance, so he
+looks **half** as tall. That's a huge difference, and your eye reads it instantly
+as deep space.
+
+Keep the soldiers exactly 100 m apart, but walk the camera way back — until they
+sit at **1000 m** and **1100 m**. Now the ratio is 1000 / 1100 ≈ **0.91**: the far
+one looks 91% the height of the near one. *Nearly identical.* The same 100 m gap
+has almost stopped registering. From far enough away, near and far collapse onto
+the same apparent plane — that's depth compression, and it's why a telephoto shot
+of a city looks like the buildings are stacked flat against each other.
+
+A dolly zoom just *animates* this. As the camera in the demo retreats from 6 m to
+240 m, the two soldiers slide from an obviously-deep 6 / 106 ratio to a nearly-flat
+240 / 340 — and you watch the depth drain out of the shot in real time. The long
+lens isn't doing the compressing; it's only there to blow that flattened image back
+up so the foreground soldier still fills the frame.
+
 ## It's the dolly that compresses, not the zoom
 
 Here's the part that surprised me. Put the background object at distance *d + Δ*,
@@ -108,9 +147,9 @@ around too.
 ## Drive it yourself
 
 The demo below is fully interactive — drag the slider, or hit **Auto** to let it
-sweep. Push it from 1× toward 30× and watch the **lens** climb from a wide ~23 mm
-into deep telephoto near 700 mm, the **dolly distance** stretch from 6 m out to
-180 m, and the field of view collapse from 55° down to about 2° — all while the
+sweep. Push it from 1× toward 40× and watch the **lens** climb from a wide ~23 mm
+into deep telephoto past 900 mm, the **dolly distance** stretch from 6 m out to
+240 m, and the field of view collapse from 55° down to about 1° — all while the
 soldier stays exactly where he is.
 
 <iframe src="/dolly-zoom/" title="Interactive dolly-zoom demo — camera view and top-down map, side by side" loading="lazy" class="viz-frame"></iframe>
@@ -118,32 +157,10 @@ soldier stays exactly where he is.
 Keep one eye on the top-down map, which is drawn to a **fixed** scale — the two
 soldiers never move on it. The cyan wedge is the camera's field of view; as it
 narrows, the camera glyph is the only thing that slides, rolling backwards down the
-road to hold the subject's green marker at the same apparent size. By 30× the tan
-marker 100 m back has been swallowed inside a 2°-wide sliver of a cone. The readouts
+road to hold the subject's green marker at the same apparent size. By 40× the tan
+marker 100 m back has been swallowed inside a 1°-wide sliver of a cone. The readouts
 along the bottom are the whole point: every parameter that produces the effect, live
 and coupled.
-
-## How it's built
-
-The scene is a few hundred lines of [Three.js](https://threejs.org/) — a dusk sky,
-a valley floor, ridgelines, a scattered Mediterranean forest, and two soldiers
-built from boxes and cylinders. The left panel is a perspective camera; the right
-panel is an orthographic camera looking straight down, sharing the same world. The
-dolly zoom itself is four lines in the render loop. Starting from a base field of
-view and distance, each slider value *z* maps to:
-
-```js
-const halfFovRad = Math.atan(baseHalfTan / z);   // narrow the FOV
-const distance   = BASE_DISTANCE * z;            // dolly back in proportion
-camera.fov = THREE.MathUtils.radToDeg(halfFovRad * 2);
-camera.position.z = distance;
-```
-
-`baseHalfTan` is `tan(θ₀/2)` at 1×. Dividing it by *z* shrinks the field of view;
-multiplying the distance by *z* keeps `d · tan(θ/2)` constant. That's the equation
-from above, transcribed directly into code. The focal-length readout is just the
-same FOV expressed as a 35 mm-equivalent lens, because "20 mm vs 200 mm" is more
-intuitive than "60° vs 6°" if you've ever held a camera.
 
 The physics here is over a century old, and the shot itself is 70. But there's
 something clarifying about being able to grab the two knobs yourself and feel how

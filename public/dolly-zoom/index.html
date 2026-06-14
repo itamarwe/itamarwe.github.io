@@ -65,7 +65,7 @@
       <button id="playBtn">&#9654; Auto</button>
       <div class="grp">
         <span class="knob">Zoom &amp; dolly</span>
-        <input id="zoom" type="range" min="1" max="30" step="0.05" value="1" />
+        <input id="zoom" type="range" min="1" max="40" step="0.05" value="1" />
         <span id="zoomVal">1.00&times;</span>
       </div>
       <div id="stats">
@@ -84,7 +84,7 @@
   // ---- parameters --------------------------------------------------------
   const BASE_FOV = 55;        // vertical FOV (deg) at zoom = 1
   const BASE_DIST = 6;        // camera→subject distance (m) at zoom = 1
-  const MAX_ZOOM = 30;        // slider / auto-sweep ceiling
+  const MAX_ZOOM = 40;        // slider / auto-sweep ceiling
   const CAM_H = 1.68;         // camera / eye height
   const GAP = 100;            // metres the second soldier stands behind the subject
   const SUBJ = new THREE.Vector3(0, 0, 0);     // foreground soldier
@@ -104,9 +104,9 @@
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false,
       uniforms: {
-        top: { value: new THREE.Color(0x0c1030) },
-        mid: { value: new THREE.Color(0x46365e) },
-        hor: { value: new THREE.Color(0xc8703c) },
+        top: { value: new THREE.Color(0x182143) },
+        mid: { value: new THREE.Color(0x5b4775) },
+        hor: { value: new THREE.Color(0xd98449) },
       },
       vertexShader: `varying float vh; void main(){ vh = normalize(position).y;
         gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -121,14 +121,14 @@
 
   // lighting — warm dusk sun (back/key) + strong cool frontal fill so the scene
   // stays bright and legible while keeping the dusk mood.
-  const sunLight = new THREE.DirectionalLight(0xffc188, 1.35);
+  const sunLight = new THREE.DirectionalLight(0xffc89a, 1.75);
   sunLight.position.set(-70, 26, -120);
   world.add(sunLight);
-  const fill = new THREE.DirectionalLight(0xc7d2ea, 1.15);  // from the camera side (+Z)
+  const fill = new THREE.DirectionalLight(0xd0dbf2, 1.7);   // from the camera side (+Z)
   fill.position.set(18, 38, 130);
   world.add(fill);
-  world.add(new THREE.HemisphereLight(0x9aa0cc, 0x2a2418, 1.15));
-  world.add(new THREE.AmbientLight(0x6a7290, 0.6));
+  world.add(new THREE.HemisphereLight(0xa8aed6, 0x39301f, 1.7));
+  world.add(new THREE.AmbientLight(0x7e85a4, 0.85));
 
   // deterministic RNG so the scene is stable across reloads (and capture)
   let _s = 1337; const rnd = () => { _s = (_s*16807) % 2147483647; return (_s-1)/2147483646; };
@@ -344,8 +344,8 @@
     ring.rotation.x=-Math.PI/2; grp.add(ring);
     grp.position.set(x, 0, z); top.add(grp); return grp;
   }
-  marker(SUBJ.x, SUBJ.z, 5.5, 0x6fdc6f);          // subject (green)
-  marker(TARGET.x, TARGET.z, 5.5, 0xffb070);       // target soldier (tan)
+  marker(SUBJ.x, SUBJ.z, 7, 0x6fdc6f);            // subject (green)
+  marker(TARGET.x, TARGET.z, 7, 0xffb070);         // target soldier (tan)
 
   // FOV wedge (updated every frame)
   const wedgeGeo = new THREE.BufferGeometry();
@@ -362,7 +362,7 @@
   top.add(track);
 
   const camGlyph = new THREE.Group();      // camera triangle at the apex, pointing at the scene
-  const tri = new THREE.Shape(); tri.moveTo(0,9.5); tri.lineTo(-7.5,-7); tri.lineTo(7.5,-7); tri.closePath();
+  const tri = new THREE.Shape(); tri.moveTo(0,12); tri.lineTo(-9.5,-9); tri.lineTo(9.5,-9); tri.closePath();
   const camBody = new THREE.Mesh(new THREE.ShapeGeometry(tri), flat(0x3fc1ff));
   camBody.rotation.x = -Math.PI/2; camGlyph.add(camBody);    // shape +Y → world −Z (toward the scene)
   top.add(camGlyph);
