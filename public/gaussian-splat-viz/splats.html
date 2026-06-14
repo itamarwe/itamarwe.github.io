@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gaussian-splat explorer — interactive</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #ededed; }
+    #app { position: fixed; inset: 0; }
+    #ui { position: fixed; left: 12px; top: 12px; display: flex; flex-direction: column;
+      gap: 8px; background: rgba(14,17,22,.72); padding: 12px 14px; border-radius: 10px;
+      backdrop-filter: blur(4px); max-width: 270px; }
+    #ui .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    button { background: #1b2128; color: #cdd6e0; border: 1px solid #2a323c;
+      border-radius: 6px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+    button.on { background: #3fc1ff; color: #08121a; border-color: #3fc1ff; font-weight: 600; }
+    .ttl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+    input[type=range] { width: 100%; accent-color: #ffd166; }
+    .val { color: #ffd166; font-weight: 600; }
+    #stats { position: fixed; right: 12px; top: 12px; background: rgba(14,17,22,.72);
+      padding: 11px 14px; border-radius: 10px; backdrop-filter: blur(4px); font-size: 13px;
+      line-height: 1.7; min-width: 150px; }
+    #stats b { color: #fff; } #stats .k { color: #6b7280; }
+    #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; color: #6b7280;
+      pointer-events: none; }
+    @media (max-width: 600px) {
+      #ui { padding: 8px 9px; gap: 5px; max-width: 49vw; }
+      button { padding: 4px 6px; font-size: 11px; }
+      #stats { top: auto; bottom: 8px; left: 8px; right: auto; padding: 7px 9px;
+        font-size: 11px; line-height: 1.45; min-width: 0; }
+      #hint { display: none; }
+    }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui">
+    <div><span class="ttl">Representation</span></div>
+    <div class="row" id="modeRow"></div>
+    <div><span class="ttl">Opacity · <span class="val" id="opv">0.9</span></span></div>
+    <input type="range" id="op" min="0.15" max="1" step="0.05" value="0.9" />
+    <div><span class="ttl">Splat size · <span class="val" id="szv">1.0</span></span></div>
+    <input type="range" id="sz" min="0.5" max="2.0" step="0.05" value="1.0" />
+  </div>
+  <div id="stats"></div>
+  <div id="hint">Drag to orbit · scroll to zoom · the whole scene is just soft 3-D blobs</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    // ---- build a little scene out of Gaussians ------------------------------
+    // Each Gaussian: center, surface normal, two in-plane tangents + sizes, color.
+    const G = []; // {c:[x,y,z], n:[..], t1:[..], t2:[..], s1, s2, col:[r,g,b]}
+    const L = norm([0.5, 0.9, 0.4]);              // light direction
+    function shade(n, base, amb=0.32){ const d = Math.max(0, dot(n, L));
+      const k = amb + (1-amb)*d; return [base[0]*k, base[1]*k, base[2]*k]; }
+    function tangents(n){ let up=[0,1,0]; if(Math.abs(dot(n,up))>0.95) up=[1,0,0];
+      const t1=norm(cross(up,n)); const t2=cross(n,t1); return [t1,t2]; }
+    function pushSurfel(c, n, base, r, aniso=1){ const [t1,t2]=tangents(n);
+      G.push({c, n, t1, t2, s1:r*aniso, s2:r/aniso, col: shade(n, base)}); }
+
+    // sphere
+    function sphere(cen, R, base, nu=34, nv=24){
+      const sp = Math.PI*R/nv * 1.5;
+      for(let i=0;i<nv;i++){ const ph=Math.PI*(i+0.5)/nv;
+        const ringR = Math.sin(ph), rad = ringR*R;
+        const mu = Math.max(6, Math.round(nu*ringR));
+        for(let j=0;j<mu;j++){ const th=2*Math.PI*(j+0.5*(i%2))/mu;
+          const n=[Math.sin(ph)*Math.cos(th), Math.cos(ph), Math.sin(ph)*Math.sin(th)];
+          const c=[cen[0]+n[0]*R, cen[1]+n[1]*R, cen[2]+n[2]*R];
+          // warm gradient by height
+          const t=(n[1]+1)/2; const col=[base[0], base[1]*(0.7+0.5*t), base[2]*t];
+          pushSurfel(c, n, col, sp);
+        } }
+    }
+    // torus
+    function torus(cen, R, r, base, nu=46, nv=18){
+      for(let i=0;i<nu;i++){ const u=2*Math.PI*i/nu;
+        for(let j=0;j<nv;j++){ const v=2*Math.PI*j/nv;
+          const cx=Math.cos(u), cy=Math.sin(u);
+          const n=[cx*Math.cos(v), Math.sin(v), cy*Math.cos(v)];
+          const c=[cen[0]+(R+r*Math.cos(v))*cx, cen[1]+r*Math.sin(v), cen[2]+(R+r*Math.cos(v))*cy];
+          pushSurfel(c, norm(n), base, 2*Math.PI*r/nv*1.4);
+        } }
+    }
+    // ground plane of up-facing surfels with a subtle checker
+    function ground(size, step){ const n=[0,1,0];
+      for(let x=-size;x<=size;x+=step) for(let z=-size;z<=size;z+=step){
+        const ch=((Math.round(x/step)+Math.round(z/step))&1);
+        const base= ch? [0.10,0.13,0.20] : [0.14,0.18,0.27];
+        const fall = 1 - 0.5*Math.min(1,(x*x+z*z)/(size*size));
+        pushSurfel([x,0,z], n, [base[0]*fall,base[1]*fall,base[2]*fall], step*0.72);
+      }
+    }
+
+    ground(7, 0.42);
+    sphere([-2.0, 1.25, 0.4], 1.25, [1.0,0.78,0.35]);   // gold sun-sphere
+    torus([2.0, 1.0, -0.3], 1.25, 0.45, [0.25,0.78,1.0]); // cyan torus
+    sphere([0.7, 0.65, 1.9], 0.65, [0.49,0.99,0.55]);     // small green ball
+
+    const N = G.length;
+
+    // ---- scene / renderer ---------------------------------------------------
+    const app = document.getElementById("app");
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    cam.position.set(7.5, 5.4, 8.6);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    app.appendChild(renderer.domElement);
+    const controls = new OrbitControls(cam, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+    controls.target.set(0, 1.0, 0.4);
+    controls.minDistance = 4; controls.maxDistance = 26;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+    dir.position.set(L[0], L[1], L[2]); scene.add(dir);
+
+    // ---- (1) SPLAT mesh: one merged quad geometry, gaussian-alpha shader ----
+    const quadPos = new Float32Array(N*4*3);
+    const quadUv  = new Float32Array(N*4*2);
+    const quadCol = new Float32Array(N*4*3);
+    const quadIdx = new Uint32Array(N*6);
+    let baseSize = []; // remember per-gaussian base sizes for live resize
+    for(let i=0;i<N;i++){
+      const g=G[i]; baseSize.push([g.s1,g.s2]);
+      const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
+      for(let k=0;k<4;k++){ const [a,b]=corners[k];
+        const vx=g.c[0]+a*g.t1[0]*g.s1+b*g.t2[0]*g.s2;
+        const vy=g.c[1]+a*g.t1[1]*g.s1+b*g.t2[1]*g.s2;
+        const vz=g.c[2]+a*g.t1[2]*g.s1+b*g.t2[2]*g.s2;
+        const o=(i*4+k);
+        quadPos[o*3]=vx; quadPos[o*3+1]=vy; quadPos[o*3+2]=vz;
+        quadUv[o*2]=(a+1)/2; quadUv[o*2+1]=(b+1)/2;
+        quadCol[o*3]=g.col[0]; quadCol[o*3+1]=g.col[1]; quadCol[o*3+2]=g.col[2];
+      }
+      const b=i*4; const o=i*6;
+      quadIdx[o]=b; quadIdx[o+1]=b+1; quadIdx[o+2]=b+2;
+      quadIdx[o+3]=b; quadIdx[o+4]=b+2; quadIdx[o+5]=b+3;
+    }
+    const splatGeo = new THREE.BufferGeometry();
+    splatGeo.setAttribute("position", new THREE.BufferAttribute(quadPos,3));
+    splatGeo.setAttribute("uv", new THREE.BufferAttribute(quadUv,2));
+    splatGeo.setAttribute("vcol", new THREE.BufferAttribute(quadCol,3));
+    splatGeo.setIndex(new THREE.BufferAttribute(quadIdx,1));
+    const splatMat = new THREE.ShaderMaterial({
+      uniforms: { uOpacity:{value:0.9}, uCut:{value:0.28} },
+      vertexShader: `varying vec2 vUv; varying vec3 vC; attribute vec3 vcol;
+        void main(){ vUv=uv; vC=vcol;
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
+      fragmentShader: `precision highp float; varying vec2 vUv; varying vec3 vC;
+        uniform float uOpacity, uCut;
+        void main(){ vec2 d=(vUv-0.5)*2.0; float r2=dot(d,d);
+          float g=exp(-4.5*r2); float a=g*uOpacity;
+          if(a<uCut) discard;
+          vec3 col=vC*(0.75+0.35*g);
+          gl_FragColor=vec4(col, a); }`,
+      transparent:true, depthWrite:true, depthTest:true, side:THREE.DoubleSide,
+    });
+    const splatMesh = new THREE.Mesh(splatGeo, splatMat);
+
+    function rebuildSplatSizes(scale){
+      for(let i=0;i<N;i++){ const g=G[i]; const s1=baseSize[i][0]*scale, s2=baseSize[i][1]*scale;
+        const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
+        for(let k=0;k<4;k++){ const [a,b]=corners[k]; const o=(i*4+k);
+          quadPos[o*3]  =g.c[0]+a*g.t1[0]*s1+b*g.t2[0]*s2;
+          quadPos[o*3+1]=g.c[1]+a*g.t1[1]*s1+b*g.t2[1]*s2;
+          quadPos[o*3+2]=g.c[2]+a*g.t1[2]*s1+b*g.t2[2]*s2;
+        } }
+      splatGeo.attributes.position.needsUpdate=true;
+    }
+
+    // ---- (2) ELLIPSOID instanced mesh ---------------------------------------
+    const ico = new THREE.IcosahedronGeometry(1, 1);
+    const ellMat = new THREE.MeshStandardMaterial({ roughness:0.85, metalness:0.0,
+      flatShading:false, vertexColors:false });
+    const ell = new THREE.InstancedMesh(ico, ellMat, N);
+    const dummy = new THREE.Object3D(); const cc = new THREE.Color();
+    const m4 = new THREE.Matrix4();
+    function buildEllipsoids(scale){
+      for(let i=0;i<N;i++){ const g=G[i];
+        // basis: t1, t2, n  → orientation matrix
+        m4.makeBasis(new THREE.Vector3(...g.t1), new THREE.Vector3(...g.t2), new THREE.Vector3(...g.n));
+        dummy.position.set(g.c[0],g.c[1],g.c[2]);
+        dummy.quaternion.setFromRotationMatrix(m4);
+        dummy.scale.set(g.s1*scale*0.6, g.s2*scale*0.6, Math.min(g.s1,g.s2)*scale*0.32);
+        dummy.updateMatrix(); ell.setMatrixAt(i, dummy.matrix);
+        ell.setColorAt(i, cc.setRGB(g.col[0]*1.1+0.04, g.col[1]*1.1+0.04, g.col[2]*1.1+0.04));
+      }
+      ell.instanceMatrix.needsUpdate=true; if(ell.instanceColor) ell.instanceColor.needsUpdate=true;
+    }
+
+    // ---- (3) POINT cloud ----------------------------------------------------
+    const ptPos=new Float32Array(N*3), ptCol=new Float32Array(N*3);
+    for(let i=0;i<N;i++){ const g=G[i];
+      ptPos[i*3]=g.c[0]; ptPos[i*3+1]=g.c[1]; ptPos[i*3+2]=g.c[2];
+      ptCol[i*3]=g.col[0]*1.5; ptCol[i*3+1]=g.col[1]*1.5; ptCol[i*3+2]=g.col[2]*1.5; }
+    const ptGeo=new THREE.BufferGeometry();
+    ptGeo.setAttribute("position", new THREE.BufferAttribute(ptPos,3));
+    ptGeo.setAttribute("color", new THREE.BufferAttribute(ptCol,3));
+    const pts=new THREE.Points(ptGeo, new THREE.PointsMaterial({ size:0.06,
+      vertexColors:true, sizeAttenuation:true }));
+
+    // ---- mode switching -----------------------------------------------------
+    let mode="Splats", opacity=0.9, sizeScale=1.0;
+    function applyMode(){
+      scene.remove(splatMesh, ell, pts);
+      if(mode==="Splats"){
+        splatMat.uniforms.uOpacity.value = opacity;
+        if(opacity < 0.55){ // cloudy translucent look
+          splatMat.uniforms.uCut.value = 0.02; splatMat.depthWrite=false;
+          splatMat.blending=THREE.NormalBlending;
+        } else {            // surface look
+          splatMat.uniforms.uCut.value = 0.28; splatMat.depthWrite=true;
+        }
+        splatMat.needsUpdate=true; scene.add(splatMesh);
+      } else if(mode==="Ellipsoids"){ buildEllipsoids(sizeScale); scene.add(ell);
+      } else { scene.add(pts); }
+      updStats();
+    }
+    function updStats(){
+      document.getElementById("stats").innerHTML =
+        `<div class="k">scene</div><b>${N.toLocaleString()}</b> Gaussians<br>`+
+        `<div class="k">showing</div><b>${mode}</b><br>`+
+        (mode==="Splats"? `<div class="k">render</div><b>${opacity<0.55?'translucent':'surface'}</b>`:
+         mode==="Centers"? `<div class="k">note</div><span style="color:#ff5a5a">points have no extent</span>`:
+         `<div class="k">note</div>each blob is one Gaussian`);
+    }
+
+    // ---- UI -----------------------------------------------------------------
+    const modeRow=document.getElementById("modeRow");
+    ["Splats","Ellipsoids","Centers"].forEach(nm=>{ const b=document.createElement("button");
+      b.textContent=nm; if(nm===mode) b.classList.add("on");
+      b.onclick=()=>{ mode=nm; [...modeRow.children].forEach(x=>x.classList.remove("on"));
+        b.classList.add("on"); applyMode(); }; modeRow.appendChild(b); });
+    const op=document.getElementById("op");
+    op.oninput=()=>{ opacity=+op.value; document.getElementById("opv").textContent=opacity.toFixed(2);
+      if(mode==="Splats") applyMode(); };
+    const sz=document.getElementById("sz");
+    sz.oninput=()=>{ sizeScale=+sz.value; document.getElementById("szv").textContent=sizeScale.toFixed(2);
+      rebuildSplatSizes(sizeScale); if(mode==="Ellipsoids") buildEllipsoids(sizeScale); };
+
+    function resize(){ const w=app.clientWidth,h=app.clientHeight;
+      renderer.setSize(w,h); cam.aspect=w/h; cam.updateProjectionMatrix(); }
+    window.addEventListener("resize", resize); resize(); applyMode();
+    (function loop(){ requestAnimationFrame(loop); controls.update();
+      renderer.render(scene, cam); })();
+
+    // ---- tiny vec helpers ---------------------------------------------------
+    function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+    function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+    function norm(a){ const l=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/l,a[1]/l,a[2]/l]; }
+  </script>
+</body>
+</html>

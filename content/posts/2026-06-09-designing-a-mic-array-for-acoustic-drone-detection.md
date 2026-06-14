@@ -58,9 +58,12 @@ narrowband DOA, but aliasing caps the usable band hard: a
 Aperiodic planar layouts (spiral, [GA-optimized](https://www.mdpi.com/2504-446X/9/2/149))
 break the grating lobes into a diffuse floor. Sparse / virtual-aperture designs —
 [coprime](https://pubmed.ncbi.nlm.nih.gov/26233043/), nested,
-[fractal](https://arxiv.org/abs/2001.01217) — synthesize a large co-array from few
-mics; a [benchmark study](https://arxiv.org/abs/2406.09001) ranks Open-Box > Nested
-> Billboard. And 3-D volumetric arrays —
+[fractal](https://arxiv.org/abs/2001.01217) — deliberately drop mics off the
+uniform grid so the *gaps* between them synthesize a much larger virtual array
+(a richer co-array) than the mic count alone would suggest; head-to-head
+[benchmarks](https://arxiv.org/abs/2406.09001) of these layouts back up how much
+localization accuracy you can wring from a handful of elements. And 3-D volumetric
+arrays —
 [tetrahedral](https://www.mdpi.com/1424-8220/26/6/1778),
 [spherical-harmonic MUSIC](https://ieeexplore.ieee.org/abstract/document/10051923/)
 — give full elevation coverage and remove the up/down ambiguity every flat array
@@ -74,6 +77,11 @@ so nothing aliases inside 300–4000 Hz.
 
 ## The tradeoff that drives everything
 
+Two opposing pressures fight over the spacing between microphones, and with a fixed
+number of them you can't satisfy both at once.
+
+### Too far apart, and directions alias
+
 Arrays localize sound by comparing the phase of a wavefront across microphones. The
 catch: if the spacing exceeds **half a wavelength**, two completely different arrival
 directions produce identical phase samples at every mic — a grating lobe. The array
@@ -81,16 +89,33 @@ cannot tell them apart.
 
 <video src="/img/mic-array/Aliasing.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
-At 4 kHz the wavelength is 8.6 cm, so the **smallest spacing must be ≤ 4.3 cm**.
-But angular resolution scales with aperture relative to wavelength. At 300 Hz the
-wavelength is 1.14 m, so you need a *large* aperture for any bearing resolution at
-the bottom of the band.
+At 4 kHz the wavelength is 8.6 cm, so to stay unambiguous across the band the
+**smallest spacing must be ≤ 4.3 cm**.
+
+### Too close together, and resolution is lost
+
+So pack every mic in tight and the aliasing goes away — but now you've thrown away
+*resolution*. Angular resolution is set by the array's **aperture** (its overall
+span) measured in wavelengths: the main lobe is roughly **λ / D** wide, so a small
+aperture smears every direction into one fat blob and two drones a few degrees apart
+merge into a single blip. This is the diffraction limit — the same reason a bigger
+telescope mirror sees finer detail. At 300 Hz (λ = 1.14 m) you need a *large*
+aperture just to get a usable bearing, which is the exact opposite of packing tight.
+
+The video below sweeps a fixed 16-mic line from tightly packed to widely spread, all
+at one frequency. Watch the main lobe sharpen as the aperture grows — resolution
+improving — and then watch phantom copies march in from the edges as the spacing
+pushes past λ/2, until a false drone sits right among the real directions. That's
+the whole bind in a single motion:
+
+<video src="/img/mic-array/Resolution.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
 ![The spacing-vs-frequency tradeoff](/img/mic-array/tradeoff.png)
 
-With 16 mics you can't have a λ/2 uniform grid across a wide aperture — a 1.2 m
-line at 4.3 cm spacing needs ~28 mics. That tension is what drives you toward
-**non-uniform, multi-scale** layouts.
+Tight spacing buys an alias-free band; a wide aperture buys resolution; and with only
+16 mics a uniform grid can't deliver both — a 1.2 m line at 4.3 cm spacing would need
+~28 of them. That irreconcilable pull is what drives the design toward **non-uniform,
+multi-scale** layouts: some baselines kept small, others stretched wide.
 
 ## How geometry shapes the beam
 
@@ -103,9 +128,34 @@ most important contrast is uniform vs aperiodic:
 A uniform ring grows sharp, discrete grating lobes at high frequency — phantom
 directions as loud as the real one. An aperiodic spiral with the same mics and same
 aperture smears that energy into a low, diffuse floor instead. The interactive
-explorer below lets you sweep frequency and geometry and see this directly:
+explorer below lets you sweep frequency and geometry — and steer the **look
+direction** — to see this directly:
 
-<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency" loading="lazy" class="viz-frame"></iframe>
+<iframe src="/mic-array-viz/beam.html" title="Interactive 3-D beam-pattern explorer — drag to rotate, switch geometry, sweep frequency, steer the look direction" loading="lazy" class="viz-frame"></iframe>
+
+## A beam pattern depends on where you look
+
+There's a subtlety the beam patterns above hide if you only ever steer one way:
+**the response is not a property of the array, it's a property of the array *and*
+the look direction.** This bites the line array hardest. A ULA only senses the
+component of the wavefront along its axis, so what it does depends entirely on
+where the target is relative to that axis.
+
+Steer it **endfire** (along the line) and the main lobe balloons to ~40° — terrible
+resolution, because a tilt of the source barely changes the along-axis projection.
+Steer it **broadside** (perpendicular) and the lobe sharpens to ~7° — but now there
+are *two* of them, a mirror pair at ±90° the array can't tell apart. In full 3-D
+it's worse than a mirror: a broadside-steered line responds to the entire *cone* of
+directions at that angle (drag the explorer to the line array, hit "across (90°)",
+and orbit it — the lobe is a flat disk). A 2-D array has no privileged axis, so its
+beam stays essentially the same wherever you steer it:
+
+![The same array steered endfire vs broadside: the ULA swings from a fat low-resolution lobe to a sharp but mirror-ambiguous one, while the UCA and nested-aperiodic arrays barely change](/img/mic-array/directionality_large.png)
+
+This is the other half of the case against the line array for drone work: even
+ignoring aliasing, its performance swings wildly with bearing, and a drone can come
+from any direction. The 2-D and 3-D layouts are the ones you can actually trust to
+behave the same all around.
 
 ## The co-array: why geometry matters for a neural network
 
@@ -175,6 +225,8 @@ measured mic positions carefully — aperiodic arrays depend on it. And MEMS mic
 place on a PCB dome or disk.
 
 The whole simulation — the geometry library, response-curve plots, and the
-animations above — is a few hundred lines of Python. The physics is old; the new
-part is realizing that when a 16-channel network is doing the detection, the right
-objective isn't a clean beam — it's **baseline diversity**.
+animations above — is a few hundred lines of Python, and it's
+[all on GitHub](https://github.com/itamarwe/itamarwe.github.io/tree/master/research/mic-array).
+The physics is old; the new part is realizing that when a 16-channel network is
+doing the detection, the right objective isn't a clean beam — it's **baseline
+diversity**.
