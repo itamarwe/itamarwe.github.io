@@ -17,6 +17,40 @@ See `README.md` for the full project layout.
   post's filename, date, or categories, the legacy redirect changes too — keep
   `lib/posts.ts` as the single source of truth for URL logic.
 
+## Writing new blog posts (voice & visual style)
+
+The house style for explainer posts is set by the FPV acoustic-detection post
+(`content/posts/2026-06-09-designing-a-mic-array-for-acoustic-drone-detection.md`)
+and the Gaussian-splatting post. When writing a new post, match them:
+
+- **Voice**: first person, direct, and personal — "I kept running into…", "the part
+  that made it click for me…". Open with the concrete problem or a hook, not a
+  definition. Technically dense but conversational; bold the key claim in a
+  paragraph rather than padding. Short sections with plain `##` headings.
+- **Illustrations (3Blue1Brown / Manim style)**: clean diagrams on a near-black
+  background (`#0e1116` or `#000`), accent palette cyan `#3fc1ff`, gold `#ffd166`,
+  green `#7CFC8A`, red `#ff5a5a`, purple `#b48cff`, muted text `#8b95a5`. Generate
+  them with matplotlib or Manim in a venv (see "Generated figures & animations")
+  and save under `public/img/<post>/`. Every major concept gets one figure.
+- **Animations** where motion explains it better than a still (a training loop
+  converging, a beam sweeping): render an `.mp4` and embed with a plain autoplay/
+  loop/muted `<video>` (see "Capturing demo videos" / "Generated figures").
+- **Interactive demos** where the reader benefits from poking at it (sweeping a
+  parameter, orbiting a 3-D scene): build a self-contained page under
+  `public/<name>/` and embed via `<iframe class="viz-frame">` (see "Interactive 3D
+  visualizations"). Verify it renders headlessly before committing.
+- Prefer a non-redundant set: each figure / animation / demo should teach something
+  the others don't.
+- **Keep the simulation / figure-generation code in the repo.** Commit every script
+  that produced a figure, animation, or numeric result under `research/<post>/`
+  (`sim/` for plots & data, `scenes/` for Manim) with a short `README.md` — see
+  `research/mic-array/` and `research/gaussian-splatting/`. The committed PNGs/MP4s
+  live in `public/img/<post>/`; the code that regenerates them lives in `research/`.
+  Make output paths repo-relative (derive from `__file__`), not absolute home paths.
+- **Be honest about what a visual is.** If a figure or animation is a simplified or
+  illustrative stand-in rather than the real computation, say so in the post (a brief
+  parenthetical) and in the script's docstring.
+
 ## Always verify links before adding them
 
 A dead internal link is a dead link in production. Before adding any link in a

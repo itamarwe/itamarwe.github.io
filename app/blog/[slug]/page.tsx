@@ -9,6 +9,8 @@ import {
   DEFAULT_OG_IMAGE,
 } from "@/lib/posts";
 import Disqus from "@/components/Disqus";
+import KatexAutofit from "@/components/KatexAutofit";
+import TwitterWidgets from "@/components/TwitterWidgets";
 
 export function generateStaticParams() {
   return getAllPosts().map((post) => ({ slug: post.slug }));
@@ -73,6 +75,9 @@ export default async function PostPage({
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </article>
+
+      <KatexAutofit />
+      <TwitterWidgets />
 
       {post.comments && <Disqus />}
     </>

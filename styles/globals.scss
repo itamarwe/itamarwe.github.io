@@ -452,6 +452,19 @@ pre {
       font-size: 18px;
     }
   }
+
+  // KaTeX display math: stop wide equations from forcing page-level horizontal
+  // scroll on narrow screens — let the equation scroll inside its own box.
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    padding: 2px 0 8px;   // bottom room so the scrollbar doesn't clip the math
+  }
+
+  @media (max-width: 600px) {
+    .katex-display { font-size: 0.9em; }
+  }
 }
 
 .rss-subscribe {
