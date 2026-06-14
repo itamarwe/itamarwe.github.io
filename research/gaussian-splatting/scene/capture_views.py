@@ -1,12 +1,12 @@
 """
-Capture multi-view images of the forest scene (with and without vegetation)
-for Gaussian Splatting benchmark generation.
+Capture multi-view images of the USAF 1951 target scene (with/without straw
+occlusion) for the Gaussian Splatting benchmark.
 
 Usage:
-    python capture_views.py [--port PORT] [--out DIR] [--width W] [--height H]
+    python capture_views.py [--port PORT] [--out DIR] [--cov COV]
+                            [--width W] [--height H]
 
-Requires: Python ≥ 3.9, a running local server (starts one automatically).
-Chrome binary: /opt/pw-browsers/chromium-*/chrome-linux/chrome
+Requires: Python ≥ 3.9; Chrome binary auto-detected.
 """
 
 import argparse
@@ -42,29 +42,35 @@ def find_chrome():
 CHROME = os.environ.get("CHROME") or find_chrome()
 
 # ─── Camera views ─────────────────────────────────────────────────────────────
-# Each entry: (label, azimuth_deg, elevation_deg, distance, wind_time)
+# Each entry: (label, azimuth_deg, elevation_deg, distance_m)
+# Elevation tiers:
+#   88° = near-vertical (canonical MTF measurement)
+#   72° = high oblique  (accurate for most drones)
+#   55° = mid oblique   (typical survey pass)
+#   38° = low oblique   (steep look-down, heavy perspective)
+#
+# 4 azimuths per oblique tier (N/E/S/W) → even angular coverage for 3DGS
 VIEWS = [
-    # Top-down — hardest for reconstruction (soldier almost hidden by canopy)
-    ("topdown",      0,  82, 18, 0.0),
-    # High oblique — partial canopy visibility
-    ("high_oblique_N",   0,  62, 20, 1.0),
-    ("high_oblique_E",  90,  62, 20, 1.0),
-    ("high_oblique_S", 180,  62, 20, 2.0),
-    ("high_oblique_W", 270,  62, 20, 2.0),
-    # Medium oblique — typical drone survey angle
-    ("oblique_NE",   45,  42, 18, 3.0),
-    ("oblique_SE",  135,  42, 18, 3.5),
-    ("oblique_SW",  225,  42, 18, 4.0),
-    ("oblique_NW",  315,  42, 18, 4.5),
-    # Low angle — side views, soldier mostly visible through trunks
-    ("low_N",    0,  18, 16, 5.0),
-    ("low_E",   90,  18, 16, 5.5),
-    ("low_S",  180,  18, 16, 6.0),
-    ("low_W",  270,  18, 16, 6.5),
-    # Extra high: near vertical at different times (wind variation)
-    ("topdown_t1",  45,  78, 18, 2.5),
-    ("topdown_t2", 135,  78, 18, 5.0),
-    ("topdown_t3", 225,  78, 18, 7.5),
+    # Near top-down — primary MTF measurement view
+    ("topdown",         0,  88, 11),
+
+    # High oblique  (el 72°)
+    ("hi_N",            0,  72, 13),
+    ("hi_E",           90,  72, 13),
+    ("hi_S",          180,  72, 13),
+    ("hi_W",          270,  72, 13),
+
+    # Mid oblique  (el 55°) — typical drone survey
+    ("mid_N",           0,  55, 14),
+    ("mid_E",          90,  55, 14),
+    ("mid_S",         180,  55, 14),
+    ("mid_W",         270,  55, 14),
+
+    # Low oblique  (el 38°) — steep angle, heavy foreshortening
+    ("low_NE",         45,  38, 14),
+    ("low_SE",        135,  38, 14),
+    ("low_SW",        225,  38, 14),
+    ("low_NW",        315,  38, 14),
 ]
 
 # ─── HTTP Server ──────────────────────────────────────────────────────────────
@@ -106,10 +112,12 @@ def capture(url: str, out_path: pathlib.Path, width: int, height: int):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port",   type=int, default=7890)
-    ap.add_argument("--out",    type=str, default=str(OUT_DIR))
-    ap.add_argument("--width",  type=int, default=1280)
-    ap.add_argument("--height", type=int, default=760)
+    ap.add_argument("--port",   type=int,   default=7895)
+    ap.add_argument("--out",    type=str,   default=str(OUT_DIR))
+    ap.add_argument("--cov",    type=float, default=0.50,
+                    help="Straw coverage fraction 0–1 (default 0.50)")
+    ap.add_argument("--width",  type=int,   default=1280)
+    ap.add_argument("--height", type=int,   default=760)
     args = ap.parse_args()
 
     out = pathlib.Path(args.out)
@@ -117,23 +125,21 @@ def main():
 
     print(f"Starting HTTP server on port {args.port} (serving {PUBLIC}) ...")
     start_server(args.port)
-    time.sleep(0.5)
+    time.sleep(0.8)
 
-    base = f"http://127.0.0.1:{args.port}/forest-scene/index.html"
-    total = len(VIEWS) * 2  # with + without vegetation
+    base  = f"http://127.0.0.1:{args.port}/forest-scene/index.html"
+    total = len(VIEWS) * 2   # veg + noveg
     done  = 0
 
-    for label, az, el, dist, t in VIEWS:
+    for label, az, el, dist in VIEWS:
         for veg in (1, 0):
-            veg_tag = "veg" if veg else "noveg"
-            fname   = f"{label}_{veg_tag}.png"
-            url = (f"{base}?az={az}&el={el}&d={dist}&t={t}"
-                   f"&veg={veg}&ui=0&interactive=0")
-            out_path = out / fname
-            ok = capture(url, out_path, args.width, args.height)
+            tag      = "veg" if veg else "noveg"
+            fname    = f"{label}_{tag}.png"
+            url      = (f"{base}?az={az}&el={el}&d={dist}"
+                        f"&cov={args.cov}&veg={veg}&ui=0&interactive=0")
+            ok = capture(url, out / fname, args.width, args.height)
             done += 1
-            status = "OK" if ok else "FAIL"
-            print(f"  [{done:2d}/{total}] {fname:40s} {status}")
+            print(f"  [{done:2d}/{total}] {fname:35s} {'OK' if ok else 'FAIL'}")
 
     print(f"\nDone. {done} images → {out}/")
 

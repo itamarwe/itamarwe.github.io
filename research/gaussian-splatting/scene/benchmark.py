@@ -22,7 +22,7 @@ Usage
 Outputs
 -------
     benchmark_report.json   — per-frequency contrast table + scores
-    mtf_curves.png          — MTF curves (ideal vs. occluded vs. reconstructed)
+    mtf_{view}.png          — MTF curves per view pair
 """
 
 import argparse
@@ -54,6 +54,9 @@ TARGET_SIZE_M  = 5.0     # physical target side length (metres)
 TEX_SIZE_PX    = 1024    # canvas texture size (pixels)
 MM_PER_PX      = (TARGET_SIZE_M * 1000) / TEX_SIZE_PX   # ≈ 4.88 mm / px
 
+# Camera FOV matching index.html: PerspectiveCamera(52, aspect, 0.1, 300)
+CAM_FOV_V_DEG  = 52.0   # vertical FOV (Three.js fov = vertical)
+
 # USAF group layout in the 1024×1024 texture (bx, by, bw, bh, d0_px)
 # These MUST match the group() calls in makeUSAFTexture() in index.html.
 GROUPS = [
@@ -63,6 +66,18 @@ GROUPS = [
     dict(label=4, bx=768, by=512, bw=256, bh=256,  d0=4),
 ]
 N_ELEMENTS = 6   # elements per group
+
+# Camera views matching capture_views.py VIEWS list.
+# label → (az_deg, el_deg, dist_m)
+CAPTURE_VIEWS = {
+    "topdown":  (  0,  88, 11),
+    "hi_N":     (  0,  72, 13),  "hi_E":  ( 90,  72, 13),
+    "hi_S":     (180,  72, 13),  "hi_W":  (270,  72, 13),
+    "mid_N":    (  0,  55, 14),  "mid_E": ( 90,  55, 14),
+    "mid_S":    (180,  55, 14),  "mid_W": (270,  55, 14),
+    "low_NE":   ( 45,  38, 14),  "low_SE": (135, 38, 14),
+    "low_SW":   (225,  38, 14),  "low_NW": (315, 38, 14),
+}
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 BG  = "#0e1116"; CY = "#3fc1ff"; GLD = "#ffd166"
@@ -91,7 +106,7 @@ def element_box_in_texture(grp: dict, e: int):
     bx, by = grp['bx'], grp['by']
     d0 = grp['d0']
     # Stack elements from top; each element uses (5*d + gap) rows.
-    # First row offset: label row + small gap.
+    # First row offset: label row + small gap (mirrors group() in index.html).
     label_fs = min(22, max(7, round(d0 * 1.1)))
     cy = by + label_fs + 6
 
@@ -106,36 +121,155 @@ def element_box_in_texture(grp: dict, e: int):
     return None  # element doesn't fit
 
 
-# ── Contrast measurement ──────────────────────────────────────────────────────
-def crop_region(img: np.ndarray, tex_box, img_w: int, img_h: int,
-                target_px_w: float, target_px_h: float,
-                target_origin_x: float, target_origin_y: float):
+# ── Camera projection ─────────────────────────────────────────────────────────
+def build_camera_basis(az_deg: float, el_deg: float, dist: float):
     """
-    Map a texture-space box (in px on the 1024 canvas) to image-space pixels.
+    Returns (cam_pos, right, up, z_axis) for the Three.js camera.
 
-    img_w, img_h       : rendered image dimensions
-    target_px_w/h      : width/height of the 5m target IN IMAGE PIXELS
-    target_origin_x/y  : image pixel of the target's top-left corner
+    The camera sits at the spherical position (az, el, dist) looking at origin.
+    Formula from index.html:
+        x = dist * cos(el) * sin(az)
+        y = dist * sin(el)
+        z = dist * cos(el) * cos(az)
+    World up = (0, 1, 0).
+    """
+    az = math.radians(az_deg)
+    el = math.radians(el_deg)
+    cam_pos = np.array([
+        dist * math.cos(el) * math.sin(az),
+        dist * math.sin(el),
+        dist * math.cos(el) * math.cos(az),
+    ])
+    look_at = np.zeros(3)
+
+    # Camera basis (matches Three.js lookAt)
+    z_axis = cam_pos - look_at          # points away from scene
+    z_axis /= np.linalg.norm(z_axis)
+    world_up = np.array([0., 1., 0.])
+    right = np.cross(world_up, z_axis)
+    right /= np.linalg.norm(right)
+    up = np.cross(z_axis, right)         # camera up
+
+    return cam_pos, right, up, z_axis
+
+
+def project_world_to_image(world_pt, cam_pos, right, up, z_axis,
+                           img_w: int, img_h: int,
+                           fov_v_deg: float = CAM_FOV_V_DEG):
+    """Project a world-space point to image pixel coordinates."""
+    aspect = img_w / img_h
+    f_v = 1.0 / math.tan(math.radians(fov_v_deg) / 2)
+
+    v = world_pt - cam_pos
+    x_cam = np.dot(v, right)
+    y_cam = np.dot(v, up)
+    z_cam = -np.dot(v, z_axis)          # positive = in front of camera
+
+    if z_cam <= 0:
+        return None                     # behind camera
+
+    x_ndc = (x_cam / z_cam) * (f_v / aspect)
+    y_ndc = (y_cam / z_cam) * f_v
+
+    img_x = (x_ndc + 1) / 2 * img_w
+    img_y = (1 - y_ndc) / 2 * img_h
+    return img_x, img_y
+
+
+def target_tex_to_world(tex_x: float, tex_y: float) -> np.ndarray:
+    """
+    Map texture pixel (tex_x, tex_y) to world-space 3-D point on the ground plane.
+
+    PlaneGeometry(5,5) rotated -π/2 around X:
+        world_x = tex_x/1024 * 5.0 - 2.5
+        world_y = 0
+        world_z = tex_y/1024 * 5.0 - 2.5
+
+    Derivation: UV(0,1)→canvas(0,0)→world(-2.5,0,-2.5)  etc.
+    """
+    s = TARGET_SIZE_M / TEX_SIZE_PX
+    return np.array([
+        tex_x * s - TARGET_SIZE_M / 2,
+        0.0,
+        tex_y * s - TARGET_SIZE_M / 2,
+    ])
+
+
+def compute_homography(src_pts, dst_pts) -> np.ndarray:
+    """
+    Compute 3×3 homography H such that dst = H * src (homogeneous).
+    src_pts, dst_pts: lists/arrays of 4 (x, y) pairs.
+    Uses the DLT algorithm (SVD).
+    """
+    A = []
+    for (sx, sy), (dx, dy) in zip(src_pts, dst_pts):
+        A.append([-sx, -sy, -1,   0,   0,  0, dx * sx, dx * sy, dx])
+        A.append([  0,   0,  0, -sx, -sy, -1, dy * sx, dy * sy, dy])
+    A = np.array(A, dtype=float)
+    _, _, Vt = np.linalg.svd(A)
+    h = Vt[-1].reshape(3, 3)
+    return h / h[2, 2]
+
+
+def apply_homography(H: np.ndarray, x: float, y: float):
+    pt = H @ np.array([x, y, 1.0])
+    return pt[0] / pt[2], pt[1] / pt[2]
+
+
+def build_tex_to_image_homography(az_deg, el_deg, dist, img_w, img_h):
+    """
+    Return a 3×3 homography mapping texture pixels → image pixels
+    using the known camera parameters and target geometry.
+    """
+    cam_pos, right, up, z_axis = build_camera_basis(az_deg, el_deg, dist)
+
+    # Four texture corners: (0,0), (W,0), (0,H), (W,H)
+    tex_corners = [
+        (0.0,          0.0),
+        (TEX_SIZE_PX,  0.0),
+        (0.0,          TEX_SIZE_PX),
+        (TEX_SIZE_PX,  TEX_SIZE_PX),
+    ]
+    img_corners = []
+    for tx, ty in tex_corners:
+        world = target_tex_to_world(tx, ty)
+        pt = project_world_to_image(world, cam_pos, right, up, z_axis, img_w, img_h)
+        if pt is None:
+            return None
+        img_corners.append(pt)
+
+    return compute_homography(tex_corners, img_corners)
+
+
+# ── Crop a texture-space box out of the image ─────────────────────────────────
+def crop_region(img: np.ndarray, tex_box, H: np.ndarray):
+    """
+    Map texture-space box (tx0, ty0, tx1, ty1) to image pixels via homography H.
+    Returns the axis-aligned image crop.
     """
     tx0, ty0, tx1, ty1 = tex_box
-    # Texture → normalised [0,1]
-    n0 = tx0 / TEX_SIZE_PX; n1 = tx1 / TEX_SIZE_PX
-    m0 = ty0 / TEX_SIZE_PX; m1 = ty1 / TEX_SIZE_PX
-    # Normalised → image pixels
-    ix0 = int(target_origin_x + n0 * target_px_w)
-    ix1 = int(target_origin_x + n1 * target_px_w)
-    iy0 = int(target_origin_y + m0 * target_px_h)
-    iy1 = int(target_origin_y + m1 * target_px_h)
-    # Clamp
-    ix0 = max(0, min(ix0, img_w - 1))
-    ix1 = max(0, min(ix1, img_w))
-    iy0 = max(0, min(iy0, img_h - 1))
-    iy1 = max(0, min(iy1, img_h))
+    img_h, img_w = img.shape[:2]
+
+    corners_img = [
+        apply_homography(H, tx0, ty0),
+        apply_homography(H, tx1, ty0),
+        apply_homography(H, tx0, ty1),
+        apply_homography(H, tx1, ty1),
+    ]
+    xs = [c[0] for c in corners_img]
+    ys = [c[1] for c in corners_img]
+
+    ix0 = max(0, math.floor(min(xs)))
+    ix1 = min(img_w, math.ceil(max(xs)))
+    iy0 = max(0, math.floor(min(ys)))
+    iy1 = min(img_h, math.ceil(max(ys)))
+
     if ix1 <= ix0 or iy1 <= iy0:
         return None
     return img[iy0:iy1, ix0:ix1]
 
 
+# ── Contrast measurement ──────────────────────────────────────────────────────
 def michelson_contrast(patch: np.ndarray) -> float:
     """Michelson contrast on a greyscale crop."""
     if patch is None or patch.size == 0:
@@ -145,29 +279,6 @@ def michelson_contrast(patch: np.ndarray) -> float:
     if hi + lo < 1e-6:
         return float('nan')
     return (hi - lo) / (hi + lo)
-
-
-# ── Locate target in image (simple centroid of bright region) ─────────────────
-def locate_target(img: np.ndarray, img_w: int, img_h: int):
-    """
-    Rough estimate of the target bounding box in image pixels.
-
-    The USAF target uses a light grey background (#d4d4d4 ≈ 0.83 brightness).
-    We threshold to find bright near-white pixels, cluster them, and return
-    the bounding box.
-
-    Returns: (x0, y0, x1, y1, origin_x, origin_y, w_px, h_px)
-    or None if not detectable.
-    """
-    grey = img.mean(axis=2)
-    # Light grey threshold
-    mask = grey > 160          # 0-255 scale
-    ys, xs = np.where(mask)
-    if len(xs) < 100:
-        return None
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    return x0, y0, x1, y1, x0, y0, x1 - x0, y1 - y0
 
 
 @dataclass
@@ -185,33 +296,34 @@ class ElementResult:
 
 # ── Main analysis ─────────────────────────────────────────────────────────────
 def analyse_pair(noveg_path: pathlib.Path, veg_path: pathlib.Path,
-                 recon_path: pathlib.Path = None) -> list[ElementResult]:
+                 recon_path: pathlib.Path = None,
+                 az: float = 0, el: float = 88, dist: float = 11,
+                 ) -> list[ElementResult]:
     ideal_img = np.array(Image.open(noveg_path).convert('RGB'))
     occ_img   = np.array(Image.open(veg_path).convert('RGB'))
     recon_img = np.array(Image.open(recon_path).convert('RGB')) if (recon_path and recon_path.exists()) else None
 
     H, W = ideal_img.shape[:2]
+
+    # Build homography from camera parameters (same for all three images).
+    hom = build_tex_to_image_homography(az, el, dist, W, H)
+    if hom is None:
+        print(f"  Warning: homography failed for az={az} el={el} d={dist}")
+        return []
+
     results = []
-
-    # Locate target in the ideal (no-veg) image
-    loc = locate_target(ideal_img, W, H)
-    if loc is None:
-        print(f"  Warning: could not locate target in {noveg_path.name}")
-        return results
-    x0, y0, x1, y1, ox, oy, tw, th = loc
-
     for grp in GROUPS:
         for e in range(1, N_ELEMENTS + 1):
             box = element_box_in_texture(grp, e)
             if box is None:
                 continue
 
-            d   = element_d(grp['d0'], e)
-            bw_mm   = d * MM_PER_PX          # physical bar width (mm)
-            lp_mm   = 1.0 / (2 * bw_mm)     # line pairs per mm (1 lp = bar + gap)
+            d       = element_d(grp['d0'], e)
+            bw_mm   = d * MM_PER_PX
+            lp_mm   = 1.0 / (2 * bw_mm)
 
             def contrast_for(img):
-                patch = crop_region(img, box, W, H, tw, th, ox, oy)
+                patch = crop_region(img, box, hom)
                 return michelson_contrast(patch)
 
             ci = contrast_for(ideal_img)
@@ -233,7 +345,8 @@ def analyse_pair(noveg_path: pathlib.Path, veg_path: pathlib.Path,
 
 
 # ── MTF plot ──────────────────────────────────────────────────────────────────
-def plot_mtf(results: list[ElementResult], out_path: pathlib.Path):
+def plot_mtf(results: list[ElementResult], out_path: pathlib.Path,
+             view_label: str = ""):
     if not HAS_MPL:
         return
     fig, ax = plt.subplots(figsize=(10, 6), facecolor=BG)
@@ -254,7 +367,7 @@ def plot_mtf(results: list[ElementResult], out_path: pathlib.Path):
 
     ax.axhline(0.20, color=RED, linewidth=1.2, linestyle='--', label='Resolution threshold (C=0.20)')
 
-    # Group dividers
+    # Group dividers and labels
     group_bounds = {}
     for r in results:
         group_bounds.setdefault(r.group, []).append(r.lp_per_mm)
@@ -264,9 +377,12 @@ def plot_mtf(results: list[ElementResult], out_path: pathlib.Path):
                 ha='center', va='top', transform=ax.get_xaxis_transform())
         ax.axvline(max(fs), color=MUT, linewidth=0.5, linestyle=':')
 
+    title = 'MTF — USAF 1951 target through straw occlusion'
+    if view_label:
+        title += f'  [{view_label}]'
     ax.set_xlabel('Spatial frequency  (lp / mm physical)', color=TXT, fontsize=10)
     ax.set_ylabel('Michelson contrast', color=TXT, fontsize=10)
-    ax.set_title('MTF — USAF 1951 target through straw occlusion', color=TXT, fontsize=12, pad=10)
+    ax.set_title(title, color=TXT, fontsize=12, pad=10)
     ax.set_ylim(0, 1.05)
     ax.legend(facecolor=BG, edgecolor=MUT, labelcolor=TXT, fontsize=9)
 
@@ -279,7 +395,7 @@ def plot_mtf(results: list[ElementResult], out_path: pathlib.Path):
 # ── Summary scoring ───────────────────────────────────────────────────────────
 def score(results: list[ElementResult]) -> dict:
     """
-    occlusion_loss : area between ideal MTF and occluded MTF (lower = harder)
+    occlusion_loss : area between ideal MTF and occluded MTF
     resolved_ideal : highest spatial freq resolved in ground truth
     resolved_occ   : highest spatial freq resolved with occlusion
     recovery_ratio : resolved_occ / resolved_ideal  (1.0 = perfect)
@@ -315,7 +431,6 @@ def main():
     out_dir  = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find all noveg / veg pairs
     noveg_files = sorted(img_dir.glob('*_noveg.png'))
     if not noveg_files:
         sys.exit(f'No *_noveg.png files in {img_dir}. Run capture_views.py first.')
@@ -324,12 +439,19 @@ def main():
     for nv in noveg_files:
         stem  = re.sub(r'_noveg$', '', nv.stem)
         veg   = img_dir / f'{stem}_veg.png'
-        recon = img_dir / f'{stem}_recon.png'   # optional, from 3DGS
+        recon = img_dir / f'{stem}_recon.png'
         if not veg.exists():
             continue
 
-        print(f'\n  Analysing: {stem}')
-        res = analyse_pair(nv, veg, recon if recon.exists() else None)
+        # Look up camera parameters from the view label
+        if stem not in CAPTURE_VIEWS:
+            print(f'\n  Skipping {stem}: no camera params (not in CAPTURE_VIEWS)')
+            continue
+        az, el, dist = CAPTURE_VIEWS[stem]
+
+        print(f'\n  Analysing: {stem}  (az={az}° el={el}° d={dist}m)')
+        res = analyse_pair(nv, veg, recon if recon.exists() else None,
+                           az=az, el=el, dist=dist)
         if not res:
             continue
 
@@ -347,8 +469,7 @@ def main():
                   f'occ={r.contrast_occ or 0:.3f}  {flag}')
 
         all_results[stem] = {'elements': [asdict(r) for r in res], 'score': sc}
-
-        plot_mtf(res, out_dir / f'mtf_{stem}.png')
+        plot_mtf(res, out_dir / f'mtf_{stem}.png', view_label=stem)
 
     report = {
         'target_size_m':  TARGET_SIZE_M,
