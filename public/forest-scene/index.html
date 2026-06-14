@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Forest Scene</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: monospace; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; top: 12px; left: 12px; color: #cde; font-size: 12px;
+    background: rgba(0,0,0,0.55); padding: 8px 12px; border-radius: 6px;
+    line-height: 1.7; pointer-events: none;
+  }
+  #ui.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <b>Forest Scene</b><br>
+  Drag: orbit &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; <b>V</b>: toggle vegetation<br>
+  <b>T</b>: pause/resume wind &nbsp;|&nbsp; <b>H</b>: hide UI
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../pnp/vendor/three.module.js",
+    "three/addons/": "../pnp/vendor/addons/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── URL params ───────────────────────────────────────────────────────────────
+const P = new URLSearchParams(location.search);
+const CAM_AZ   = (parseFloat(P.get('az')  ?? 30))  * Math.PI / 180;
+const CAM_EL   = (parseFloat(P.get('el')  ?? 58))  * Math.PI / 180;
+const CAM_DIST = parseFloat(P.get('d')   ?? 20);
+const SHOW_VEG = (P.get('veg') ?? '1') !== '0';
+const WIND_T0  = parseFloat(P.get('t')   ?? 0);
+const HIDE_UI  = P.get('ui') === '0';
+const INTERACTIVE = P.get('interactive') !== '0';
+
+if (HIDE_UI) document.getElementById('ui').classList.add('hidden');
+
+// ─── Renderer ────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ─── Scene ────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x6a9bb8);
+scene.fog = new THREE.FogExp2(0x6a9bb8, 0.016);
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 400);
+function setCameraFromSpherical(az, el, dist) {
+  camera.position.set(
+    dist * Math.cos(el) * Math.sin(az),
+    dist * Math.sin(el),
+    dist * Math.cos(el) * Math.cos(az)
+  );
+  camera.lookAt(0, 1.2, 0);
+}
+setCameraFromSpherical(CAM_AZ, CAM_EL, CAM_DIST);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.2, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 4;
+controls.maxDistance = 60;
+controls.maxPolarAngle = Math.PI / 2 - 0.02;
+if (!INTERACTIVE) { controls.enabled = false; }
+
+// ─── Lighting ─────────────────────────────────────────────────────────────────
+const hemi = new THREE.HemisphereLight(0x8ab8e8, 0x3a6a28, 0.85);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff5d0, 2.0);
+sun.position.set(14, 28, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.setScalar(2048);
+const sc = sun.shadow.camera;
+sc.left = sc.bottom = -28; sc.right = sc.top = 28;
+sc.near = 0.5; sc.far = 120;
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x4060a0, 0.35);
+fill.position.set(-12, 8, -8);
+scene.add(fill);
+
+// ─── Materials ────────────────────────────────────────────────────────────────
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x2a4015, roughness: 0.97, metalness: 0.0,
+});
+
+const trunkMat = new THREE.MeshStandardMaterial({
+  color: 0x5c3d1e, roughness: 0.92, metalness: 0.0,
+});
+
+const LEAF_COLORS = [0x2d6818, 0x3a7a1e, 0x1e5810, 0x4a8822, 0x264e12, 0x38701a];
+const leafMats = LEAF_COLORS.map(c =>
+  new THREE.MeshStandardMaterial({ color: c, roughness: 0.82, metalness: 0.0, side: THREE.DoubleSide })
+);
+
+const soldierMat  = new THREE.MeshStandardMaterial({ color: 0x4a5a28, roughness: 0.82 });
+const helmetMat   = new THREE.MeshStandardMaterial({ color: 0x38481a, roughness: 0.75 });
+const bootMat     = new THREE.MeshStandardMaterial({ color: 0x18180a, roughness: 0.92 });
+const packMat     = new THREE.MeshStandardMaterial({ color: 0x384818, roughness: 0.90 });
+const rifleMat    = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.55, metalness: 0.5 });
+const undergrowthMat = new THREE.MeshStandardMaterial({ color: 0x224a10, roughness: 0.95, side: THREE.DoubleSide });
+
+// ─── Deterministic RNG ────────────────────────────────────────────────────────
+function makeRng(seed) {
+  let s = seed | 0;
+  return function() {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = makeRng(137);
+
+// ─── Ground ───────────────────────────────────────────────────────────────────
+const groundGeo = new THREE.PlaneGeometry(100, 100, 40, 40);
+const gp = groundGeo.attributes.position;
+for (let i = 0; i < gp.count; i++) {
+  const x = gp.getX(i), z = gp.getY(i);
+  // subtle undulation
+  gp.setZ(i, Math.sin(x * 0.28) * Math.cos(z * 0.35) * 0.18 + Math.sin(x * 0.9 + z * 0.7) * 0.06);
+}
+gp.needsUpdate = true;
+groundGeo.computeVertexNormals();
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ─── Soldier ──────────────────────────────────────────────────────────────────
+function addShadow(mesh) { mesh.castShadow = true; mesh.receiveShadow = true; return mesh; }
+
+function createSoldier() {
+  // Build at ~1m scale, then scale up — soldier is 1.8m tall
+  const S = 1.8; // scale factor
+  const g = new THREE.Group();
+
+  // Legs
+  for (const [x, rz] of [[-0.12, 0.04], [0.12, -0.04]]) {
+    const leg = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.80, 8), soldierMat));
+    leg.position.set(x, 0.40, 0);
+    leg.rotation.z = rz;
+    g.add(leg);
+    const boot = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.10, 0.22), bootMat));
+    boot.position.set(x, 0.03, 0.04);
+    g.add(boot);
+  }
+
+  // Torso
+  const torso = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.64, 0.28), soldierMat));
+  torso.position.y = 1.10;
+  g.add(torso);
+
+  // Backpack
+  const pack = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.42, 0.16), packMat));
+  pack.position.set(0, 1.10, -0.22);
+  g.add(pack);
+
+  // Neck
+  const neck = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.16, 7), soldierMat));
+  neck.position.y = 1.47;
+  g.add(neck);
+
+  // Head
+  const head = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), soldierMat));
+  head.position.y = 1.65;
+  g.add(head);
+
+  // Helmet dome (upper hemisphere)
+  const helmGeo = new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.65);
+  const helmet = addShadow(new THREE.Mesh(helmGeo, helmetMat));
+  helmet.position.y = 1.68;
+  g.add(helmet);
+
+  // Helmet brim
+  const brim = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.035, 14), helmetMat));
+  brim.position.y = 1.60;
+  g.add(brim);
+
+  // Arms
+  for (const [x, rz] of [[-0.27, 0.28], [0.27, -0.28]]) {
+    const arm = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.56, 7), soldierMat));
+    arm.position.set(x, 1.05, 0.04);
+    arm.rotation.z = rz;
+    g.add(arm);
+  }
+
+  // Rifle
+  const rifle = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.88), rifleMat));
+  rifle.position.set(0.24, 1.08, 0.44);
+  g.add(rifle);
+  const barrel = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.30, 6), rifleMat));
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0.24, 1.12, 0.84);
+  g.add(barrel);
+
+  g.scale.setScalar(S);
+  return g;
+}
+
+const soldier = createSoldier();
+scene.add(soldier);
+
+// ─── Trees ────────────────────────────────────────────────────────────────────
+const leafPivots = [];
+
+function createTree(x, z, scale) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+
+  const h = 5.5 * scale;
+  const tr = 0.17 * scale;
+  const treeSeed = x * 17.3 + z * 11.7;
+
+  // Trunk lower
+  const trunk = addShadow(new THREE.Mesh(
+    new THREE.CylinderGeometry(tr * 0.65, tr, h * 0.58, 9), trunkMat));
+  trunk.position.y = h * 0.29;
+  g.add(trunk);
+
+  // Trunk upper
+  const uTrunk = addShadow(new THREE.Mesh(
+    new THREE.CylinderGeometry(tr * 0.35, tr * 0.65, h * 0.28, 8), trunkMat));
+  uTrunk.position.y = h * 0.58 + h * 0.14;
+  g.add(uTrunk);
+
+  // Canopy layers — each is a wind-pivot group
+  // Cluster radius is smaller; more clusters → dense but fine-grained canopy
+  const layers = [
+    { yf: 0.52, r: 0.95 * scale, spread: 1.10 * scale, n: 6 },
+    { yf: 0.65, r: 0.88 * scale, spread: 0.90 * scale, n: 7 },
+    { yf: 0.77, r: 0.75 * scale, spread: 0.68 * scale, n: 5 },
+    { yf: 0.87, r: 0.60 * scale, spread: 0.40 * scale, n: 4 },
+    { yf: 0.96, r: 0.42 * scale, spread: 0.12 * scale, n: 2 },
+  ];
+
+  layers.forEach(({ yf, r, spread, n }, li) => {
+    const pivot = new THREE.Group();
+    pivot.position.y = h * yf;
+    pivot.userData.ph  = treeSeed + li * 0.83;
+    pivot.userData.fq  = 0.22 + ((Math.abs(treeSeed) * 0.1) % 1) * 0.32;
+    pivot.userData.amp = 0.055 + li * 0.012;
+    leafPivots.push(pivot);
+
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2 + treeSeed * 0.5;
+      const d   = n === 1 ? 0 : spread * (0.45 + ((treeSeed + li + i) * 0.37 % 1) * 0.55);
+      const lx  = Math.cos(ang) * d;
+      const lz  = Math.sin(ang) * d;
+      const ly  = ((treeSeed + li + i) * 0.29 % 1 - 0.5) * 0.45 * scale;
+      const mi  = Math.abs(Math.floor((treeSeed * 3.1 + li + i))) % leafMats.length;
+      const rad = r * (0.75 + ((treeSeed + i) * 0.19 % 1) * 0.5);
+
+      const cluster = addShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(rad, 1), leafMats[mi]));
+      cluster.position.set(lx, ly, lz);
+      pivot.add(cluster);
+    }
+    g.add(pivot);
+  });
+
+  return g;
+}
+
+// Place trees — keep center clear for soldier
+const treeGroup = new THREE.Group();
+const placed = [];
+const MIN_FROM_CENTER = 5.5;
+const MIN_BETWEEN = 2.8;
+
+let attempt = 0;
+while (placed.length < 28 && attempt < 600) {
+  attempt++;
+  const ang = rng() * Math.PI * 2;
+  const r   = MIN_FROM_CENTER + rng() * 11.5;
+  const tx  = Math.cos(ang) * r;
+  const tz  = Math.sin(ang) * r;
+  if (placed.some(([px, pz]) => Math.hypot(tx - px, tz - pz) < MIN_BETWEEN)) continue;
+  placed.push([tx, tz]);
+  treeGroup.add(createTree(tx, tz, 0.82 + rng() * 0.52));
+}
+scene.add(treeGroup);
+
+// ─── Undergrowth ─────────────────────────────────────────────────────────────
+for (let i = 0; i < 55; i++) {
+  const ang = rng() * Math.PI * 2;
+  const r   = 1.8 + rng() * 13;
+  const x   = Math.cos(ang) * r, z = Math.sin(ang) * r;
+  const s   = 0.15 + rng() * 0.38;
+  const bush = new THREE.Mesh(new THREE.SphereGeometry(s, 6, 4), undergrowthMat);
+  bush.position.set(x, s * 0.45, z);
+  bush.scale.y = 0.45 + rng() * 0.25;
+  bush.castShadow = true;
+  scene.add(bush);
+}
+
+// ─── Wind ─────────────────────────────────────────────────────────────────────
+let windTime = WIND_T0;
+let windRunning = true;
+
+function applyWind(t) {
+  for (const piv of leafPivots) {
+    const { ph, fq, amp } = piv.userData;
+    piv.rotation.x = Math.sin(t * fq        + ph)        * amp;
+    piv.rotation.z = Math.cos(t * fq * 0.71 + ph + 1.4)  * amp * 0.85;
+    // slight y sway
+    piv.rotation.y = Math.sin(t * fq * 0.44 + ph + 2.1)  * amp * 0.3;
+  }
+}
+
+// ─── Public API (for capture script) ─────────────────────────────────────────
+window.__setVeg    = v  => { treeGroup.visible = v; };
+window.__setTime   = t  => { windTime = t; applyWind(t); };
+window.__setCamera = (az, el, dist) => {
+  setCameraFromSpherical(az * Math.PI / 180, el * Math.PI / 180, dist);
+  controls.target.set(0, 1.2, 0);
+  controls.update();
+};
+window.__renderFrame = () => {
+  applyWind(windTime);
+  renderer.render(scene, camera);
+};
+
+// ─── Init visibility ─────────────────────────────────────────────────────────
+treeGroup.visible = SHOW_VEG;
+applyWind(windTime);
+
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'v' || e.key === 'V') treeGroup.visible = !treeGroup.visible;
+  if (e.key === 't' || e.key === 'T') windRunning = !windRunning;
+  if (e.key === 'h' || e.key === 'H') document.getElementById('ui').classList.toggle('hidden');
+});
+
+// ─── Render loop ─────────────────────────────────────────────────────────────
+let last = 0;
+function animate(ts) {
+  requestAnimationFrame(animate);
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+  if (windRunning && INTERACTIVE) windTime += dt * 0.75;
+  applyWind(windTime);
+  if (INTERACTIVE) controls.update();
+  renderer.render(scene, camera);
+}
+
+animate(0);
+window.__sceneReady = true;
+document.title = 'READY';
+</script>
+</body>
+</html>
