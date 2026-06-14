@@ -458,7 +458,85 @@ def fig_densification():
     fig.savefig(f"{OUT}/densification.png", facecolor=BG); plt.close(fig)
     print("densification.png")
 
+# ---------------------------------------------------------------------------
+# Figure: the CUDA rasterizer — kernels, data buffers, parallelism, operators
+# ---------------------------------------------------------------------------
+def fig_cuda():
+    fig, ax = newfig(10, 6.7)
+    ax.set_xlim(0, 10); ax.set_ylim(0, 6.7)
+
+    def box(cx, cy, w, h, title, sub, edge):
+        ax.add_patch(FancyBboxPatch((cx-w/2, cy-h/2), w, h,
+                     boxstyle="round,pad=0.02,rounding_size=0.07",
+                     facecolor="#161b22", edgecolor=edge, lw=1.5, zorder=3))
+        ax.text(cx, cy + (0.12 if sub else 0), title, color="#e8edf3", ha="center",
+                va="center", fontsize=9, fontweight="bold", zorder=4, family="monospace")
+        if sub:
+            ax.text(cx, cy-0.15, sub, color=MUT, ha="center", va="center", fontsize=7.4, zorder=4)
+
+    def chip(cx, cy, text, col):
+        ax.text(cx, cy, text, color=col, ha="center", va="center", fontsize=7.6,
+                fontweight="bold", zorder=5,
+                bbox=dict(boxstyle="round,pad=0.22", fc="#0b0e12", ec=col, lw=1.0))
+
+    ax.text(0.3, 6.62, "Inside the rasterizer — kernels, data, parallelism",
+            color=FG, fontsize=13.5, fontweight="bold", va="top")
+
+    # ---- forward lane (left column) ----
+    fx, w, h = 2.55, 3.1, 0.56
+    ys = [5.35, 4.52, 3.69, 2.86, 2.03, 1.20]
+    fwd = [
+        ("preprocessCUDA", "project · 2D cov Σ′ · conic · SH→RGB", GOLD, "1 thread / Gaussian", GOLD),
+        ("InclusiveSum", "prefix-sum tiles_touched → offsets", GREEN, "CUB scan", GREEN),
+        ("duplicateWithKeys", "key = (tileID«32 | depth) per tile hit", GOLD, "1 thread / Gaussian", GOLD),
+        ("SortPairs", "sort (key, gaussianID): tile, then depth", GREEN, "CUB radix sort", GREEN),
+        ("identifyTileRanges", "find each tile's slice of the list", CYAN, "1 thread / entry", CYAN),
+        ("renderCUDA", "batch→shared mem · blend front→back", CYAN, "1 block / tile · 256 thr", CYAN),
+    ]
+    for (t, s, ec, ctxt, ccol), cy in zip(fwd, ys):
+        box(fx, cy, w, h, t, s, ec)
+        chip(fx + w/2 + 1.15, cy, ctxt, ccol)
+    for a_, b_ in zip(ys[:-1], ys[1:]):
+        arrow(ax, (fx, a_-h/2), (fx, b_+h/2), color=CYAN, lw=1.3, ms=9)
+
+    # top buffers + bottom image
+    ax.text(fx, 6.02, "VRAM:  per-Gaussian arrays  [ μ · scale · quat · α · SH ]",
+            color="#cdd6e0", ha="center", fontsize=8.4, zorder=4,
+            bbox=dict(boxstyle="round,pad=0.3", fc="#0b0e12", ec=PURP, lw=1.2))
+    arrow(ax, (fx, 5.83), (fx, ys[0]+h/2), color=CYAN, lw=1.3, ms=9)
+    box(fx, 0.45, 1.8, 0.42, "rendered image", "", "#e8edf3")
+    arrow(ax, (fx, ys[-1]-h/2), (fx, 0.66), color=CYAN, lw=1.3, ms=9)
+
+    # ---- backward lane (right column) ----
+    bx = 8.15
+    box(bx, 1.20, 3.0, 0.78, "renderCUDA (bwd)", "back-to-front · recompute α", RED)
+    chip(bx, 0.45, "atomicAdd  → per-Gaussian grad buffers", RED)
+    box(bx, 3.69, 3.0, 0.78, "preprocessCUDA (bwd)", "chain ∂L to  μ₃ · scale · quat · SH", RED)
+    box(bx, 5.45, 2.4, 0.6, "Adam step (PyTorch)", "update every parameter", GOLD)
+    arrow(ax, (bx, 1.59), (bx, 3.30), color=RED, lw=1.4, ms=10)
+    arrow(ax, (bx, 4.08), (bx, 5.15), color=RED, lw=1.4, ms=10)
+    # image → backward
+    ax.annotate("", xy=(bx-1.5, 1.05), xytext=(fx+0.95, 0.45),
+                arrowprops=dict(arrowstyle="-|>", color=RED, lw=1.4,
+                connectionstyle="arc3,rad=-0.18"))
+    ax.text(5.55, 0.62, "∂L/∂image", color=RED, ha="center", fontsize=8)
+    # Adam → buffers (loop), bowing down through the empty middle, clear of the title
+    ax.annotate("", xy=(fx+1.55, 6.05), xytext=(bx-1.25, 5.62),
+                arrowprops=dict(arrowstyle="-|>", color=GOLD, lw=1.4,
+                connectionstyle="arc3,rad=-0.16"))
+    ax.text(6.45, 5.92, "updated params → next step", color=GOLD, ha="center", fontsize=8)
+
+    # legend (bottom)
+    ax.text(5.05, 0.12, "cyan = forward kernel", color=CYAN, ha="right", fontsize=7.8)
+    ax.text(5.2, 0.12, "·", color=MUT, ha="center", fontsize=7.8)
+    ax.text(5.35, 0.12, "red = backward kernel", color=RED, ha="left", fontsize=7.8)
+    ax.text(8.2, 0.12, "green = CUB library op", color=GREEN, ha="center", fontsize=7.8)
+
+    fig.savefig(f"{OUT}/cuda_pipeline.png", facecolor=BG); plt.close(fig)
+    print("cuda_pipeline.png")
+
 if __name__ == "__main__":
     fig_problem(); fig_nerf(); fig_implicit_vs_explicit()
-    fig_anatomy(); fig_pipeline(); fig_tiling(); fig_densification(); fig_social()
+    fig_anatomy(); fig_pipeline(); fig_tiling(); fig_densification()
+    fig_cuda(); fig_social()
     print("all figures done")

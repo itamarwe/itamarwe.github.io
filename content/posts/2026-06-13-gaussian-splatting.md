@@ -20,6 +20,18 @@ post is the explanation I wish I'd had: what problem it solves, how it relates t
 NeRF, and why it took over so fast. I've built a few interactive pieces along the
 way so you can poke at the ideas directly.
 
+But first, the payoff — so you know what we're chasing. This is a real scene,
+captured on an ordinary camera and turned into a Gaussian splat you can fly through
+in real time. It looks like video, but it's a 3D reconstruction: every frame is
+rendered live from a viewpoint no photo was ever taken from.
+
+<blockquote class="twitter-tweet" data-media-max-width="560" data-theme="dark" data-align="center" data-dnt="true">
+<a href="https://twitter.com/ValigurskyM/status/2064672794416226419">A 3D Gaussian splatting fly-through of a real scene (via @ValigurskyM)</a>
+</blockquote>
+
+That smooth, photorealistic fly-through from a handful of ordinary photos is the
+goal. The rest of this post is how you get there.
+
 ## The problem both NeRF and splatting are trying to solve
 
 Start with the goal, because NeRF and Gaussian splatting are two answers to the
@@ -330,6 +342,90 @@ steps finish a scene in roughly **30–60 minutes on a single consumer GPU** (a
 matters — and why scaling to genuinely huge scenes means sharding the Gaussians
 across multiple GPUs.
 
+### A closer look at the CUDA kernels
+
+It's worth opening the hood, because the whole thing is a surprisingly small stack
+of CUDA kernels glued together with two library primitives. Here's where the data
+lives and what runs in parallel:
+
+![The CUDA rasterizer: per-Gaussian buffers feed six forward kernels (project, scan, key, sort, range, render) and two backward kernels, with the parallelism and operators labelled](/img/gaussian-splatting/cuda_pipeline.png)
+
+**The data** is a handful of flat per-Gaussian arrays in VRAM — means, scales,
+rotation quaternions, opacities, SH coefficients — laid out *struct-of-arrays* so
+threads read them coalesced. Training keeps a matching set of gradient buffers of
+the same shape.
+
+**The forward pass is six kernels** (left column above). Two distinct kinds of
+parallelism show up, and which one a stage uses is the thing to notice:
+
+- **`preprocessCUDA`** — *one thread per Gaussian.* Projects the mean, forms the 2D
+  covariance and its inverse (the "conic"), evaluates SH → RGB for this view, and
+  counts how many 16×16 tiles the splat covers.
+- **`InclusiveSum`** — a CUB device-wide **prefix scan** over `tiles_touched`, which
+  hands each Gaussian the offset where its keys go in one big list.
+- **`duplicateWithKeys`** — *one thread per Gaussian.* For every tile a splat
+  touches, it writes a 64-bit key `(tileID << 32 | depth)` and the Gaussian's id.
+- **`SortPairs`** — a CUB device-wide **radix sort** of those (key, id) pairs. Packing
+  the tile in the high bits and depth in the low bits means a single sort groups by
+  tile *and* orders by depth at once.
+- **`identifyTileRanges`** — *one thread per list entry.* Marks where each tile's
+  slice of the sorted list begins and ends.
+- **`renderCUDA`** — *one thread **block** per tile* (16×16 = 256 threads, one per
+  pixel). The block cooperatively streams its Gaussians through **shared memory** in
+  batches of 256, and each thread blends front-to-back with an early-out.
+
+**The backward pass is two kernels** (right column), run in the opposite order:
+
+- **`renderCUDA` (backward)** — same per-tile blocks, but it walks each tile's list
+  **back-to-front**, recomputing each `α` on the fly, and scatters gradients with
+  **`atomicAdd`** into the per-Gaussian buffers (a single splat is hit by many
+  pixels, so the adds must be atomic).
+- **`preprocessCUDA` (backward)** — *one thread per Gaussian* again, chaining those
+  2D gradients back through the projection and SH to `∂L/∂mean₃`, `∂L/∂scale`,
+  `∂L/∂quaternion`, and `∂L/∂SH`.
+
+Then Adam (in PyTorch) consumes those gradient buffers and writes the parameters
+back, closing the loop. Sketched, the heart of it is just:
+
+```cpp
+// FORWARD preprocess — one thread per Gaussian
+int i = blockIdx.x * blockDim.x + threadIdx.x;        // a Gaussian
+float2 xy    = project(means3D[i], view, proj);
+float3 cov2D = computeCov2D(means3D[i], scales[i], rots[i], view);  // J·W·Σ·Wᵀ·Jᵀ
+conic[i]     = invert(cov2D);
+rgb[i]       = shToColor(sh[i], campos - means3D[i]);
+tiles_touched[i] = tilesCovered(xy, radius(cov2D));
+
+// two library primitives do the heavy lifting:
+cub::DeviceScan::InclusiveSum(tiles_touched, offsets, P);
+cub::DeviceRadixSort::SortPairs(keys, gaussian_ids, N);   // key = tile<<32 | depth
+
+// FORWARD render — one BLOCK per tile, 256 threads (one per pixel)
+__shared__ float2 s_xy[256];
+__shared__ float4 s_conic_op[256];                    // conic + opacity
+float  T = 1.0f; float3 C = make_float3(0,0,0);
+for (int base = range.x; base < range.y; base += 256) {
+    s_xy[tid]       = points_xy[ ids[base + tid] ];   // coalesced load to shared mem
+    s_conic_op[tid] = conic_opacity[ ids[base + tid] ];
+    __syncthreads();
+    for (int j = 0; j < 256 && !done; ++j) {          // front -> back
+        float a = s_conic_op[j].w * expf(power(s_xy[j], pixel));
+        C += rgb[j] * (a * T);  T *= (1.0f - a);
+        if (T < 1e-4f) done = true;                   // early termination
+    }
+}
+
+// BACKWARD render — same tiling, back-to-front, gradients via atomics
+atomicAdd(&dL_dmean2D[g],  ...);  atomicAdd(&dL_dconic[g],    ...);
+atomicAdd(&dL_dopacity[g], ...);  atomicAdd(&dL_dcolor[g][c], ...);
+```
+
+So the operators that actually matter are a CUB **scan**, a CUB **radix sort**, and a
+lot of **`atomicAdd`** over shared-memory-tiled blocks — no general-purpose
+autodiff graph, no locks. That's the engineering reason a scene trains in minutes
+rather than hours. (The snippet is sketched for shape, not the verbatim
+[reference kernels](https://github.com/graphdeco-inria/diff-gaussian-rasterization).)
+
 ## Why Gaussians, and not points or triangles?
 
 This was my nagging question — why *this* primitive? It's because a Gaussian sits in
@@ -347,7 +443,7 @@ Real photo reconstruction is messy, and the Gaussian lets you stay non-committal
 about geometry while still rendering something that looks right. You never have to
 declare "this is a surface and here is its mesh."
 
-## Why it exploded
+## Why it became so popular
 
 Put it together and you can see why it spread so fast:
 

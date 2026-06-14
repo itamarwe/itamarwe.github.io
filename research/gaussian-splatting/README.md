@@ -10,11 +10,11 @@ interactive explorer is separate — it's a self-contained page at
 
 ```
 sim/
-  figures.py     The eight dark "3blue1brown"-style figures: the novel-view
+  figures.py     The nine dark "3blue1brown"-style figures: the novel-view
                  problem, NeRF ray-marching, implicit-vs-explicit, the anatomy
                  of one Gaussian, the training pipeline, the GPU tile-rasterizer,
-                 the clone/split/prune densification figure, and the 1200×630
-                 social card.
+                 the clone/split/prune densification figure, the CUDA kernel /
+                 data-flow diagram, and the 1200×630 social card.
   train_anim.py  The training-loop video (training.mp4) — real 2D GS training.
 ```
 
@@ -50,6 +50,6 @@ pip install numpy matplotlib
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 cd sim
-python figures.py      # writes the 8 PNGs
+python figures.py      # writes the 9 PNGs
 python train_anim.py   # writes training.mp4 — real 2D GS training (CPU ~8 min)
 ```

@@ -10,6 +10,7 @@ import {
 } from "@/lib/posts";
 import Disqus from "@/components/Disqus";
 import KatexAutofit from "@/components/KatexAutofit";
+import TwitterWidgets from "@/components/TwitterWidgets";
 
 export function generateStaticParams() {
   return getAllPosts().map((post) => ({ slug: post.slug }));
@@ -76,6 +77,7 @@ export default async function PostPage({
       </article>
 
       <KatexAutofit />
+      <TwitterWidgets />
 
       {post.comments && <Disqus />}
     </>
