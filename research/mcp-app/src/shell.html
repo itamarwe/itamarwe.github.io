@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* Default palette. The host overrides these two ways:
+     1. applyDocumentTheme() sets <html data-theme="dark|light">.
+     2. applyHostStyleVariables() injects --color-* design tokens on :root,
+        which we prefer over our own fallbacks where available. */
+  :root {
+    color-scheme: light dark;
+    --accent: #3fc1ff;
+    --surface: #ffffff;
+    --border: #e3e6ea;
+    --text: #1a1d21;
+    --muted: #5c6672;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --surface: #161b22; --border: #232a35; --text: #ededed; --muted: #8b95a5; }
+  }
+  [data-theme="light"] { --surface: #ffffff; --border: #e3e6ea; --text: #1a1d21; --muted: #5c6672; }
+  [data-theme="dark"]  { --surface: #161b22; --border: #232a35; --text: #ededed; --muted: #8b95a5; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    background: transparent;
+    color: var(--color-text-primary, var(--text));
+    padding: 16px;
+  }
+  .card {
+    max-width: 460px;
+    background: var(--color-background-secondary, var(--surface));
+    border: 1px solid var(--color-border-primary, var(--border));
+    border-radius: var(--border-radius-lg, 16px);
+    padding: 24px 26px 22px;
+    box-shadow: var(--shadow-md, 0 10px 30px rgba(0, 0, 0, 0.18));
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary, var(--muted));
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 26px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    font-weight: 650;
+  }
+  h1 .name { color: var(--color-text-info, var(--accent)); }
+  p.sub { margin: 0; color: var(--color-text-secondary, var(--muted)); font-size: 14px; }
+  code { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); }
+  .wave { display: inline-block; transform-origin: 70% 70%; animation: wave 1.8s ease-in-out infinite; }
+  @keyframes wave {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(16deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(16deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="eyebrow">MCP App</p>
+    <h1>Hello, <span class="name" id="name">there</span> <span class="wave">👋</span></h1>
+    <p class="sub">This card is a live MCP App served from <code>/mcp</code>.</p>
+  </div>
+  <!--APP-SCRIPT-->
+</body>
+</html>
