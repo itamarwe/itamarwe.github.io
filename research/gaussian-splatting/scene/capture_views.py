@@ -52,15 +52,26 @@ OUT_DIR   = pathlib.Path(__file__).parent / "sample_images"
 
 def find_chrome():
     candidates = [
+        # macOS
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        # Linux
         "/usr/bin/google-chrome",
         "/usr/bin/chromium-browser",
         "/usr/bin/chromium",
     ]
+    # Playwright-installed Chromium (Linux CI)
     candidates += glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
     for c in candidates:
         if os.path.isfile(c) and os.access(c, os.X_OK):
             return c
-    sys.exit("Chrome/Chromium not found. Install or set CHROME env var.")
+    sys.exit(
+        "Chrome/Chromium not found.\n"
+        "  macOS: install Google Chrome from https://www.google.com/chrome/\n"
+        "  Linux: apt install chromium-browser\n"
+        "  Override: CHROME=/path/to/chrome python capture_views.py"
+    )
 
 CHROME = os.environ.get("CHROME") or find_chrome()
 
