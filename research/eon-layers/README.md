@@ -20,6 +20,10 @@ sim/
   make_summary.py            matplotlib generator for the lead / OG image
                              (`four-layers.png`, 1200x630) — a static four-panel
                              summary of all four layers in the same palette.
+  make_sections.py           matplotlib generator for the four per-section
+                             figures (`joinability.png`, `semantic.png`,
+                             `rag.png`, `nl2sql.png`, 1100x560 each), one placed
+                             above each layer's section in the post.
 scenes/
   eon_layers_manim.py        Single self-contained Manim CE script.
                              `EONLayers`     — 16:9, Twitter/X/YouTube (1920x1080)
@@ -35,7 +39,8 @@ the OpenGraph / Twitter social card.
 Regenerate the summary image with:
 
 ```bash
-python research/eon-layers/sim/make_summary.py   # -> public/img/eon-layers/four-layers.png
+python research/eon-layers/sim/make_summary.py    # -> four-layers.png (lead / OG card)
+python research/eon-layers/sim/make_sections.py   # -> joinability / semantic / rag / nl2sql.png
 ```
 
 ## Re-rendering

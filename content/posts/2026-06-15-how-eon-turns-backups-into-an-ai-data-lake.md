@@ -30,6 +30,8 @@ Here's a ~60-second walkthrough of the four AI layers, which I'll unpack one at 
 
 <video src="/img/eon-layers/eon_layers_16x9_1920x1080.mp4" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin:1rem 0"></video>
 
+![Joinability detection: min-hash sketches of two columns estimate their overlap (Jaccard ≈ 0.94) without scanning billions of rows, and an LLM confirms the semantics — producing a confident edge in the joinability graph.](/img/eon-layers/joinability.png)
+
 ## 1. Joinability detection - what actually joins what
 
 The first hard problem: the same logical entity shows up across many sources under different column names, sometimes with no schema at all (think raw Mongo JSON). Before you can answer a cross-source question, you have to know which columns are *actually* joinable.
@@ -43,6 +45,8 @@ Eon combines a cheap physical check with a semantic one:
 
 The output is a graph: which columns in which tables genuinely join, with confidence scores. **Physical overlap, not a guess.**
 
+![Semantic analysis: an LLM is fed column names, sampled rows, source/environment, foreign keys, and the joinability hints from layer 1, and emits a structured per-table description in which relationships are encoded as fact.](/img/eon-layers/semantic.png)
+
 ## 2. Semantic analysis - describing every table
 
 This runs at ingest, once per table, and produces the metadata everything else stands on. For each table the LLM is fed the column names, a bounded sample of rows, the source DB and environment, any detected foreign keys - and crucially, **the joinability candidates from layer 1**.
@@ -50,6 +54,8 @@ This runs at ingest, once per table, and produces the metadata everything else s
 It returns a structured description: what each column means, what the table represents, how it relates to its neighbors. It works even for schemaless Mongo collections, where the LLM does schema *inference* from sampled JSON.
 
 The key insight is the contrast with the obvious thing. An LLM wired straight to a database sees only the semantic signal - names and values - and has to guess at relationships. Eon hands the LLM the **physical-overlap evidence too**, so the descriptions encode relationships that are real (`uid → users.id`, foreign key, 94% overlap) rather than plausible.
+
+![RAG over tables: hundreds of thousands of tables are indexed and grouped into joinable clusters (users, events, orders, billing); a natural-language query routes to a small connected subgraph instead of a flat list.](/img/eon-layers/rag.png)
 
 ## 3. RAG over tables - an index of *tables*, not documents
 
@@ -61,6 +67,8 @@ Two things sit on top:
 - **Clustering** - tables that share joinable columns are grouped, so a question about "users and their orders" resolves to a small connected subgraph instead of a flat list of a million tables.
 
 In other words, each cluster *is* a subgraph of the joinability graph, described in the language of layer 2. That's what makes the next layer tractable.
+
+![NL to SQL: the layers compose — RAG retrieves a 3-table cluster from a million, the joinability graph marks the real join (0.94) versus coincidences (0.12), the LLM writes SQL joining on the real overlap with Iceberg time-travel, and the user confirms the cluster.](/img/eon-layers/nl2sql.png)
 
 ## 4. NL2SQL - that survives a million tables
 
