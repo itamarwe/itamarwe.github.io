@@ -16,6 +16,10 @@ Eon builds on top of its backup-derived Iceberg lake:
 ```
 eon_layers_conversation.md   Working log: the source transcript summary, the
                              four-layer breakdown, and the render decisions.
+sim/
+  make_summary.py            matplotlib generator for the lead / OG image
+                             (`four-layers.png`, 1200x630) — a static four-panel
+                             summary of all four layers in the same palette.
 scenes/
   eon_layers_manim.py        Single self-contained Manim CE script.
                              `EONLayers`     — 16:9, Twitter/X/YouTube (1920x1080)
@@ -23,9 +27,16 @@ scenes/
                              No LaTeX; all labels are Text/Unicode.
 ```
 
-The rendered MP4s committed for the post live in `public/img/eon-layers/`
-(`eon_layers_16x9_1920x1080.mp4`, `eon_layers_4x5_1080x1350.mp4`), plus
-`social.png` (a 1200×630 frame of the layer-3 beat, used as the OG card).
+The committed assets live in `public/img/eon-layers/`: the two rendered MP4s
+(`eon_layers_16x9_1920x1080.mp4`, `eon_layers_4x5_1080x1350.mp4`) and
+`four-layers.png` — the static summary used both at the top of the post and as
+the OpenGraph / Twitter social card.
+
+Regenerate the summary image with:
+
+```bash
+python research/eon-layers/sim/make_summary.py   # -> public/img/eon-layers/four-layers.png
+```
 
 ## Re-rendering
 

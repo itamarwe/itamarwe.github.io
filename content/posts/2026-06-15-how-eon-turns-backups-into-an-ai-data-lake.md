@@ -4,8 +4,10 @@ title: "How Eon Turns Cloud Backups Into an AI-Queryable Data Lake"
 comments: true
 date: 2026-06-15
 categories: ai, code
-image: /img/eon-layers/social.png
+image: /img/eon-layers/four-layers.png
 ---
+
+![The four layers Eon builds on its backup-derived data lake: joinability detection, semantic analysis, RAG over tables, and NL-to-SQL.](/img/eon-layers/four-layers.png)
 
 I recently listened to a *Geekonomy* episode with **Dr. Assaf Natanzon**, Chief Architect at [Eon](https://www.eon.io/), and it reframed something I thought I understood. Eon started life as a cloud-backup company. Somewhere along the way they realized that the artifact a backup product *already produces* - a normalized, queryable copy of every piece of data in the organization - is exactly the thing AI has been starving for. Assaf called it **the new Library of Alexandria**: one place that holds everything the company knows, finally in a form a machine can read.
 
