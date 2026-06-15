@@ -7,6 +7,8 @@ categories: ai
 image: /img/team-brain/social.png
 ---
 
+![The team brain: every builder is a node that syncs context in and out of a shared living wiki (a Git repo) on a cron, and autonomous agents read from it.](/img/team-brain/header.png)
+
 When a team starts building a brand-new product, the most valuable thing it owns
 isn't in the product yet. It's scattered across customer calls, Slack threads,
 WhatsApp arguments at midnight, hallway conversations, and half-finished decks.
