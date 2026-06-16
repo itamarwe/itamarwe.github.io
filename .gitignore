@@ -8,6 +8,7 @@
 # research scripts: generated figures/videos and python caches
 /research/*/out/
 /research/**/media/
+/research/.venv/
 __pycache__/
 *.pyc
 
