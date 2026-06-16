@@ -235,10 +235,11 @@ nobody puts on the leaderboard, and it's the part that decides whether you ship.
 ---
 
 *This post is my write-up of the [ExplAInable](https://open.spotify.com/episode/4usi3lrCnaKAD5yDYyOlPt)
-podcast episode on training Hebatron, hosted by Mike, with the PwC NEXT team that built
-the model. Credit to that team (led on the AI side by Charles Weinberger, with the data
-and evaluation work described by his co-guest, and contributions from teammates including
-Uri and Shaltiel), to [Israel's National AI Program](https://aiisrael.org.il/), and to
+podcast episode on training Hebatron, hosted by Mike Erlihson, with the PwC NEXT team
+that built the model. Credit to that team (led on the AI side by Israel Weinberger,
+with the data and evaluation work led by Noam Kaiser, and contributions from teammates
+including Uri and Shaltiel), to [Israel's National AI Program](https://aiisrael.org.il/),
+and to
 **AWS** for the HyperPod infrastructure. The model is built on NVIDIA's
 [Nemotron](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16)
 ([technical report](https://arxiv.org/abs/2512.20848)). The key papers behind the
