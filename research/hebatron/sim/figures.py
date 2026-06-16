@@ -277,47 +277,123 @@ def fig_moe_entropy():
     leans on a few experts), and that an auxiliary load-balancing loss
     spreads the load back out. The exact per-layer numbers here are made up
     to show the shape, not measured from Hebatron."""
+# ---------------------------------------------------------------------------
+# Figure 4: MoE expert-routing schematic — collapse vs. balanced (no numbers)
+# ---------------------------------------------------------------------------
+def fig_moe_schematic():
+    """Schematic (not a data plot): how a Mixture-of-Experts router lights up
+    experts layer by layer. On Hebrew, before the fix, the deep layers collapse
+    onto a couple of experts; the auxiliary load-balancing loss spreads the load
+    back out. Lit boxes = experts the router actually uses; no quantities are
+    implied beyond 'few vs many'."""
+    fig = plt.figure(figsize=(12.2, 6.0)); fig.patch.set_facecolor(BG)
+    gs = fig.add_gridspec(1, 2, wspace=0.14, left=0.04, right=0.96,
+                          top=0.82, bottom=0.10)
+
+    NLAYERS, NEXP = 6, 8
+    # which experts are "lit" per layer (bottom = shallow, top = deep)
+    before = [6, 5, 4, 3, 2, 1]            # collapses with depth
+    after  = [5, 4, 5, 4, 5, 4]            # stays spread
+
+    def panel(ax, lit_counts, accent, title, caption, seed):
+        ax.set_facecolor(BG); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+        ax.text(0.5, 1.06, title, color=accent, fontsize=13, fontweight="bold",
+                ha="center")
+        rng = np.random.default_rng(seed)
+        ew, gap = 0.084, 0.014
+        total = NEXP * ew + (NEXP - 1) * gap
+        x_start = (1 - total) / 2
+        ys = np.linspace(0.10, 0.88, NLAYERS)
+        rh = 0.075
+        for li, (y, k) in enumerate(zip(ys, lit_counts)):
+            # router dot
+            ax.add_patch(Circle((x_start - 0.05, y + rh / 2), 0.012, color=accent))
+            lit = set(rng.choice(NEXP, size=k, replace=False).tolist())
+            for e in range(NEXP):
+                x = x_start + e * (ew + gap)
+                on = e in lit
+                face = accent + "cc" if on else "#1b212a"
+                edge = accent if on else "#2a313b"
+                ax.add_patch(FancyBboxPatch((x, y), ew, rh,
+                             boxstyle="round,pad=0.002,rounding_size=0.008",
+                             facecolor=face, edgecolor=edge, lw=1.2))
+                if on:
+                    ax.plot([x_start - 0.05, x + ew / 2], [y + rh / 2, y + rh / 2],
+                            color=accent + "55", lw=0.8, zorder=0)
+            depth_lbl = "deep" if li == NLAYERS - 1 else ("shallow" if li == 0 else "")
+            if depth_lbl:
+                ax.text(x_start - 0.10, y + rh / 2, depth_lbl, color=MUT,
+                        fontsize=8.5, ha="right", va="center", rotation=90)
+        ax.annotate("", xy=(x_start - 0.05, ys[-1] + 0.06),
+                    xytext=(x_start - 0.05, ys[0] - 0.02),
+                    arrowprops=dict(arrowstyle="-|>", color=MUT, lw=1.1))
+        ax.text(0.5, -0.02, caption, color=MUT, fontsize=9.3, ha="center", va="top")
+
+    axL = fig.add_subplot(gs[0])
+    panel(axL, before, RED, "Hebrew, before",
+          "Deep layers collapse onto a couple of experts —\nmost of the model sits idle.", 1)
+    axR = fig.add_subplot(gs[1])
+    panel(axR, after, GREEN, "Hebrew, + load-balancing loss",
+          "The router is pushed to spread tokens, so far more\nparameters carry Hebrew knowledge.", 7)
+
+    fig.suptitle("A Mixture-of-Experts wastes itself on a new language",
+                 fontsize=14.5, fontweight="bold", color=FG, x=0.04, ha="left", y=0.96)
+    fig.text(0.96, 0.95, "each box = one expert · lit = used by the router",
+             color=MUT, fontsize=9.5, ha="right")
+    fig.savefig(f"{OUT}/moe_schematic.png", facecolor=BG)
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Figure 4b: batch size vs training steps (real numbers from the run)
+# ---------------------------------------------------------------------------
+def fig_batch_size():
+    """Real numbers: a fixed ~250B-token budget, so steps = 250B / batch. The
+    20k-100k efficient window is the rule of thumb from the large-batch paper.
+    The two marked points are the run's actual before/after global batch sizes."""
     fig, ax = plt.subplots(figsize=(10.8, 6.0))
     fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
 
-    L = np.arange(1, 25)               # 24 MoE layers
-    depth = (L - 1) / (L[-1] - 1)
-    en  = 0.92 - 0.06 * depth          # English: stays balanced
-    he  = 0.90 - 0.74 * depth ** 1.7   # Hebrew: collapses in deep layers
-    he_aux = 0.90 - 0.20 * depth       # Hebrew + aux loss: rebalanced
-    rng = np.random.default_rng(1)
-    en += rng.normal(0, 0.006, L.size)
-    he += rng.normal(0, 0.006, L.size)
-    he_aux += rng.normal(0, 0.006, L.size)
+    TOTAL = 250e9
+    b = np.geomspace(0.5e6, 16e6, 300)
+    steps = TOTAL / b
+    ax.plot(b, steps, color=CYAN, lw=2.6)
 
-    ax.plot(L, en, color=CYAN, lw=2.6, marker="o", ms=4, label="English (well-trained)")
-    ax.plot(L, he, color=RED, lw=2.6, marker="o", ms=4,
-            label="Hebrew (before): entropy collapses")
-    ax.plot(L, he_aux, color=GREEN, lw=2.6, marker="o", ms=4, ls="--",
-            label="Hebrew + auxiliary load-balancing loss")
+    # efficient window 20k-100k steps
+    ax.axhspan(20e3, 100e3, color=GREEN + "16")
+    ax.text(0.52e6, 45e3, "efficient window\n20k–100k steps", color=GREEN,
+            fontsize=10, va="center")
 
-    ax.axvspan(18, 24, color=RED + "12")
-    ax.text(21, 0.12, "deep layers:\nmodel ignores\nmost experts", color=RED,
-            ha="center", fontsize=9.5)
+    pts = [(2.0e6, "before: 2M tokens\n→ 125k steps (too noisy)", RED,
+            (2.7e6, 2.8e5), "left"),
+           (10.5e6, "after: 10.5M tokens\n→ 24k steps ✓", GREEN,
+            (3.2e6, 5.2e4), "right")]
+    for bb, lbl, c, xytext, ha in pts:
+        s = TOTAL / bb
+        ax.scatter([bb], [s], s=90, color=c, edgecolor=FG, lw=1.2, zorder=5)
+        ax.annotate(lbl, xy=(bb, s), xytext=xytext, color=c, fontsize=10.5,
+                    ha=ha, arrowprops=dict(arrowstyle="-|>", color=c, lw=1.2))
 
-    ax.set_xlabel("layer depth  →", color=FG, fontsize=11)
-    ax.set_ylabel("expert-routing entropy\n(high = experts used evenly)",
-                  color=FG, fontsize=11)
-    ax.set_title("Why a Mixture-of-Experts wastes itself on a new language",
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlabel("global batch size (tokens)", color=FG, fontsize=11)
+    ax.set_ylabel("training steps  (= 250B tokens / batch)", color=FG, fontsize=11)
+    ax.set_title("The batch size that finally moved the benchmarks",
                  fontsize=14, fontweight="bold", color=FG, loc="left")
-    ax.set_ylim(0, 1.0); ax.set_xlim(1, 24)
-    ax.tick_params(colors=MUT); ax.grid(alpha=0.12)
+    ax.set_xlim(0.5e6, 16e6); ax.set_ylim(1.2e4, 6e5)
+    ax.set_xticks([0.5e6, 1e6, 2e6, 4e6, 8e6, 16e6])
+    ax.set_xticklabels(["0.5M", "1M", "2M", "4M", "8M", "16M"])
+    ax.set_yticks([2e4, 5e4, 1e5, 2e5, 5e5])
+    ax.set_yticklabels(["20k", "50k", "100k", "200k", "500k"])
+    ax.tick_params(colors=MUT); ax.grid(alpha=0.12, which="both")
     for s in ["top", "right"]: ax.spines[s].set_visible(False)
     for s in ["left", "bottom"]: ax.spines[s].set_color(MUT)
-    leg = ax.legend(loc="lower left", fontsize=10, facecolor="#161b22",
-                    edgecolor=MUT, labelcolor=FG)
     ax.text(0.985, 0.97,
-            "Spreading the load costs some reasoning at first,\n"
-            "but lets far more parameters carry Hebrew knowledge.\n"
-            "(Illustrative shape, not Hebatron's measured numbers.)",
-            transform=ax.transAxes, ha="right", va="top", fontsize=9.0, color=MUT)
+            "Moving up the curve into the window let the gradient\n"
+            "average out the noise. Learning rate scaled with √(batch):\n"
+            "≈ 8× the batch wanted ≈ 3× the learning rate.",
+            transform=ax.transAxes, ha="right", va="top", fontsize=9.2, color=MUT)
     fig.tight_layout()
-    fig.savefig(f"{OUT}/moe_entropy.png", facecolor=BG)
+    fig.savefig(f"{OUT}/batch_size.png", facecolor=BG)
     plt.close(fig)
 
 
@@ -495,7 +571,8 @@ if __name__ == "__main__":
     fig_tokenization()
     fig_base_model()
     fig_data()
-    fig_moe_entropy()
+    fig_moe_schematic()
+    fig_batch_size()
     fig_sft_packing()
     fig_infra()
     print("figures written to", OUT)

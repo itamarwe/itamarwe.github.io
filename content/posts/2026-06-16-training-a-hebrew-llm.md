@@ -7,11 +7,7 @@ categories: ai
 image: /img/hebatron/social.png
 ---
 
-<style>
-.viz-frame { width: 100%; aspect-ratio: 16/10; border: 0; border-radius: 8px;
-  margin: 1rem 0; background: #000; }
-@media (max-width: 640px) { .viz-frame { aspect-ratio: 3/4; } }
-</style>
+![Training a Hebrew LLM: behind the scenes of Hebatron](/img/hebatron/social.png)
 
 There's a Hebrew language model called **Hebatron** that, in a single week, racked
 up 30,000 downloads and four community quantizations. For an open model that isn't
@@ -132,11 +128,11 @@ router sends each token to a few of many "expert" sub-networks. They measured th
 **routing entropy** — how evenly the experts get used — and found it behaves very
 differently in Hebrew than in English.
 
-![Expert-routing entropy across layer depth: English stays balanced, Hebrew collapses in the deep layers, and an auxiliary load-balancing loss restores the balance](/img/hebatron/moe_entropy.png)
+![A Mixture-of-Experts routing schematic: before the fix, the deep layers light up only a couple of experts; with a load-balancing loss, many experts stay in use across all layers](/img/hebatron/moe_schematic.png)
 
-Because Nemotron had seen little Hebrew, the routing entropy **collapsed toward the
-deep layers**: on Hebrew text, the model leaned on just a handful of experts in its
-final layers and left the rest idle. A huge fraction of the model's capacity was
+Because Nemotron had seen little Hebrew, the routing **collapsed toward the deep
+layers**: on Hebrew text, the model leaned on just a handful of experts in its final
+layers and left the rest idle. A huge fraction of the model's capacity was
 sitting unused exactly where it mattered. The fix is a standard MoE tool — an
 **auxiliary load-balancing loss** that penalizes the router for always picking the
 same experts, forcing it to spread tokens more aggressively. That costs a little
@@ -155,11 +151,10 @@ The breakthrough came from a paper an advisor flagged on a Friday:
 argument is simple: there's a **gradient noise scale** — a critical batch size — and
 where you sit relative to it determines whether training is efficient. The team's plan
 was ~250B tokens; the rule of thumb says you want that spread over roughly 20k–100k
-optimizer steps. They were running a global batch of about **2M tokens**, which put
-them at ~125k steps — too many small, noisy steps. Drag the slider below to see the
-regime they were stuck in:
+optimizer steps. They were running a global batch of about **2M tokens** (an 8K context
+× 256), which put them at ~125k steps — too many small, noisy steps:
 
-<iframe src="/hebatron/batch.html" title="Interactive: training steps vs global batch size, with the efficient window from the large-batch paper" loading="lazy" class="viz-frame"></iframe>
+![Training steps versus global batch size for a fixed 250B-token budget: the run started at 2M tokens / 125k steps, well above the efficient window, and moved to 10.5M tokens / 24k steps inside it](/img/hebatron/batch_size.png)
 
 So they scaled the global batch *up* — eventually to **10.5M tokens** — landing back
 in the efficient window where the gradient averages out the noise. A second paper,
@@ -253,6 +248,6 @@ and [*Don't Decay the Learning Rate, Increase the Batch Size*](https://arxiv.org
 *All the figures, the animation, and the interactive explorer above were generated for
 this post; the code lives in
 [`research/hebatron/`](https://github.com/itamarwe/itamarwe.github.io/tree/master/research/hebatron).
-Where a figure reconstructs a qualitative claim from the episode rather than plotting
-Hebatron's real logs (the MoE-entropy curves and the training-arc animation), it's
-labelled as such.*
+The numbers in the charts come from the episode (compression ratios, the 250B-token
+budget and batch sizes, throughput and cost); the training-arc animation is a
+qualitative schematic of the loss-vs-benchmark pattern, with no values implied.*

@@ -8,13 +8,12 @@ of NVIDIA's Nemotron).
 
 ## Layout
 
-- `sim/figures.py` — the six static figures plus the 1200×630 social card. Pure
-  matplotlib, dark 3b1b-style palette.
+- `sim/figures.py` — the seven static figures plus the 1200×630 social card. Pure
+  matplotlib, dark 3b1b-style palette. Includes the MoE routing schematic
+  (`moe_schematic.png`) and the batch-size / steps chart (`batch_size.png`).
 - `sim/train_anim.py` — the `training_arc.mp4` animation (loss falls while benchmarks
   stay flat, then break free after the batch-size change).
 - The committed PNGs/MP4 live in `public/img/hebatron/`.
-- The interactive batch-size explorer is a self-contained page at
-  `public/hebatron/batch.html` (no build step, no dependencies).
 
 ## Regenerating
 
@@ -30,10 +29,11 @@ regardless of where you run from.
 
 ## Honesty note
 
-Numbers taken from the episode: tokenizer compression ratios, throughput/cost
-figures, the large-batch step targets, the LR-vs-batch √ rule. **Illustrative
-reconstructions** (shapes that match what the speakers described, not Hebatron's
-logged values): the MoE expert-routing entropy curves (`moe_entropy.png`) and the
-loss-vs-benchmark training arc (`training_arc.mp4`). These are flagged in the figure
-docstrings and in the post text. Hebrew words in `tokenization.png` are written in
-transliteration because matplotlib doesn't shape right-to-left text correctly.
+Charts use real numbers from the episode: tokenizer compression ratios, the 250B-token
+budget and the 2M→10.5M global batch sizes (so `batch_size.png` is exact: steps =
+250B / batch), the 20k–100k efficient window and the LR-vs-batch √ rule, and the
+throughput/cost figures. `moe_schematic.png` is a **schematic** (lit vs. idle experts,
+no quantities implied), and `training_arc.mp4` is a **qualitative schematic** of the
+loss-vs-benchmark pattern with no numeric axes. Hebrew words in `tokenization.png` are
+written in transliteration because matplotlib doesn't shape right-to-left text
+correctly.

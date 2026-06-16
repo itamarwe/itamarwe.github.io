@@ -59,17 +59,19 @@ fig = plt.figure(figsize=(11.2, 6.4)); fig.patch.set_facecolor(BG)
 gs = fig.add_gridspec(2, 1, height_ratios=[1, 1.15], hspace=0.28,
                       left=0.10, right=0.95, top=0.88, bottom=0.11)
 axL = fig.add_subplot(gs[0]); axB = fig.add_subplot(gs[1])
+# No numeric ticks: this is a qualitative schematic of the *pattern*, not a data
+# plot, so we never imply specific loss or benchmark values.
 for ax in (axL, axB):
-    ax.set_facecolor(BG); ax.grid(alpha=0.12)
+    ax.set_facecolor(BG); ax.grid(False)
     for s in ["top", "right"]: ax.spines[s].set_visible(False)
     for s in ["left", "bottom"]: ax.spines[s].set_color(MUT)
-    ax.set_xlim(0, 4000); ax.tick_params(colors=MUT)
+    ax.set_xlim(0, 4000); ax.set_xticks([]); ax.set_yticks([])
 
-axL.set_ylim(1.0, 2.8); axL.set_ylabel("loss")
+axL.set_ylim(1.0, 2.8); axL.set_ylabel("loss  (lower →)")
 axL.set_title("Training & validation loss — falling the whole time",
               fontsize=12, fontweight="bold", color=FG, loc="left")
-axB.set_ylim(40, 70); axB.set_ylabel("Hebrew benchmark score")
-axB.set_xlabel("training step")
+axB.set_ylim(40, 70); axB.set_ylabel("Hebrew benchmark  (higher →)")
+axB.set_xlabel("training step →")
 axB.set_title("Benchmarks — flat below baseline, then they break free",
               fontsize=12, fontweight="bold", color=FG, loc="left")
 axB.axhline(BASE, color=MUT, ls="--", lw=1.3)
@@ -109,7 +111,7 @@ def update(f):
         change_line_B.set_linewidth(1.6)
         change_txt.set_text("global batch ×8,  learning rate ×3")
     if i >= N:
-        verdict.set_text("+12 over baseline → shipped")
+        verdict.set_text("above baseline → shipped")
     return ltr, lva, lbe, head, change_txt, verdict
 
 

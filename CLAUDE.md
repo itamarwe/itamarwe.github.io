@@ -135,6 +135,21 @@ Every post emits an OpenGraph/Twitter image. Frontmatter takes an optional
 the post title and one strong visualization from the post — generate it like any
 other figure and save it under `public/img/<post>/`.
 
+**Always do both:** set the `image:` frontmatter key *and* embed the same card as the
+first image at the top of the post body (a plain `![alt](/img/<post>/social.png)`
+right after the frontmatter), so it works as both the social-share card and the
+post's lead/header image.
+
+## Avoid charts with fake numbers
+
+A chart with invented numeric axes reads as data and misleads. For every visual,
+pick one of three: (1) **real numbers** from the source; (2) a **qualitative
+schematic** with no numeric axes/ticks (a concept map, an architecture diagram, a
+labelled pattern — clearly not a data plot); or (3) **a different kind of
+visualization** that doesn't need fabricated quantities (e.g. show a system's
+architecture instead of a made-up bar chart). Exact math (a factorial, a count) is
+real. If a value isn't known, don't draw an axis for it.
+
 ## Verifying visuals headlessly
 
 There is no display and browser-CDN downloads are blocked, but a Chromium binary
