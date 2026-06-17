@@ -353,6 +353,121 @@ def test_healthy_batch_flags():
 
 
 # ---------------------------------------------------------------------------
+# Scenario F: partition_misalignment
+# Table partitioned by event_date (daily), real queries filter only on tenant_id.
+# Profile looks perfectly healthy; the problem is invisible without the workload.
+# ---------------------------------------------------------------------------
+
+def make_partition_misaligned_rows():
+    """50 well-sized daily-batch data files. No small files, no deletes.
+    The profile alone gives no alarm — the dysfunction only appears when the
+    workload reveals partition_prune_rate = 0 and tenant_id as dominant filter.
+    """
+    files = [
+        {"content": 0, "file_size_in_bytes": 256 * MB, "record_count": 5_000_000}
+        for _ in range(50)
+    ]
+    base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    snapshots = [
+        {
+            "operation": "append",
+            "committed_at": _iso(base + timedelta(days=i)),
+            "summary": {
+                "added-data-files": "1",
+                "added-files-size": str(256 * MB),
+                "changed-partition-count": "1",
+            },
+        }
+        for i in range(50)
+    ]
+    return files, snapshots
+
+
+def test_partition_misaligned_profile_looks_healthy():
+    """Profile alone shows no problem — the table is structurally clean.
+    This demonstrates why the profile must be combined with workload signals:
+    a table can be well-maintained at the file level yet catastrophically
+    wrong at the access-pattern level.
+    """
+    files_rows, snap_rows = make_partition_misaligned_rows()
+    profile = build_profile(files_rows, snap_rows)
+    flags = profile["flags"]
+
+    # All red flags are False — the profiler is not alarmed by this table
+    assert flags["needs_binpack"] is False
+    assert flags["delete_pressure"] is False
+    assert flags["thin_spread"] is False
+    assert flags["mutated"] is False
+    assert flags["snapshot_bloat"] is False
+
+    # Files are well-sized (256 MB each — at target)
+    assert profile["files"]["avg_mb"] == pytest.approx(256.0, abs=1.0)
+    assert profile["files"]["total_gb"] == pytest.approx(50 * 256 / 1024, rel=0.01)
+
+
+def test_partition_misaligned_full_scan_baseline():
+    """When partition_prune_rate = 0 (no pruning because the filter column is
+    not the partition key), the simulator's baseline equals the full table size.
+    This is the cost that repartitioning or sorting by tenant_id would eliminate.
+    """
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+    from simulate import baseline_bytes_gb, ASSUMPTIONS
+
+    files_rows, snap_rows = make_partition_misaligned_rows()
+    profile = build_profile(files_rows, snap_rows)
+    total_gb = profile["files"]["total_gb"]  # 50 × 256 MB = 12.5 GB
+
+    a = json.loads(json.dumps(ASSUMPTIONS))
+
+    # Current bad state: no partition pruning at all
+    misaligned_workload = {"partition_prune_rate": 0.0}
+    base_bad = baseline_bytes_gb(profile, misaligned_workload, a)
+    assert base_bad == pytest.approx(total_gb, rel=0.01), (
+        "prune_rate=0 → every query scans the full 12.5 GB table"
+    )
+
+    # After partition evolution to tenant_id (1000 tenants → ~1% per query)
+    aligned_workload = {"partition_prune_rate": 0.99}
+    base_good = baseline_bytes_gb(profile, aligned_workload, a)
+    assert base_good == pytest.approx(total_gb * 0.01, rel=0.1), (
+        "prune_rate=0.99 → queries scan ~1% of the table"
+    )
+
+    # The repartitioning payoff: 100x reduction in bytes scanned per query
+    assert base_bad / base_good == pytest.approx(100.0, rel=0.15)
+
+
+def test_partition_misaligned_query_cost_impact():
+    """Quantify the monthly query bill: wrong vs right partition key.
+    At 1000 queries/month on a 12.5 GB table at $5/TB, the wrong partition key
+    costs ~100x more in query compute than the right one.
+    """
+    from simulate import simulate, ASSUMPTIONS
+
+    files_rows, snap_rows = make_partition_misaligned_rows()
+    profile = build_profile(files_rows, snap_rows)
+
+    a = json.loads(json.dumps(ASSUMPTIONS))
+    a["queries_per_month"] = 1000
+
+    # do_nothing with wrong partition: full-table scans
+    rows_bad = simulate(profile, {"partition_prune_rate": 0.0}, a)
+    cost_bad = next(r for r in rows_bad if r["scenario"] == "do_nothing")["query_cost_month_usd"]
+
+    # do_nothing after repartitioning: 99% pruned
+    rows_good = simulate(profile, {"partition_prune_rate": 0.99}, a)
+    cost_good = next(r for r in rows_good if r["scenario"] == "do_nothing")["query_cost_month_usd"]
+
+    # After repartitioning, query cost drops by ~100x
+    assert cost_good < cost_bad / 50, (
+        f"Repartitioning by tenant_id should cut query cost >50x; "
+        f"bad={cost_bad:.2f} USD/mo, good={cost_good:.2f} USD/mo"
+    )
+    # The bad state is measurably expensive (non-trivial at 1k QPM)
+    assert cost_bad > 0.5, "full-table scan at 1k QPM should not be free"
+
+
+# ---------------------------------------------------------------------------
 # Utility: parse_bytes_str from parse_query_log
 # ---------------------------------------------------------------------------
 
