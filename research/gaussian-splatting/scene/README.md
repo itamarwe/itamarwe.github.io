@@ -66,3 +66,44 @@ To use this scene as a 3DGS benchmark:
 3. Train a 3DGS model on those images + poses
 4. Render novel views from the trained model
 5. Compare to `*_noveg.png` ground-truth renders using `benchmark.py` metrics
+
+## Running real 3DGS on Apple Silicon (OpenSplat)
+
+Stock nerfstudio/`gsplat` is CUDA-only (its kernels need `nvcc`), so `ns-train
+splatfacto` will not run on an M-series Mac. [OpenSplat](https://github.com/pierotofy/OpenSplat)
+is a C++/libtorch 3DGS trainer that has a Metal/MPS backend (and a CPU fallback).
+
+`make_opensplat_project.py` converts a `capture_views.py --poses` output dir into
+the nerfstudio project OpenSplat's loader wants:
+
+```bash
+# 1. Capture with poses (writes camera_meta.json)
+python capture_views.py --out training_50 --cov 0.50 --poses
+
+# 2. Build the OpenSplat project (transforms.json + ground-plane seed cloud).
+#    OpenSplat rejects random init, and the USAF target is a flat plane, so the
+#    seed points are sprinkled on y=0.  c2w uses OpenGL convention to match
+#    capture_views.py's camera basis.
+python make_opensplat_project.py --train training_50
+
+# 3. Train + render the withheld top-down novel view in one shot.
+#    --val-image withholds the clean top-down camera; --val-render saves its
+#    render (model.forward) every 10 steps -> the last one is the reconstruction.
+OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE \
+  opensplat training_50 -n 7000 --val --val-image topdown_gt.png \
+            --val-render training_50/val_render
+cp training_50/val_render/7000.png training_50/topdown_recon.png
+
+# 4. Benchmark
+python benchmark.py --recon training_50/topdown_recon.png \
+                    --gt    training_50/topdown_gt.png --label cov50_opensplat
+```
+
+Build notes (macOS): `brew install cmake opencv`; configure with
+`-DGPU_RUNTIME=MPS -DCMAKE_PREFIX_PATH=<python torch dir>` (the **Metal** compiler
+ships only with a native Apple-Silicon **Xcode.app**, not the Command Line Tools —
+omit `-DGPU_RUNTIME=MPS` for a slower CPU build). `OMP_NUM_THREADS=1` avoids a
+duplicate-libomp crash between libtorch and OpenCV.
+
+Generated artifacts (`training_50/*.png`, `splat.ply`, `val_render/`) are
+git-ignored — regenerate them with the commands above.
