@@ -116,6 +116,31 @@ see `public/pnp/` and `public/mic-array-viz/`:
   `aspect-ratio:16/10` and a `@media (max-width:600px)` rule with a taller `3/4`
   frame plus compact control panels so it stays usable on phones.
 
+## Images — always use the Vercel image optimizer
+
+The site is deployed on Vercel, so its Image Optimization API is live. **Every
+image rendered from a React/TSX file (pages, layout, components) MUST use
+`next/image`, never a raw `<img>`.** That serves AVIF/WebP, on-the-fly resizing,
+and a responsive `srcset` instead of shipping the original file. Pattern (see
+`app/about/page.tsx`):
+
+- Pass the source's intrinsic `width`/`height` (pixel dimensions) so layout
+  reserves space; let CSS control the *displayed* size and add `height: auto`
+  to the CSS rule so the aspect ratio is preserved.
+- Add a `sizes` hint matching the CSS display width (e.g.
+  `sizes="(max-width: 600px) 220px, 300px"`) so the browser fetches the right
+  srcset entry.
+- Add `priority` for above-the-fold images; everything else lazy-loads.
+
+**Markdown figures are the current exception.** Blog posts and pages render
+through remark/rehype into an HTML string injected with
+`dangerouslySetInnerHTML` (`lib/posts.ts`), so a plain `![alt](/img/...)` (or a
+raw `<img>` in markdown) stays an unoptimized `<img>`. Until a rehype rewrite to
+the `/_next/image` endpoint is wired up, keep those source files reasonably
+sized (export figures at roughly display resolution, ~1600px max width, and
+compress PNGs/JPEGs); when a single image genuinely needs the optimizer, render
+it from a component with `next/image` instead of embedding it in markdown.
+
 ## Generated figures & animations
 
 - Work in a Python venv (`numpy scipy matplotlib manim`). Match the dark palette
