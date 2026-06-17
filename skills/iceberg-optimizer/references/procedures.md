@@ -151,6 +151,55 @@ Or use the Flink maintenance operators / a companion Spark job on a schedule.
 
 ---
 
+## GDPR / compliance delete sequence
+
+When individual rows are deleted for compliance reasons (right-to-be-forgotten,
+GDPR Art. 17), logical deletion (the delete file) is not sufficient — the data
+remains in the data files and in retained snapshots. The physical removal sequence:
+
+```sql
+-- Step 1: Delete the row (creates an equality delete file)
+DELETE FROM db.tbl WHERE user_id = '<subject>';
+
+-- Step 2: Compact to physically remove the row from data files
+-- Must complete before snapshot expiry, not after.
+CALL cat.system.rewrite_data_files(
+  table => 'db.tbl',
+  options => map('remove-dangling-deletes','true')
+);
+-- Trino: ALTER TABLE cat.db.tbl EXECUTE optimize(file_size_threshold => '256MB');
+
+-- Step 3: Expire snapshots so no historical snapshot retains the deleted row.
+-- older_than must be AFTER the delete commit to ensure the pre-delete snapshot
+-- is also removed. Confirm no audit/replay requirement conflicts with this.
+CALL cat.system.expire_snapshots(
+  table => 'db.tbl',
+  older_than => NOW(),   -- or: deletion_timestamp + 1 second
+  retain_last => 1       -- keep only the post-compaction snapshot
+);
+
+-- Step 4: Verify — query the deleted user_id against current snapshot
+-- and against the oldest retained snapshot. Both must return 0 rows.
+SELECT COUNT(*) FROM db.tbl WHERE user_id = '<subject>';
+```
+
+**Copy-on-write as an alternative:** set `write.merge.mode = copy-on-write` and
+`write.delete.mode = copy-on-write`. DELETE statements then rewrite affected data
+files immediately, producing no delete files. Snapshot expiry alone then completes
+physical removal. Higher write cost but simpler compliance posture — no separate
+compaction step needed.
+
+```sql
+ALTER TABLE cat.db.tbl SET TBLPROPERTIES (
+  'write.delete.mode'           = 'copy-on-write',
+  'write.update.mode'           = 'copy-on-write',
+  'write.merge.mode'            = 'copy-on-write',
+  'history.expire.max-snapshot-age-ms' = '86400000'  -- 1 day; size to compliance SLA
+);
+```
+
+---
+
 ## Table properties worth setting
 
 ```sql

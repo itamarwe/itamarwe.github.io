@@ -18,7 +18,9 @@ From the profile (`profile.json`):
 ```
 avg_file_mb, median_file_mb, files_under_64mb_pct, total_files, total_gb
 delete_file_pct           = delete_files / total_files
-eq_delete_pressure        = equality_delete_records / total_records
+eq_delete_pressure        = equality_delete_records / data_records  # >0.05 = urgent
+pos_delete_pressure       = position_delete_records / data_records
+delete_rate_per_day       = added_delete_files / observation_span_days
 partition_skew_ratio      = max_partition_rows / min_partition_rows
 snapshot_count, manifest_count, mixed_partition_specs (bool)
 write_cadence_class, avg_added_file_mb, thin_spread (bool), late_data (bool)
@@ -33,6 +35,7 @@ partition_prune_rate      = fraction of queries pruned to ≤10% of partitions
 selectivity               = rows_scanned / rows_returned (higher = more selective)
 query_frequency_class, latency_req, freshness_req, cost_priority
 mutability_outlook, time_travel_need, lifecycle_class
+retention_policy          = none / ttl / gdpr / regulatory_floor / mixed
 current_sort_order, current_partition_spec
 ```
 
@@ -74,11 +77,34 @@ current_sort_order, current_partition_spec
   `bucket(N, col)`.
 
 ### E. Delete-file compaction
-- **Trigger:** `delete_file_pct > 0.1` OR `eq_delete_pressure` significant.
-- **Gate:** `query_frequency ∉ {almost_never}` (deletes hurt every read).
-- **Priority:** highest read-perf ROI when it fires — equality deletes are
-  re-evaluated on every scan. Use `rewrite_data_files` with
-  `remove-dangling-deletes`.
+
+Equality deletes (content=2) and position deletes (content=1) require different
+urgency: equality deletes are applied as a join against **every data file** on
+every scan until compacted — their cost grows with table size, not delete count.
+Position deletes are a row-level seek per file and are far cheaper.
+
+**E1 — Equality delete compaction (urgent):**
+- **Trigger:** `eq_delete_pressure > 0.05` (equality_delete_records / data_records)
+  OR `equality_delete_files > 0` AND `delete_accumulating` (growing, not stable).
+- **Gate (performance path):** `query_frequency ∉ {almost_never}`.
+- **Gate (compliance path):** `retention_policy ∈ {gdpr}` → **no gate** — compact
+  regardless of query frequency. GDPR tables must physically remove data; logical
+  deletion (the delete file) is not sufficient. The compliance sequence is:
+  `DELETE row` → `rewrite_data_files(remove-dangling-deletes)` → `expire_snapshots`
+  → verify no snapshot older than the deletion predates expiry retention.
+- **Write-mode note:** equality deletes indicate merge-on-read (MOR) mode. If the
+  workload is update-heavy, consider switching to copy-on-write
+  (`write.merge.mode = copy-on-write`) — it rewrites at write time instead of
+  accumulating delete files. COW trades higher write cost for lower read cost.
+
+**E2 — Position delete compaction (lower urgency):**
+- **Trigger:** `pos_delete_pressure > 0.2` OR `delete_file_pct > 0.1` with only
+  position delete files.
+- **Gate:** `query_frequency ∉ {almost_never}` (position deletes have milder
+  per-scan cost than equality deletes, so the threshold is higher).
+- Position deletes are typical for `MERGE INTO` CDC pipelines and streaming upserts.
+
+**For both:** use `rewrite_data_files` with `remove-dangling-deletes: true`.
 
 ### F. Snapshot expiry
 - **Trigger:** `snapshot_count` large OR storage growth from retained snapshots.
@@ -126,13 +152,19 @@ current_sort_order, current_partition_spec
 Order surviving candidates by expected benefit per unit cost, conditioned on
 `cost_priority`:
 
-1. **Delete-file compaction** (E) — biggest read win when present.
-2. **Sort / Z-order** (B/C) — when selective + frequently read.
-3. **Partition evolution** (D) — when pruning is poor.
-4. **Bin-pack** (A) — pure small-file latency/planning fix.
-5. **Write-time tuning** (J) — stops the bleeding; pairs with A.
-6. **Bloom filters** (I) — marginal outside frequent point lookups.
-7. **Metadata cleanup** (F/G/H) — low cost, almost always worth it; size to intent.
+1. **Equality delete compaction** (E1) — highest urgency: equality deletes penalize
+   every scan regardless of which rows are actually queried. Compliance tables
+   (GDPR) have no opt-out.
+2. **Position delete compaction** (E2) — high read win when position deletes
+   accumulate, but lower urgency than equality deletes.
+3. **Sort / Z-order** (B/C) — when selective + frequently read.
+4. **Partition evolution** (D) — when pruning is poor.
+5. **Bin-pack** (A) — pure small-file latency/planning fix.
+6. **Write-time tuning** (J) — stops the bleeding; pairs with A.
+7. **Bloom filters** (I) — marginal outside frequent point lookups.
+8. **Metadata cleanup** (F/G/H) — low cost, almost always worth it; size to intent.
+   Note: for GDPR tables, F (snapshot expiry) moves to rank 1 alongside E1 — they
+   must run together in sequence (compact first, then expire) to physically remove data.
 
 Then hand the ranked candidates to `simulate.py`, which prices each bundle along
 the four axes and re-orders by the user's chosen `cost_priority`. The framework
@@ -152,3 +184,12 @@ proposes; the simulation decides.
 - **Cold archive, queried a few times a year:** Z do nothing except quarterly
   snapshot expiry for storage. No compaction, no sort — the scan is cheaper than
   the maintenance.
+- **GDPR table with user_id deletes, any query frequency:** E1 equality-delete
+  compaction → F snapshot expiry (≥ deletion date), in that order, on a schedule
+  that honors the 30-day regulatory clock. COW (`write.merge.mode = copy-on-write`)
+  considered if delete rate is high (eliminates delete-file accumulation entirely).
+  **State explicitly:** snapshot expiry is part of the compliance posture — retained
+  snapshots expose the deleted rows. Never size expiry to "nice to have" here.
+- **High-churn SCD/CDC table (position deletes, merge-on-read):** E2 position-delete
+  compaction with `remove-dangling-deletes` → optionally switch to COW if write
+  throughput permits. Sort by the merge key if scans are selective on it.

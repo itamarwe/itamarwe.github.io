@@ -60,14 +60,55 @@ WHERE content = 0;
 ### Delete-file pressure (v2 merge-on-read tables)
 
 ```sql
-SELECT content, COUNT(*) AS files, SUM(record_count) AS records
+-- Count and record pressure per delete type
+SELECT content, COUNT(*) AS files, SUM(record_count) AS delete_records
 FROM db.tbl.files
 WHERE content IN (1, 2)
 GROUP BY content;
+-- content 1 = position delete, content 2 = equality delete
+
+-- Equality delete pressure ratio: fraction of live data rows covered by eq deletes.
+-- > 5% means every scan carries a meaningful join overhead until compacted.
+SELECT
+  SUM(CASE WHEN content = 2 THEN record_count ELSE 0 END) AS eq_delete_records,
+  SUM(CASE WHEN content = 0 THEN record_count ELSE 0 END) AS data_records,
+  ROUND(
+    SUM(CASE WHEN content = 2 THEN record_count ELSE 0 END) /
+    NULLIF(SUM(CASE WHEN content = 0 THEN record_count ELSE 0 END), 0), 4
+  ) AS eq_delete_pressure
+FROM db.tbl.files;
 ```
-Many delete files, or deletes whose `records` are a large fraction of live rows,
-slow every read until compaction merges them. Delete files > ~10% of data files
-is a strong, time-sensitive compaction trigger.
+
+**Equality deletes (content=2) are the high-urgency case.** Each equality delete
+record represents a deletion predicate that must be evaluated as a join against
+*every data file* on every scan, regardless of partition pruning. Position deletes
+(content=1) are cheaper — they are a per-row seek within files that overlap by
+position. A table with significant `eq_delete_pressure` needs compaction
+urgently; a table with only position deletes has more slack.
+
+```sql
+-- Delete accumulation rate from $snapshots summary keys
+SELECT
+  COUNT(*) FILTER (WHERE summary['added-delete-files'] IS NOT NULL
+                     AND CAST(summary['added-delete-files'] AS int) > 0)
+                                       AS delete_commits,
+  SUM(CAST(COALESCE(summary['added-delete-files'],'0') AS int))
+                                       AS total_added_delete_files,
+  SUM(CAST(COALESCE(summary['added-equality-deletes'],'0') AS int))
+                                       AS total_added_eq_delete_records,
+  -- Latest snapshot running totals
+  MAX_BY(CAST(COALESCE(summary['total-equality-deletes'],'0') AS long),
+         committed_at)                 AS current_total_eq_deletes,
+  MAX_BY(CAST(COALESCE(summary['total-position-deletes'],'0') AS long),
+         committed_at)                 AS current_total_pos_deletes
+FROM db.tbl.snapshots
+WHERE committed_at > now() - INTERVAL 30 DAYS;
+```
+
+Rising `current_total_eq_deletes` without intervening `rewrite_data_files` commits
+means equality deletes are accumulating — the scan cost compounds until compaction.
+If the deletion pattern is driven by compliance (GDPR), treat compaction + snapshot
+expiry as a compliance obligation, not a performance optimization.
 
 ---
 
@@ -90,10 +131,17 @@ SELECT
   file_count,
   ROUND(total_data_file_size_in_bytes/1048576, 1) AS mb,
   ROUND(total_data_file_size_in_bytes/file_count/1048576, 1) AS avg_file_mb,
-  record_count
+  record_count,
+  equality_delete_record_count,
+  position_delete_record_count,
+  ROUND(equality_delete_record_count / NULLIF(record_count, 0), 4)
+                                      AS partition_eq_delete_pressure
 FROM db.tbl.partitions
-ORDER BY file_count DESC;
+ORDER BY equality_delete_record_count DESC, file_count DESC;
 ```
+`equality_delete_record_count` per partition identifies which partitions are most
+affected and should be prioritized in a targeted compaction (e.g.
+`WHERE partition_col = <hot_partition>`).
 Skew check: `MAX(record_count) / MIN(record_count)`. Ratio > 10 with an identity
 partition transform → consider `bucket(N, col)` instead. Total file size per
 partition ideally sits in the 1–10 GB+ range with individual files ≥ ~100 MB.

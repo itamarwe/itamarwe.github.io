@@ -125,21 +125,39 @@ def classify_cadence(median_gap_sec):
 
 def profile_files(rows, target_mb):
     data, deletes, pos_del, eq_del = [], 0, 0, 0
+    data_records, pos_del_records, eq_del_records = 0, 0, 0
     for r in rows:
         content = to_int(get(r, "content"), 0)
         size = to_int(get(r, "file_size_in_bytes", "file_size"), 0) or 0
+        record_count = to_int(get(r, "record_count"), 0) or 0
         if content == 0:
             data.append(size)
+            data_records += record_count
         else:
             deletes += 1
             if content == 1:
                 pos_del += 1
+                pos_del_records += record_count
             elif content == 2:
                 eq_del += 1
-    out = {"data_files": len(data), "delete_files": deletes,
-           "position_delete_files": pos_del, "equality_delete_files": eq_del}
+                eq_del_records += record_count
+    out = {
+        "data_files": len(data),
+        "delete_files": deletes,
+        "position_delete_files": pos_del,
+        "equality_delete_files": eq_del,
+        # Record-level delete pressure: fraction of live data rows affected.
+        # Equality deletes are re-evaluated as a join on EVERY scan until compacted —
+        # they are far more expensive than position deletes and need urgent attention.
+        "data_records": data_records,
+        "position_delete_records": pos_del_records,
+        "equality_delete_records": eq_del_records,
+    }
     total = len(data) + deletes
     out["delete_file_pct"] = round(deletes / total, 4) if total else 0.0
+    if data_records > 0:
+        out["eq_delete_pressure"] = round(eq_del_records / data_records, 4)
+        out["pos_delete_pressure"] = round(pos_del_records / data_records, 4)
     if data:
         small = sum(1 for s in data if s < SMALL_FILE_MB * MB)
         out.update({
@@ -196,6 +214,38 @@ def profile_snapshots(rows):
     thin_spread = bool(median_parts and median_parts > 3 and avg_added_mb is not None
                        and avg_added_mb < SMALL_FILE_MB)
 
+    # Delete rate — derived from snapshot summary keys, not from $files.
+    # total-equality-deletes / total-position-deletes are running totals in the
+    # latest snapshot. added-delete-files / added-equality-deletes accumulate
+    # across all snapshots to give a rate.
+    delete_commits = 0
+    added_del_files = 0
+    added_eq_records = 0
+    added_pos_records = 0
+    total_eq_from_latest = None
+    total_pos_from_latest = None
+    for p in parsed:
+        s = p["summary"]
+        n_del_files = to_int(s.get("added-delete-files"), 0) or 0
+        n_eq = to_int(s.get("added-equality-deletes"), 0) or 0
+        n_pos = to_int(s.get("added-position-deletes"), 0) or 0
+        if n_del_files > 0:
+            delete_commits += 1
+        added_del_files += n_del_files
+        added_eq_records += n_eq
+        added_pos_records += n_pos
+    if parsed:
+        latest = parsed[-1]["summary"]
+        total_eq_from_latest = to_int(latest.get("total-equality-deletes"))
+        total_pos_from_latest = to_int(latest.get("total-position-deletes"))
+
+    span_days = None
+    delete_rate_per_day = None
+    if len(parsed) >= 2:
+        span_days = (parsed[-1]["ts"] - parsed[0]["ts"]).total_seconds() / 86400
+        if span_days > 0:
+            delete_rate_per_day = round(added_del_files / span_days, 2)
+
     return {
         "snapshot_count": len(parsed),
         "operation_mix": op_mix,
@@ -212,6 +262,15 @@ def profile_snapshots(rows):
         "partition_fanout": {
             "median_partitions_per_commit": median_parts,
             "thin_spread": thin_spread,
+        },
+        "delete_pattern": {
+            "delete_commits": delete_commits,
+            "added_delete_files_total": added_del_files,
+            "added_equality_delete_records_total": added_eq_records,
+            "added_position_delete_records_total": added_pos_records,
+            "delete_rate_per_day": delete_rate_per_day,
+            "total_equality_deletes_latest": total_eq_from_latest,
+            "total_position_deletes_latest": total_pos_from_latest,
         },
         "first_commit": parsed[0]["ts"].isoformat() if parsed else None,
         "last_commit": parsed[-1]["ts"].isoformat() if parsed else None,
@@ -273,9 +332,16 @@ def _flags(p):
     """Top-level booleans the decision framework keys off."""
     f = p["files"]
     s = p["snapshots"]
+    dp = s.get("delete_pattern", {})
     return {
         "needs_binpack": f.get("needs_binpack", False),
         "delete_pressure": f.get("delete_file_pct", 0) > 0.1,
+        # Equality deletes are applied as a join on every scan until compacted.
+        # Any significant equality delete pressure demands urgent compaction
+        # regardless of query frequency — including GDPR-driven tables.
+        "equality_delete_pressure": f.get("eq_delete_pressure", 0) > 0.05,
+        # Delete files are accumulating over time (not a one-off historical state).
+        "delete_accumulating": (dp.get("delete_rate_per_day") or 0) > 0.5,
         "thin_spread": s["partition_fanout"]["thin_spread"],
         "structural_small_files": not s["write_file_size"]["buffers_to_target"],
         "mutated": not s["append_only_observed"],

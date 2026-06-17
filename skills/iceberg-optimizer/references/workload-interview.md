@@ -20,6 +20,7 @@ them to confirm/correct. **(A)** = ask; metadata cannot know it.
 | **Ordered vs out-of-order / late events** | recent files' event-time `lower/upper_bounds` vs `committed_at` | (D/A) "Recent files contain data as old as T → late arrival. Expected? How late can data be?" |
 | **Backfills / replays of past events** | large `append`/`overwrite` commits with old event-time bounds | (A) "Do you backfill or replay historical data into this table?" |
 | **Mutation type** (append / update / delete) | `snapshots.operation`, delete files in `files` | (D) "We see only appends" / "We see deletes — confirm." |
+| **Delete scope & frequency** | `files` WHERE `content IN (1,2)`: count and `record_count`; `snapshots.summary['added-delete-files']` rate over recent window; `eq_delete_pressure` ratio (equality delete records / data records) | (D) "We see N equality-delete / M position-delete files accumulating at ~X/day. Is this GDPR row-level purging, SCD/update-as-delete, or operational corrections?" |
 
 These determine the *shape of the small-file problem* and whether "compact only
 cold partitions" is safe (it is not, if late data keeps rewriting old partitions).
@@ -74,6 +75,22 @@ table and which axis Phase 4 optimizes.
    rarely-queried table often warrants only periodic snapshot expiry for storage,
    and no compaction at all.
 
+8. **Retention policy & compliance** (ask only if deletes were observed in 2a).
+   - **Data TTL**: is there a rule deleting rows older than N months (e.g. 90-day
+     event retention, 7-year regulatory floor)?
+   - **GDPR / right-to-be-forgotten**: individual row deletions triggered by user
+     requests (typically: `DELETE WHERE user_id = ?`, one at a time, on a
+     regulatory clock — 30 days in the EU)?
+   - **Regulatory floor**: must *some* data be retained for N years regardless
+     (finance, healthcare, audit)?
+   - **Snapshot history after deletion**: does old snapshot history expose
+     "deleted" rows? (If yes, snapshot expiry is not optional — it is part of the
+     compliance posture.)
+   → A GDPR table must compact equality deletes and expire snapshots to physically
+   remove data, not just logically mark it. This is non-optional regardless of
+   query frequency — make it the first item in the plan when `equality_delete_pressure`
+   is flagged and the user confirms a compliance motive.
+
 ---
 
 ## How to run Part 2
@@ -94,5 +111,8 @@ The decision framework consumes these as switches:
 - `frequency ∈ {rare, almost_never}` AND `lifecycle ∈ {cold}` → bias to **do-nothing / storage-only**.
 - `time_travel = relied_on` → cap snapshot expiry at the required retention.
 - `mutability ∈ {regular_updates, deletes}` → prioritize delete-file compaction; consider copy-on-write.
+- `equality_delete_pressure > 0.05` → delete-file compaction is urgent; if compliance-driven, it is non-optional regardless of query frequency.
+- `retention_policy = gdpr` → compact + expire snapshots as a compliance sequence, not a performance optimization. Old snapshots expose logically-deleted rows.
+- `retention_policy = ttl` → partition-level deletes (overwrite the old partitions) leave no delete files; prefer this over row-level deletes where the data model allows.
 - `freshness = instant` → no long maintenance windows on hot partitions.
 - `cost_priority` → the objective `simulate.py` ranks scenarios by.
