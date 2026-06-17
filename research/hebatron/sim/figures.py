@@ -142,36 +142,37 @@ def fig_base_model():
     bx0, by0, bx1, by1 = 0.12, 0.16, 0.93, 0.80
     ax.add_patch(Rectangle((bx0, by0), bx1 - bx0, by1 - by0, fill=False,
                  edgecolor=MUT, lw=1.2))
-    # x = tokenizer compression (LEFT good), y = headroom to learn (up good)
+    # x = tokenizer quality (RIGHT good), y = headroom to learn (up good)
     ax.annotate("", xy=(bx1 + 0.005, by0), xytext=(bx0, by0),
                 arrowprops=dict(arrowstyle="-|>", color=MUT, lw=1.4))
     ax.annotate("", xy=(bx0, by1 + 0.02), xytext=(bx0, by0),
                 arrowprops=dict(arrowstyle="-|>", color=MUT, lw=1.4))
     ax.text((bx0 + bx1) / 2, by0 - 0.06,
-            "more tokens per Hebrew word  →   (a worse tokenizer)",
+            "fewer tokens per Hebrew word  →   (a better tokenizer)",
             ha="center", color=FG, fontsize=10.5)
     ax.text(bx0 - 0.04, (by0 + by1) / 2,
             "more headroom to learn  →\n(less over-cooked base)", rotation=90,
             ha="center", va="center", color=FG, fontsize=10.5)
 
-    # sweet-spot shading (top-left): good tokenizer + learnable base
-    ax.add_patch(Rectangle((bx0, by0 + 0.52 * (by1 - by0)), 0.40 * (bx1 - bx0),
-                 0.48 * (by1 - by0), facecolor=GREEN + "16", edgecolor="none"))
-    ax.text(bx0 + 0.015, by1 - 0.025, "sweet spot:\ngood tokenizer + learnable",
-            color=GREEN, fontsize=9.8, fontweight="bold", va="top")
+    # sweet-spot shading (top-right): good tokenizer + learnable base
+    ax.add_patch(Rectangle((bx0 + 0.56 * (bx1 - bx0), by0 + 0.52 * (by1 - by0)),
+                 0.44 * (bx1 - bx0), 0.48 * (by1 - by0),
+                 facecolor=GREEN + "16", edgecolor="none"))
+    ax.text(bx1 - 0.015, by1 - 0.025, "sweet spot:\ngood tokenizer + learnable",
+            color=GREEN, fontsize=9.8, fontweight="bold", va="top", ha="right")
 
     # place points explicitly (axis-fraction within the box)
     def P(fx, fy):
         return bx0 + fx * (bx1 - bx0), by0 + fy * (by1 - by0)
     pts = [
         # name, fx, fy, color, note, note_below
-        ("Nemotron",     0.15, 0.66, GREEN, "open base + recipe,\nMamba-MoE, 7× faster", True),
-        ("Qwen",         0.08, 0.52, CYAN,  "tried — wouldn't improve", True),
-        ("Gemma",        0.27, 0.47, CYAN,  "", True),
-        ("Granite",      0.78, 0.72, RED,   "Mamba-MoE too,\nbut compression ≈ 5", True),
-        ("Llama",        0.90, 0.55, RED,   "", True),
-        ("Command-R",    0.20, 0.29, GOLD,  "less RLHF-baked, still no lift", True),
-        ("Aya (Cohere)", 0.40, 0.13, GOLD,  "tops the Hebrew board, but over-cooked:\nloss fell, benchmarks never did", True),
+        ("Nemotron",     0.80, 0.70, GREEN, "open base + recipe,\nMamba-MoE, 7× faster", True),
+        ("Qwen",         0.92, 0.48, CYAN,  "tried — wouldn't improve", True),
+        ("Gemma",        0.69, 0.43, CYAN,  "", True),
+        ("Granite",      0.22, 0.72, RED,   "Mamba-MoE too,\nbut compression ≈ 5", True),
+        ("Llama",        0.10, 0.55, RED,   "", True),
+        ("Command-R",    0.82, 0.26, GOLD,  "less RLHF-baked, still no lift", True),
+        ("Aya (Cohere)", 0.58, 0.12, GOLD,  "tops the Hebrew board, but over-cooked:\nloss fell, benchmarks never did", True),
     ]
     for name, fx, fy, c, note, below in pts:
         x, y = P(fx, fy)
@@ -237,32 +238,48 @@ def fig_data():
             axL.add_patch(Circle((cx + 0.03 + rng.uniform(0, 0.12),
                                   0.11 + rng.uniform(0, 0.11)), 0.013, color=c))
 
-    # -- right: the ordering wall ----------------------------------------
+    # -- right: same data, different order -> different model ------------
     axR = fig.add_subplot(gs[1]); axR.set_facecolor(BG)
-    n = np.arange(2, 21)
-    # number of orderings of n datasets ~ n!  (the team quoted "20^19")
-    from math import lgamma
-    log_orderings = np.array([lgamma(k + 1) / np.log(10) for k in n])  # log10(n!)
-    axR.plot(n, log_orderings, color=CYAN, lw=2.4)
-    axR.fill_between(n, log_orderings, color=CYAN + "22")
-    axR.scatter([20], [log_orderings[-1]], s=90, color=GOLD, zorder=5)
-    axR.annotate("20 datasets ≈ 10$^{18}$ orderings\n— you can't grid-search this",
-                 xy=(20, log_orderings[-1]), xytext=(11.4, log_orderings[-1] - 5.5),
-                 color=GOLD, fontsize=9.6,
-                 arrowprops=dict(arrowstyle="-|>", color=GOLD, lw=1.2))
-    axR.set_xlabel("number of datasets in the mix", color=FG)
-    axR.set_ylabel("log$_{10}$(possible training orders)", color=FG)
-    axR.set_title("Order matters — and that's the problem",
+    axR.set_xlim(0, 1); axR.set_ylim(0, 1); axR.axis("off")
+    axR.set_title("Same data, different order → a different model",
                   fontsize=13, fontweight="bold", color=FG, loc="left")
-    axR.tick_params(colors=MUT)
-    for s in ["top", "right"]: axR.spines[s].set_visible(False)
-    for s in ["left", "bottom"]: axR.spines[s].set_color(MUT)
-    axR.text(0.97, 0.03,
-             "Same datasets, different order → different model.\n"
-             "So the elegant data-mixing equation got shelved\n"
-             "in favour of intuition during the run.",
-             transform=axR.transAxes, ha="right", va="bottom",
-             fontsize=9.0, color=MUT)
+
+    # the identical set of datasets, fed in two different sequences
+    orders = [
+        ("run A", [1, 2, 0, 3], 0.66, GREEN, "ends strong"),   # math,news,poetry,code
+        ("run B", [0, 3, 1, 2], 0.24, RED,   "ends weak"),     # poetry,code,math,news
+    ]
+    tw, gap, x0 = 0.092, 0.012, 0.085
+    for run, seq, yc, res, lbl in orders:
+        axR.text(x0 - 0.02, yc + 0.055, run, color=MUT, fontsize=10,
+                 ha="right", va="center", fontweight="bold")
+        for j, k in enumerate(seq):
+            name, c = kinds[k]
+            x = x0 + j * (tw + gap)
+            axR.add_patch(FancyBboxPatch((x, yc), tw, 0.11,
+                          boxstyle="round,pad=0.004,rounding_size=0.012",
+                          facecolor=c + "33", edgecolor=c, lw=1.4))
+            axR.text(x + tw / 2, yc + 0.055, name, ha="center", va="center",
+                     color=c, fontsize=8.6, fontweight="bold")
+        xe = x0 + 4 * (tw + gap)
+        axR.annotate("", xy=(xe + 0.10, yc + 0.055), xytext=(xe + 0.005, yc + 0.055),
+                     arrowprops=dict(arrowstyle="-|>", color=MUT, lw=1.5))
+        # mini outcome curve (qualitative — no numbers)
+        cx0, cw = xe + 0.13, 0.20
+        base = yc + 0.055
+        axR.plot([cx0, cx0 + cw], [base, base], color=MUT, ls="--", lw=1.0)
+        t = np.linspace(0, 1, 60)
+        end = base + (0.07 if res is GREEN else -0.07)
+        cy = base + (end - base) * (t ** 1.6) + 0.012 * np.sin(t * 6) * (1 - t)
+        axR.plot(cx0 + t * cw, cy, color=res, lw=2.4)
+        axR.scatter([cx0 + cw], [cy[-1]], s=42, color=res, edgecolor=FG, lw=1.0, zorder=5)
+        axR.text(cx0 + cw + 0.01, cy[-1], lbl, color=res, fontsize=9,
+                 va="center", ha="left")
+
+    axR.text(0.5, 0.045, "Feed the identical datasets in a different sequence and you\n"
+             "converge to a different model — so the elegant data-mixing\n"
+             "equation got shelved for intuition during the run.",
+             ha="center", va="bottom", fontsize=9.0, color=MUT)
 
     fig.savefig(f"{OUT}/data.png", facecolor=BG)
     plt.close(fig)
