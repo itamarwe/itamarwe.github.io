@@ -1,0 +1,28 @@
+{
+  "table": "prod.analytics.events",
+  "scans_analyzed": 500,
+  "filter_columns": [
+    {
+      "column": "tenant_id",
+      "count": 490,
+      "dominant": "equality"
+    },
+    {
+      "column": "event_date",
+      "count": 200,
+      "dominant": "range"
+    }
+  ],
+  "equality_cols": [
+    "tenant_id"
+  ],
+  "range_cols": [
+    "event_date"
+  ],
+  "partition_prune_rate": 0.0,
+  "selectivity": {
+    "median_bytes_scanned": 13421772800,
+    "source": "spark-sql-metrics"
+  },
+  "parser": "spark-eventlog-regex"
+}

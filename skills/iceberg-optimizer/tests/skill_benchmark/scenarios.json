@@ -1,0 +1,149 @@
+[
+  {
+    "id": "cold_archive",
+    "description": "Cold archive, rarely queried (~5/month), append-only, large well-sized files. Correct answer: Z (do nothing or minimal), F (periodic snapshot expiry). No compaction, no sort, no z-order.",
+    "table": "prod.archive.user_events",
+    "engine": "Trino",
+    "interview_answers": {
+      "query_latency_requirement": "batch-tolerant — minutes or more is fine, nobody is waiting",
+      "query_frequency": "almost never — maybe 3–5 times per year for audit purposes",
+      "freshness_sla": "once-a-day or slower is fine, no real-time requirement",
+      "cost_priority": "storage cost — minimize the monthly storage bill",
+      "mutability_outlook": "append-only forever, no updates or deletes",
+      "time_travel_need": "only the latest state matters, snapshot history is just storage cost",
+      "lifecycle": "cold archive — rarely touched, optimize for cheap storage"
+    },
+    "assertions": {
+      "must_contain_all_of": [
+        "snapshot",
+        "expir"
+      ],
+      "must_contain_any_of": [
+        "do nothing", "do-nothing", "do_nothing", "no maintenance", "no compaction", "not worth"
+      ],
+      "must_not_contain_any_of": [
+        "rewrite_data_files",
+        "z-order", "zorder",
+        "bloom filter",
+        "sort order",
+        "bin-pack",
+        "binpack"
+      ]
+    }
+  },
+  {
+    "id": "streaming_thin_spread",
+    "description": "Streaming table, 30-second commit cadence, 1 MB files spread across 20 partitions per commit (thin spread). Queried constantly by tenant_id + event_time for interactive dashboards. Correct: A (bin-pack cold partitions), C (z-order tenant_id + event_time), J (write-time tuning distribution-mode=hash), F (aggressive snapshot expiry).",
+    "table": "prod.events.stream",
+    "engine": "Spark",
+    "interview_answers": {
+      "query_latency_requirement": "interactive — sub-second to seconds, user-facing dashboards",
+      "query_frequency": "constantly — hundreds of queries per hour from many consumers",
+      "freshness_sla": "minutes is acceptable — 5-minute delay is fine",
+      "cost_priority": "query latency — we optimize for speed, not cost",
+      "mutability_outlook": "append-only, no updates or deletes",
+      "time_travel_need": "only the latest state matters, history is exhaust",
+      "lifecycle": "hot — actively used, optimize for speed"
+    },
+    "assertions": {
+      "must_contain_all_of": [
+        "compact",
+        "distribution"
+      ],
+      "must_contain_any_of": [
+        "z-order", "zorder", "z_order", "sort order", "sort compaction"
+      ],
+      "must_not_contain_any_of": [
+        "do nothing", "do-nothing", "no maintenance needed", "not worth optimizing"
+      ]
+    }
+  },
+  {
+    "id": "gdpr_deletes",
+    "description": "Table with accumulating equality deletes from GDPR right-to-be-forgotten purges (~1M records/day). eq_delete_pressure = 10%. Queried regularly by compliance team. Correct: E1 (equality delete compaction with remove-dangling-deletes, non-optional), F (aggressive snapshot expiry to physically remove data). Must mention physical deletion and snapshot history risk.",
+    "table": "prod.compliance.user_data",
+    "engine": "Spark",
+    "interview_answers": {
+      "query_latency_requirement": "responsive — seconds to minutes is acceptable",
+      "query_frequency": "regularly — daily reports by the compliance team",
+      "freshness_sla": "hours is fine — same-day is acceptable",
+      "cost_priority": "query cost — minimize scan compute",
+      "mutability_outlook": "deletes required — GDPR right-to-be-forgotten, individual row deletions on regulatory deadlines",
+      "time_travel_need": "only the latest state matters — retained snapshots are a GDPR liability, not a feature",
+      "lifecycle": "warm — used periodically",
+      "retention_policy": "GDPR right-to-be-forgotten — must physically remove rows within 30 days of request"
+    },
+    "assertions": {
+      "must_contain_all_of": [
+        "equality delete",
+        "rewrite_data_files",
+        "remove-dangling-deletes",
+        "expire_snapshots"
+      ],
+      "must_contain_any_of": [
+        "physical", "physically", "gdpr", "compliance", "snapshot history", "retained snapshot"
+      ],
+      "must_not_contain_any_of": [
+        "do nothing", "do-nothing", "skip compaction", "not worth optimizing"
+      ]
+    }
+  },
+  {
+    "id": "partition_misalignment",
+    "description": "Well-maintained table partitioned by event_date (daily). But 98% of queries filter on tenant_id only — partition_prune_rate = 0.0. Every query scans the full 12.5 GB table. Profile looks healthy (256 MB files, no deletes, no small files). The problem is invisible without the workload. Correct: D (partition evolution to bucket/hash by tenant_id) or B/C (sort/z-order by tenant_id as a cheaper alternative). Must identify tenant_id as the key column to optimize on.",
+    "table": "prod.analytics.events",
+    "engine": "Spark",
+    "interview_answers": {
+      "query_latency_requirement": "responsive — seconds to minutes",
+      "query_frequency": "constantly — 1000+ queries per month from analysts",
+      "freshness_sla": "minutes is fine — 10-minute delay acceptable",
+      "cost_priority": "query cost — the query bills are getting large",
+      "mutability_outlook": "append-only",
+      "time_travel_need": "only the latest state matters",
+      "lifecycle": "hot — actively used"
+    },
+    "assertions": {
+      "must_contain_all_of": [
+        "tenant_id",
+        "partition"
+      ],
+      "must_contain_any_of": [
+        "partition evolution", "repartition", "bucket", "z-order", "zorder", "sort order",
+        "alter table", "add partition field"
+      ],
+      "must_not_contain_any_of": [
+        "do nothing", "do-nothing", "no action needed", "not worth optimizing"
+      ]
+    }
+  },
+  {
+    "id": "snapshot_bloat_only",
+    "description": "Small table with 5 well-sized 256 MB files but 1200 hourly snapshots (1+ year of history). No small files, no deletes. Queried weekly for reports with good partition pruning. Correct: F (snapshot expiry — the only real problem), G (manifest rewrite). Must NOT recommend data file compaction (files are already well-sized).",
+    "table": "prod.reports.daily_summary",
+    "engine": "Trino",
+    "interview_answers": {
+      "query_latency_requirement": "batch-tolerant — weekly reports, minutes is fine",
+      "query_frequency": "regularly — weekly batch reports",
+      "freshness_sla": "once-a-day is fine",
+      "cost_priority": "storage cost — minimize storage bill",
+      "mutability_outlook": "append-only",
+      "time_travel_need": "nice to have — keep 2 weeks of history for rollback",
+      "lifecycle": "warm — used periodically"
+    },
+    "assertions": {
+      "must_contain_all_of": [
+        "snapshot",
+        "expir"
+      ],
+      "must_contain_any_of": [
+        "expire_snapshots", "retention_threshold", "1200", "snapshot bloat", "snapshot count"
+      ],
+      "must_not_contain_any_of": [
+        "rewrite_data_files",
+        "z-order", "zorder",
+        "bin-pack", "binpack",
+        "sort order"
+      ]
+    }
+  }
+]
