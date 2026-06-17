@@ -429,6 +429,22 @@ pre {
 .post-content {
   margin-bottom: $spacing-unit;
 
+  // About-page portrait: float it so the intro text wraps around it on
+  // desktop, then drop the float on narrow screens so it stacks cleanly.
+  .profile-photo {
+    width: 200px;
+    float: right;
+    margin: 4px 0 $spacing-unit $spacing-unit;
+    border-radius: 8px;
+
+    @media (max-width: 600px) {
+      float: none;
+      display: block;
+      width: 160px;
+      margin: 0 auto $spacing-unit;
+    }
+  }
+
   h2 {
     font-size: 32px;
 
