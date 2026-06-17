@@ -97,12 +97,38 @@ For access patterns, run:
 ```
 scripts/parse_query_log.py --spark-eventlog LOG   # or: --trino-queries QUERIES
                            --table catalog.schema.table --out workload.json
+                           [--explain-analyze explain.txt]   # supplementary
 ```
 
 It extracts, per table: the ranked columns that appear in `WHERE` clauses,
 whether each is used in range vs equality predicates, partition-pruning
 effectiveness, query selectivity (rows scanned ÷ rows returned), and query
 frequency. SQL-text parsing is approximate — say so to the user.
+
+**Measured bytes-scanned** (`selectivity.median_bytes_scanned` in workload.json):
+When present, the simulator uses this as the scan baseline instead of
+estimating from `total_gb × (1 − prune_rate)`. The script extracts it
+automatically from these sources — ask the user which they have:
+
+| Source | Flag | What the script reads |
+|---|---|---|
+| Trino `system.runtime.queries` export (JSON or CSV) | `--trino-queries` | `physical_input_bytes` or `input_bytes` (integers) |
+| Trino JSON event-listener log (`queryCompletedEvent` NDJSON) | `--trino-queries` | `physicalInputDataSize` string auto-detected |
+| Spark event log | `--spark-eventlog` | `SparkListenerSQLExecutionEnd` → "size of files read" metric, correlated to executions that touched the target table |
+| Trino `EXPLAIN ANALYZE` text output | `--explain-analyze` | `Physical Input Data Size:` lines; supplementary, can combine with any source above |
+
+If the user has none of the above, ask them to run `EXPLAIN ANALYZE` on 3–5
+representative queries and save the output:
+
+```bash
+# Trino
+trino --execute "EXPLAIN ANALYZE SELECT ..." >> explain.txt
+
+# Pass as supplementary input alongside any SQL source
+parse_query_log.py --sql-file q.sql --explain-analyze explain.txt --table cat.db.tbl
+# or standalone (emits selectivity only, no filter_columns):
+parse_query_log.py --explain-analyze explain.txt --table cat.db.tbl
+```
 
 **2b — Interview for intent.** Metadata cannot tell you what the table is *for*.
 Walk `references/workload-interview.md`. For each item, present what you already
@@ -155,6 +181,20 @@ driven by the table's *real* numbers; every constant (scan price, compaction
 cost per TB, file-skip factors) is printed and overridable via `--assumptions`.
 Present results as directional estimates with ranges, never as precise figures.
 Then highlight the scenario that wins on the user's chosen priority.
+
+**Baseline bytes**: If `workload.json` has `selectivity.median_bytes_scanned`
+(extracted from logs or EXPLAIN ANALYZE as above), that measured number is used
+directly. Otherwise the simulator falls back to `total_gb × (1 − prune_rate)`.
+
+**`scan_fraction` is still a heuristic** even with a real baseline — it is the
+*improvement* multiplier applied after optimization, which cannot be read from
+current logs. To replace it with a measurement: run the same sample queries on
+the optimized table (or a test partition after compaction), compare bytes_after
+÷ bytes_before, and pass the result:
+
+```bash
+--assumptions '{"scan_fraction": {"targeted_sort": 0.18}}'
+```
 
 ### Phase 5 — Plan
 

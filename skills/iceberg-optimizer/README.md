@@ -47,6 +47,8 @@ python scripts/profile_table.py --snapshots snap.json --files files.json \
 python scripts/parse_query_log.py --trino-queries q.json \
     --table cat.db.tbl --out workload.json
 #   (or --sql-file q.sql, or --spark-eventlog app.log)
+#   Add --explain-analyze explain.txt to supply measured bytes-scanned from
+#   Trino EXPLAIN ANALYZE output — replaces the scan baseline heuristic.
 
 # 3. Simulate scenarios across the four cost axes
 python scripts/simulate.py --profile profile.json --workload workload.json \
