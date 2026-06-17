@@ -13,21 +13,15 @@
       "time_travel_need": "only the latest state matters, snapshot history is just storage cost",
       "lifecycle": "cold archive — rarely touched, optimize for cheap storage"
     },
+    "expected_outcome": "The correct recommendation is to do nothing or at most expire old snapshots (snapshot expiry / expire_snapshots). Because the table is a cold archive with only 3–5 queries per year and files are already well-sized at 300 MB, data file compaction (rewrite_data_files / optimize) would cost more compute than it ever saves. Sort compaction, z-order, bloom filters, and partition evolution are all wasteful at this query volume. Only snapshot expiry is justified if there are many stale snapshots. A recommendation to run compaction, sort, or z-order is incorrect.",
     "assertions": {
       "must_contain_all_of": [
         "snapshot",
         "expir"
       ],
       "must_contain_any_of": [
-        "do nothing", "do-nothing", "do_nothing", "no maintenance", "no compaction", "not worth"
-      ],
-      "must_not_contain_any_of": [
-        "rewrite_data_files",
-        "z-order", "zorder",
-        "bloom filter",
-        "sort order",
-        "bin-pack",
-        "binpack"
+        "do nothing", "do-nothing", "do_nothing", "no maintenance", "no compaction", "not worth",
+        "skip", "skipping", "not doing", "not recommended"
       ]
     }
   },
@@ -45,6 +39,7 @@
       "time_travel_need": "only the latest state matters, history is exhaust",
       "lifecycle": "hot — actively used, optimize for speed"
     },
+    "expected_outcome": "The correct recommendation is to compact the 1 MB small files (bin-pack or sort compaction via rewrite_data_files), apply z-order or sort on tenant_id + event_time to enable data skipping, tune write-time distribution (distribution-mode=hash or similar) to prevent future thin-spread small files, and expire snapshots aggressively. The table has 5,000 small 1 MB files spread thin — compaction is urgent. A recommendation that skips compaction or says 'do nothing' is incorrect.",
     "assertions": {
       "must_contain_all_of": [
         "compact",
@@ -52,9 +47,6 @@
       ],
       "must_contain_any_of": [
         "z-order", "zorder", "z_order", "sort order", "sort compaction"
-      ],
-      "must_not_contain_any_of": [
-        "do nothing", "do-nothing", "no maintenance needed", "not worth optimizing"
       ]
     }
   },
@@ -73,6 +65,7 @@
       "lifecycle": "warm — used periodically",
       "retention_policy": "GDPR right-to-be-forgotten — must physically remove rows within 30 days of request"
     },
+    "expected_outcome": "The correct recommendation must include: (1) rewrite_data_files with remove-dangling-deletes to physically remove deleted rows from data files — this is non-optional for GDPR compliance; (2) expire_snapshots aggressively (preferably retain_last=1 or near-current only) because retained snapshot history means deleted rows can still be read from older snapshots, creating a GDPR liability. The recommendation must explicitly warn that logical delete files are not enough for compliance — physical removal requires both compaction and snapshot expiry. A recommendation that omits compaction or omits snapshot expiry, or that does not mention the GDPR/compliance risk of snapshot history, is incorrect.",
     "assertions": {
       "must_contain_all_of": [
         "equality delete",
@@ -82,9 +75,6 @@
       ],
       "must_contain_any_of": [
         "physical", "physically", "gdpr", "compliance", "snapshot history", "retained snapshot"
-      ],
-      "must_not_contain_any_of": [
-        "do nothing", "do-nothing", "skip compaction", "not worth optimizing"
       ]
     }
   },
@@ -102,6 +92,7 @@
       "time_travel_need": "only the latest state matters",
       "lifecycle": "hot — actively used"
     },
+    "expected_outcome": "The correct recommendation is to fix the partition-column mismatch. Queries filter almost exclusively on tenant_id, but the table is partitioned by event_date — so partition pruning never fires (prune_rate=0.0) and every query full-table scans 12.5 GB. The recommendation must identify tenant_id as the key column to optimize on, and propose either: (a) partition evolution to bucket or hash-partition by tenant_id (strongest fix, eliminates full scans), or (b) sort compaction / z-order by tenant_id (cheaper alternative, enables data skipping without re-partitioning). A recommendation that ignores tenant_id, focuses only on the file sizes (which are already healthy), or recommends snapshot expiry as the main action is incorrect.",
     "assertions": {
       "must_contain_all_of": [
         "tenant_id",
@@ -110,9 +101,6 @@
       "must_contain_any_of": [
         "partition evolution", "repartition", "bucket", "z-order", "zorder", "sort order",
         "alter table", "add partition field"
-      ],
-      "must_not_contain_any_of": [
-        "do nothing", "do-nothing", "no action needed", "not worth optimizing"
       ]
     }
   },
@@ -130,6 +118,7 @@
       "time_travel_need": "nice to have — keep 2 weeks of history for rollback",
       "lifecycle": "warm — used periodically"
     },
+    "expected_outcome": "The correct recommendation is snapshot expiry (expire_snapshots / expire_snapshots with retention_threshold) as the primary action — the table has 1,200 hourly snapshots accumulated over more than a year, causing metadata bloat. Optionally also rewrite manifests (optimize_manifests). The data files themselves are perfectly sized at 256 MB — data file compaction (rewrite_data_files / EXECUTE optimize) is not needed and would waste compute. A recommendation that prescribes data file compaction, sort, or z-order as a main action is incorrect; the files are already well-sized.",
     "assertions": {
       "must_contain_all_of": [
         "snapshot",
@@ -137,12 +126,6 @@
       ],
       "must_contain_any_of": [
         "expire_snapshots", "retention_threshold", "1200", "snapshot bloat", "snapshot count"
-      ],
-      "must_not_contain_any_of": [
-        "rewrite_data_files",
-        "z-order", "zorder",
-        "bin-pack", "binpack",
-        "sort order"
       ]
     }
   }

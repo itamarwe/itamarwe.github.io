@@ -2,12 +2,9 @@
 """Skill-level benchmark: launches Claude with the iceberg-optimizer skill context
 and evaluates whether it gives the right advice for each scenario.
 
-Requirements:
-    pip install anthropic
+Uses the `claude` CLI (Claude Code) — no API key required.
 
 Usage:
-    export ANTHROPIC_API_KEY=sk-ant-...
-
     # Run one scenario
     python tests/skill_benchmark/run_benchmark.py --scenario cold_archive
 
@@ -23,22 +20,18 @@ Usage:
 import argparse
 import json
 import os
+import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 from textwrap import indent
-
-try:
-    import anthropic
-except ImportError:
-    print("ERROR: 'anthropic' package not found. Run: pip install anthropic", file=sys.stderr)
-    sys.exit(1)
 
 SKILL_DIR = Path(__file__).parent.parent.parent
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 SCENARIOS_FILE = Path(__file__).parent / "scenarios.json"
 
-MODEL = "claude-opus-4-8"
-JUDGE_MODEL = "claude-opus-4-8"
+CLAUDE_CLI = "claude"
 
 
 # ── Context loading ───────────────────────────────────────────────────────────
@@ -62,11 +55,7 @@ def load_skill_context() -> str:
 # ── Message building ──────────────────────────────────────────────────────────
 
 def build_scenario_message(scenario: dict) -> str:
-    """Build the single-turn user message for a scenario.
-
-    Mimics what a user would send after running the profiling scripts: all the
-    pre-computed data is included so the skill can go straight to Phase 3 onward.
-    """
+    """Build the single-turn user message for a scenario."""
     sid = scenario["id"]
     fixture = FIXTURE_DIR / sid
 
@@ -118,6 +107,48 @@ Based on all the above, please provide your optimization recommendations (Phase 
 """
 
 
+# ── Claude CLI invocation ─────────────────────────────────────────────────────
+
+def call_claude(system_prompt: str, user_message: str) -> str:
+    """Call the claude CLI with a system prompt and user message, return the text output."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write(system_prompt)
+        system_file = f.name
+
+    try:
+        for attempt in range(3):
+            result = subprocess.run(
+                [
+                    CLAUDE_CLI, "-p",
+                    "--system-prompt-file", system_file,
+                    "--output-format", "text",
+                    "--no-session-persistence",
+                ],
+                input=user_message,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+            # Transient failure — wait and retry
+            wait = 10 * (attempt + 1)
+            print(f"\n    [attempt {attempt+1} failed, retrying in {wait}s] "
+                  f"stderr: {result.stderr.strip()[:200]}", flush=True)
+            time.sleep(wait)
+        raise RuntimeError(
+            f"claude CLI failed after 3 attempts (exit {result.returncode}):\n"
+            f"{result.stderr.strip()[:500]}"
+        )
+    finally:
+        os.unlink(system_file)
+
+
+def call_claude_judge(system_prompt: str, user_message: str) -> str:
+    """Same as call_claude but used for the judge invocation."""
+    return call_claude(system_prompt, user_message)
+
+
 # ── Keyword evaluation ────────────────────────────────────────────────────────
 
 def keyword_evaluate(output: str, scenario: dict) -> dict:
@@ -159,46 +190,42 @@ def keyword_evaluate(output: str, scenario: dict) -> dict:
 # ── LLM-as-judge ─────────────────────────────────────────────────────────────
 
 JUDGE_SYSTEM = """You are a strict technical evaluator for Apache Iceberg optimization advice.
-Score the recommendation on a 1–5 scale for correctness and completeness.
 
-Scoring rubric:
-5 = Correct actions, correct priority, correct SQL, no bad advice.
-4 = Correct actions but minor gaps (e.g. missing one nice-to-have, slightly wrong order).
-3 = Partially correct — got the main action right but missed an important co-action or included unnecessary steps.
-2 = Mostly wrong — missed the main action or recommended something harmful.
+You will be given:
+1. The EXPECTED OUTCOME — a plain-English description of what a correct recommendation looks like.
+2. The AI'S RECOMMENDATION — what the system actually said.
+
+Evaluate whether the AI's recommendation matches the expected outcome. Score 1–5:
+
+5 = Fully correct: all required actions present, correct priority, no harmful extras.
+4 = Mostly correct: main actions right, minor gap or one unnecessary extra step.
+3 = Partially correct: got the main action but missed an important co-action, or included a clearly wrong recommendation alongside correct ones.
+2 = Mostly wrong: missed the main action, or recommended something the expected outcome says is incorrect.
 1 = Completely wrong or dangerous advice.
 
-Return JSON only:
-{
-  "score": <1-5>,
-  "reasoning": "<one paragraph>",
-  "correct_actions_found": ["list", "of", "actions", "correctly", "recommended"],
-  "incorrect_or_missing": ["list", "of", "issues"]
-}"""
+PASS = score >= 3. FAIL = score <= 2.
+
+Return JSON only, no markdown fences:
+{"score": <1-5>, "passed": <true|false>, "reasoning": "<one concise paragraph>", "correct_actions_found": ["..."], "incorrect_or_missing": ["..."]}"""
 
 
-def llm_judge(output: str, scenario: dict, client: anthropic.Anthropic) -> dict:
-    """Use Claude to rate the recommendation quality."""
-    judge_prompt = f"""Scenario: {scenario['id']}
-Description: {scenario['description']}
+def llm_judge(output: str, scenario: dict) -> dict:
+    """Use Claude CLI to rate the recommendation quality against expected_outcome."""
+    expected = scenario.get("expected_outcome", scenario.get("description", ""))
 
-The AI gave this recommendation:
+    judge_prompt = f"""EXPECTED OUTCOME:
+{expected}
 
+AI'S RECOMMENDATION:
 ---
 {output}
 ---
 
-Evaluate it strictly. Return JSON only."""
+Does the AI's recommendation match the expected outcome? Return JSON only, no markdown fences."""
 
-    msg = client.messages.create(
-        model=JUDGE_MODEL,
-        max_tokens=1024,
-        system=JUDGE_SYSTEM,
-        messages=[{"role": "user", "content": judge_prompt}],
-    )
-    raw = msg.content[0].text.strip()
+    raw = call_claude_judge(JUDGE_SYSTEM, judge_prompt).strip()
 
-    # Strip markdown code fences if present
+    # Strip markdown code fences if model adds them anyway
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -208,15 +235,19 @@ Evaluate it strictly. Return JSON only."""
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        return {"score": 0, "reasoning": f"Judge returned unparseable JSON: {raw[:200]}",
-                "correct_actions_found": [], "incorrect_or_missing": []}
+        return {
+            "score": 0,
+            "reasoning": f"Judge returned unparseable JSON: {raw[:300]}",
+            "correct_actions_found": [],
+            "incorrect_or_missing": [],
+        }
 
 
 # ── Single scenario runner ────────────────────────────────────────────────────
 
-def run_scenario(scenario: dict, skill_context: str, client: anthropic.Anthropic,
+def run_scenario(scenario: dict, skill_context: str,
                  use_judge: bool = False, verbose: bool = False) -> dict:
-    """Run one scenario: call Claude, evaluate, optionally judge."""
+    """Run one scenario: call Claude CLI, evaluate, optionally judge."""
     print(f"\n{'─' * 60}")
     print(f"  Scenario: {scenario['id']}")
     print(f"  {scenario['description'][:80]}...")
@@ -225,14 +256,9 @@ def run_scenario(scenario: dict, skill_context: str, client: anthropic.Anthropic
     user_msg = build_scenario_message(scenario)
 
     print("  Calling Claude...", end="", flush=True)
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=skill_context,
-        messages=[{"role": "user", "content": user_msg}],
-    )
-    output = response.content[0].text
-    print(f" done ({response.usage.output_tokens} tokens)")
+    output = call_claude(skill_context, user_msg)
+    word_count = len(output.split())
+    print(f" done ({word_count} words)")
 
     if verbose:
         print("\n  ── LLM Response ──")
@@ -253,50 +279,67 @@ def run_scenario(scenario: dict, skill_context: str, client: anthropic.Anthropic
         "keyword_passed": kw_result["passed"],
         "keyword_failures": kw_result["failures"],
         "keyword_details": kw_result["details"],
-        "output_tokens": response.usage.output_tokens,
+        "word_count": word_count,
         "output": output,
     }
 
     if use_judge:
         print("  Running LLM judge...", end="", flush=True)
-        judge = llm_judge(output, scenario, client)
-        print(f" score={judge.get('score', '?')}/5")
-        print(f"    {judge.get('reasoning', '')[:120]}")
+        judge = llm_judge(output, scenario)
+        judge_passed = judge.get("passed", judge.get("score", 0) >= 3)
+        judge_status = "PASS" if judge_passed else "FAIL"
+        print(f" score={judge.get('score', '?')}/5  {judge_status}")
+        reasoning = judge.get("reasoning", "")
+        if reasoning:
+            print(f"    {reasoning[:140]}")
+        if not judge_passed:
+            for item in judge.get("incorrect_or_missing", []):
+                print(f"    ✗ {item}")
         result["judge"] = judge
+        result["judge_passed"] = judge_passed
 
     return result
 
 
 # ── Report ────────────────────────────────────────────────────────────────────
 
-def print_report(results: list[dict], use_judge: bool) -> None:
+def print_report(results: list, use_judge: bool) -> None:
     print("\n" + "═" * 60)
     print("  BENCHMARK SUMMARY")
     print("═" * 60)
 
-    passed = sum(1 for r in results if r["keyword_passed"])
     total = len(results)
 
-    print(f"\n  Keyword assertions: {passed}/{total} passed\n")
+    # Keyword check summary
+    kw_passed = sum(1 for r in results if r["keyword_passed"])
+    print(f"\n  Keyword sanity checks: {kw_passed}/{total} passed")
     for r in results:
         kw = "✓" if r["keyword_passed"] else "✗"
-        judge_str = ""
-        if use_judge and "judge" in r:
-            judge_str = f"  judge={r['judge'].get('score', '?')}/5"
-        print(f"  {kw} {r['scenario_id']}{judge_str}")
+        print(f"    {kw} {r['scenario_id']}")
         if not r["keyword_passed"]:
             for f in r["keyword_failures"]:
-                print(f"      {f}")
+                print(f"        {f}")
 
+    # Judge summary (primary signal when --judge is used)
     if use_judge:
-        scores = [r["judge"]["score"] for r in results if "judge" in r and "score" in r["judge"]]
-        if scores:
-            avg = sum(scores) / len(scores)
-            print(f"\n  Judge scores: {scores}  avg={avg:.1f}/5")
+        judge_passed = sum(1 for r in results if r.get("judge_passed", False))
+        scores = [r["judge"]["score"] for r in results
+                  if "judge" in r and isinstance(r["judge"].get("score"), int)]
+        avg = sum(scores) / len(scores) if scores else 0
+        print(f"\n  LLM judge: {judge_passed}/{total} passed  (scores: {scores}, avg={avg:.1f}/5)")
+        for r in results:
+            jp = "✓" if r.get("judge_passed") else "✗"
+            score = r.get("judge", {}).get("score", "?")
+            print(f"    {jp} {r['scenario_id']}  {score}/5")
 
-    print()
-    overall = "PASSED" if passed == total else "FAILED"
-    print(f"  Overall: {overall} ({passed}/{total})")
+        overall_pass = judge_passed == total
+        label = "PASSED" if overall_pass else "FAILED"
+        print(f"\n  Overall (judge): {label} ({judge_passed}/{total})")
+    else:
+        overall_pass = kw_passed == total
+        label = "PASSED" if overall_pass else "FAILED"
+        print(f"\n  Overall (keyword): {label} ({kw_passed}/{total})")
+
     print("═" * 60 + "\n")
 
 
@@ -317,13 +360,6 @@ def main() -> None:
                         help="Save full results as JSON to FILE")
     args = parser.parse_args()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
-        sys.exit(1)
-
-    client = anthropic.Anthropic(api_key=api_key)
-
     scenarios = json.loads(SCENARIOS_FILE.read_text())
     scenario_map = {s["id"]: s for s in scenarios}
 
@@ -338,11 +374,13 @@ def main() -> None:
 
     print(f"\nLoading skill context from {SKILL_DIR}...")
     skill_context = load_skill_context()
-    print(f"  {len(skill_context):,} chars ({len(skill_context.split()) :,} words)")
+    print(f"  {len(skill_context):,} chars ({len(skill_context.split()):,} words)")
 
     results = []
-    for scenario in selected:
-        r = run_scenario(scenario, skill_context, client,
+    for i, scenario in enumerate(selected):
+        if i > 0:
+            time.sleep(3)  # brief pause between scenarios to avoid rate-limit bursts
+        r = run_scenario(scenario, skill_context,
                          use_judge=args.judge, verbose=args.verbose)
         results.append(r)
 
@@ -356,7 +394,10 @@ def main() -> None:
         Path(args.output_json).write_text(json.dumps(out, indent=2))
         print(f"Results saved to {args.output_json}")
 
-    failed = sum(1 for r in results if not r["keyword_passed"])
+    if args.judge:
+        failed = sum(1 for r in results if not r.get("judge_passed", False))
+    else:
+        failed = sum(1 for r in results if not r["keyword_passed"])
     sys.exit(1 if failed > 0 else 0)
 
 
