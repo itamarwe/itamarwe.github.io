@@ -426,6 +426,26 @@ pre {
   }
 }
 
+// About-page portrait: floated left, ahead of the page header in the DOM, so
+// both the "About" title and the intro paragraphs wrap around it on desktop.
+// On narrow screens the float is dropped and it centers above the text.
+.post .profile-photo {
+  width: 300px;
+  max-width: 45%;
+  height: auto;
+  float: left;
+  margin: 6px $spacing-unit $spacing-unit 0;
+  border-radius: 8px;
+
+  @media (max-width: 600px) {
+    float: none;
+    display: block;
+    width: 220px;
+    max-width: 70%;
+    margin: 0 auto $spacing-unit;
+  }
+}
+
 .post-content {
   margin-bottom: $spacing-unit;
 
