@@ -426,24 +426,27 @@ pre {
   }
 }
 
+// About-page portrait: floated left, ahead of the page header in the DOM, so
+// both the "About" title and the intro paragraphs wrap around it on desktop.
+// On narrow screens the float is dropped and it centers above the text.
+.post .profile-photo {
+  width: 300px;
+  max-width: 45%;
+  float: left;
+  margin: 6px $spacing-unit $spacing-unit 0;
+  border-radius: 8px;
+
+  @media (max-width: 600px) {
+    float: none;
+    display: block;
+    width: 220px;
+    max-width: 70%;
+    margin: 0 auto $spacing-unit;
+  }
+}
+
 .post-content {
   margin-bottom: $spacing-unit;
-
-  // About-page portrait: float it so the intro text wraps around it on
-  // desktop, then drop the float on narrow screens so it stacks cleanly.
-  .profile-photo {
-    width: 200px;
-    float: right;
-    margin: 4px 0 $spacing-unit $spacing-unit;
-    border-radius: 8px;
-
-    @media (max-width: 600px) {
-      float: none;
-      display: block;
-      width: 160px;
-      margin: 0 auto $spacing-unit;
-    }
-  }
 
   h2 {
     font-size: 32px;

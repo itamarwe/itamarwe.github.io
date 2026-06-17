@@ -22,6 +22,10 @@ export default async function AboutPage() {
   const html = await renderMarkdown(getPageMarkdown("about"));
   return (
     <article className="post">
+      {/* Floated before the header so both the title and the body text wrap
+          around the portrait. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/img/profile.jpg" alt="Itamar Weiss" className="profile-photo" />
       <header className="post-header">
         <h1 className="post-title">{TITLE}</h1>
       </header>
