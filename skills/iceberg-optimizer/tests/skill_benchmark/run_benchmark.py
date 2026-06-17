@@ -116,30 +116,34 @@ def call_claude(system_prompt: str, user_message: str) -> str:
         system_file = f.name
 
     try:
+        last_exc = None
         for attempt in range(3):
-            result = subprocess.run(
-                [
-                    CLAUDE_CLI, "-p",
-                    "--system-prompt-file", system_file,
-                    "--output-format", "text",
-                    "--no-session-persistence",
-                ],
-                input=user_message,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-            # Transient failure — wait and retry
-            wait = 10 * (attempt + 1)
-            print(f"\n    [attempt {attempt+1} failed, retrying in {wait}s] "
-                  f"stderr: {result.stderr.strip()[:200]}", flush=True)
-            time.sleep(wait)
-        raise RuntimeError(
-            f"claude CLI failed after 3 attempts (exit {result.returncode}):\n"
-            f"{result.stderr.strip()[:500]}"
-        )
+            try:
+                result = subprocess.run(
+                    [
+                        CLAUDE_CLI, "-p",
+                        "--system-prompt-file", system_file,
+                        "--output-format", "text",
+                        "--no-session-persistence",
+                    ],
+                    input=user_message,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+                wait = 15 * (attempt + 1)
+                print(f"\n    [attempt {attempt+1} failed (exit {result.returncode}), "
+                      f"retrying in {wait}s] stderr: {result.stderr.strip()[:200]}", flush=True)
+                last_exc = RuntimeError(result.stderr.strip()[:500])
+                time.sleep(wait)
+            except subprocess.TimeoutExpired as e:
+                wait = 15 * (attempt + 1)
+                print(f"\n    [attempt {attempt+1} timed out, retrying in {wait}s]", flush=True)
+                last_exc = e
+                time.sleep(wait)
+        raise RuntimeError(f"claude CLI failed after 3 attempts: {last_exc}")
     finally:
         os.unlink(system_file)
 
