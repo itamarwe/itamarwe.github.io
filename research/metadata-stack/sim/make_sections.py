@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, RegularPolygon, Circle
 
 # ---- Manim-matched palette -------------------------------------------------
-BG     = "#0E1116"
+BG     = "#000000"   # pure black, to match the website background
 PANEL  = "#151b24"
 LIGHT  = "#E8E8E8"
 GREY   = "#7A8090"

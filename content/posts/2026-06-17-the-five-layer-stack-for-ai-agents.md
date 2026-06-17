@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "The Five Layers Between Your Data and an AI Agent That Doesn't Hallucinate"
+title: "The Five Layers That Make Your Data Stack AI-Ready"
 comments: true
 date: 2026-06-17
 categories: ai, data
@@ -11,9 +11,9 @@ image: /img/metadata-stack/five-layers.png
 
 Every "AI for data" demo I've seen does the same magic trick: point a model at a database, ask a question in English, get an answer. It's genuinely impressive for about a hundred tables. Then it quietly falls apart — the model joins two unrelated `id` columns, invents a metric, or confidently reports a number that contradicts the dashboard three feet away. The usual reaction is "the model isn't smart enough yet." I've come to think that's almost always the wrong diagnosis.
 
-I recently read [Sanjeev Mohan's FAQ](https://sanjmo.medium.com/faq-on-metadata-semantics-taxonomy-ontology-knowledge-graphs-and-context-c4a53bfda395) on metadata, semantics, taxonomy, ontology, knowledge graphs, and context, and it gave me the vocabulary for something I'd half-noticed building these systems. These terms aren't competing buzzwords you pick one of. **They're a stack** — five layers, each solving a failure mode the layer above it can't even see. Skip one and the system doesn't fail loudly; it fails *predictably*, in a way that looks like a model problem but isn't.
+I recently read [Sanjeev Mohan's FAQ](https://sanjmo.medium.com/faq-on-metadata-semantics-taxonomy-ontology-knowledge-graphs-and-context-c4a53bfda395) on metadata, semantics, taxonomy, ontology, knowledge graphs, and context, and it gave me the vocabulary for something I'd half-noticed building these systems. These terms aren't competing buzzwords you pick one of. **They're a stack** — five layers that, together, are what it actually means for a data stack to be "AI-ready." Each one solves a failure mode the layer above it can't even see. Skip one and the system doesn't fail loudly; it fails *predictably*, in a way that looks like a model problem but isn't.
 
-This post is my attempt to draw that stack. One running example threads through all five: a customer named Jane who bought a MacBook Air, and a support agent trying to help her. Each layer is what stands between that agent and a hallucination.
+This post is my attempt to draw that stack — the work between a pile of tables and an agent you can trust. One running example threads through all five: a customer named Jane who bought a MacBook Air, and a support agent trying to help her. Each layer is what stands between that agent and a hallucination.
 
 ## 1. Metadata — making a cryptic asset usable
 
@@ -69,7 +69,7 @@ The reason to draw these as layers rather than a list is that the dependencies o
 - Without a **semantic layer**, every dashboard conflicts.
 - Without a **context layer**, the agent has the data but not the judgment.
 
-And the most important consequence is at the top. A context layer is the shiniest thing to build, but bolting one onto ungoverned metadata and inconsistent semantics doesn't give you a smart agent — it gives you, in Sanjeev's words, **"a faster way to be wrong."** The same lesson I took from [how Eon makes a million-table data lake answerable](/blog/how-eon-turns-backups-into-an-ai-data-lake/) and from [monday.com's blueprint for AI over data](/blog/ai-for-data-questions-blueprint/): the model is rarely the bottleneck. The work that makes an agent trustworthy is the unglamorous stack underneath it. Standards like the Open Semantic Interchange and the Model Context Protocol exist precisely so you can build that stack once and have it travel — but you still have to build it, bottom to top.
+And the most important consequence is at the top. A context layer is the shiniest thing to build, but bolting one onto ungoverned metadata and inconsistent semantics doesn't give you a smart agent — it gives you, in Sanjeev's words, **"a faster way to be wrong."** The same lesson I took from [how Eon makes a million-table data lake answerable](/blog/how-eon-turns-backups-into-an-ai-data-lake/) and from [monday.com's blueprint for AI over data](/blog/ai-for-data-questions-blueprint/): the model is rarely the bottleneck. Making your data stack AI-ready is the unglamorous work underneath it. Standards like the Open Semantic Interchange and the Model Context Protocol exist precisely so you can build that stack once and have it travel — but you still have to build it, bottom to top.
 
 ---
 

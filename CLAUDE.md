@@ -27,8 +27,10 @@ and the Gaussian-splatting post. When writing a new post, match them:
   that made it click for me…". Open with the concrete problem or a hook, not a
   definition. Technically dense but conversational; bold the key claim in a
   paragraph rather than padding. Short sections with plain `##` headings.
-- **Illustrations (3Blue1Brown / Manim style)**: clean diagrams on a near-black
-  background (`#0e1116` or `#000`), accent palette cyan `#3fc1ff`, gold `#ffd166`,
+- **Illustrations (3Blue1Brown / Manim style)**: clean diagrams on a **pure-black
+  `#000` background to match the website** (don't use `#0e1116` or any off-black for
+  the figure background — the page is black and an off-black panel shows as a seam),
+  accent palette cyan `#3fc1ff`, gold `#ffd166`,
   green `#7CFC8A`, red `#ff5a5a`, purple `#b48cff`, muted text `#8b95a5`. Generate
   them with matplotlib or Manim in a venv (see "Generated figures & animations")
   and save under `public/img/<post>/`. Every major concept gets one figure.
@@ -144,9 +146,12 @@ it from a component with `next/image` instead of embedding it in markdown.
 ## Generated figures & animations
 
 - Work in a Python venv (`numpy scipy matplotlib manim`). Match the dark palette
-  used across the visuals: background `#0e1116` (or `#000`), text `#ededed`,
-  accents cyan `#3fc1ff`, gold `#ffd166`, green `#7CFC8A`, red `#ff5a5a`. Save PNGs
-  under `public/img/<post>/`.
+  used across the visuals: **pure-black `#000` figure background to match the
+  website** (set both `figure.facecolor`/`savefig.facecolor` and the `savefig(...,
+  facecolor=...)` to `#000000`), text `#ededed`, accents cyan `#3fc1ff`, gold
+  `#ffd166`, green `#7CFC8A`, red `#ff5a5a`. Panels/cards may sit a hair lighter
+  than black, but the canvas itself must be `#000`. Save PNGs under
+  `public/img/<post>/`.
 - **Manim**: no LaTeX is installed, so use `Text(...)`, never `Tex`/`MathTex`.
   Render with `manim -qm --format=mp4` and embed the result as a `<video>` (above).
 

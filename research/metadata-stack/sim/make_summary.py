@@ -23,7 +23,7 @@ import numpy as np
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Circle, RegularPolygon
 
 # ---- Manim-matched palette -------------------------------------------------
-BG     = "#0E1116"
+BG     = "#000000"   # pure black, to match the website background
 PANEL  = "#151b24"
 LIGHT  = "#E8E8E8"
 GREY   = "#7A8090"
@@ -61,24 +61,24 @@ ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="square,pad=0",
              linewidth=0, facecolor=BG, zorder=0))
 
 # Title band
-ax.text(0.5, 0.945, "The five-layer stack for AI agents", ha="center",
+ax.text(0.5, 0.945, "Making your data stack AI-ready", ha="center",
         color=LIGHT, fontsize=26, weight="bold")
-ax.text(0.5, 0.893, "metadata · ontology · knowledge graph · semantic layer · context",
+ax.text(0.5, 0.893, "the five layers: metadata · ontology · knowledge graph · semantic · context",
         ha="center", color=GREY, fontsize=12.5)
 
 # ---- the stack -------------------------------------------------------------
 # Five bands, bottom-to-top. Left third = name + one-liner; right glyph column.
 layers = [
     ("01", "Metadata",        BLUE,   "data about data",
-     "makes every asset findable, governable, trustworthy"),
-    ("02", "Ontology",        TEAL,   "the rules of meaning",
-     "entities, attributes, and which relationships are legal"),
-    ("03", "Knowledge graph", GREEN,  "the facts",
-     "the ontology filled with real, connected instances"),
-    ("04", "Semantic layer",  YELLOW, "the governed contract",
-     "one canonical definition, served to every consumer"),
-    ("05", "Context layer",   ORANGE, "the moment",
-     "assembles the right signals, at runtime, per decision"),
+     "describes each asset: its type, owner, lineage & meaning"),
+    ("02", "Ontology",        TEAL,   "the model of meaning",
+     "your entities and which relationships between them are valid"),
+    ("03", "Knowledge graph", GREEN,  "the model, populated",
+     "that model filled with real, interconnected entities"),
+    ("04", "Semantic layer",  YELLOW, "one truth per metric",
+     "each metric defined once, served identically to every tool"),
+    ("05", "Context layer",   ORANGE, "the right info, right now",
+     "the needed signals assembled at runtime, for one decision"),
 ]
 
 x0, x1 = 0.045, 0.60         # stack column (names)
