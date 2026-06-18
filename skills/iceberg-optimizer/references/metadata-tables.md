@@ -321,6 +321,34 @@ GROUP BY partition_spec_id;
   manifests from all specs. A `rewrite-all` compaction (or `rewrite_manifests`
   covering all specs) normalises this.
 
+### Manifest scatter ratio
+
+A simple heuristic: compare `manifest_count` to the number of distinct active
+partition values. If `manifest_count >> distinct_partitions`, manifests are
+scattered — each manifest covers files from many different partitions, so the
+planner cannot skip any manifest for a narrow filter. After
+`rewrite_manifests(sort_by)`, the ratio drops: each manifest covers a narrow
+partition range.
+
+```sql
+-- Compute scatter ratio: high ratio → clustering beneficial
+SELECT
+  (SELECT COUNT(*) FROM db.tbl.manifests)           AS manifest_count,
+  (SELECT COUNT(DISTINCT partition) FROM db.tbl.partitions) AS distinct_partitions,
+  ROUND(
+    (SELECT COUNT(*) FROM db.tbl.manifests) * 1.0 /
+    NULLIF((SELECT COUNT(DISTINCT partition) FROM db.tbl.partitions), 0), 1
+  )                                                  AS manifests_per_partition;
+-- Ratio > 3 with manifest_count > 100 → run rewrite_manifests with sort_by
+-- Ratio < 2 → manifests already clustered; no action needed
+```
+
+**Bucket count heuristic for partition evolution:** when adding a `bucket(N, col)`
+partition transform, target 1–5 GB of data per bucket at current table size.
+Formula: `N = ceil(total_gb / 2)`, capped at ~1000. Too few buckets → skew
+reappears; too many → metadata overhead and small files per bucket. Re-evaluate
+N when table size grows by 10×.
+
 **Note on `partition_summaries` bounds:** The per-manifest lower/upper bounds
 in `partition_summaries` are type-serialized binary and cannot be decoded in plain
 SQL. To quantitatively measure manifest overlap (the true signal for clustering

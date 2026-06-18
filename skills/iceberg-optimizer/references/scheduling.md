@@ -28,6 +28,32 @@ manifests.**
 Sizing the snapshot `retain`/age to **time-travel need** overrides the defaults
 above — if replay/audit requires 30 days, keep 30 days regardless.
 
+**Compaction after batch loads is conditional, not automatic.** Before
+scheduling post-load compaction, check `avg_added_file_mb` from the `snapshots`
+table. If the writer already produces near-target-size files, compaction adds
+cost with no benefit. Only trigger it if small files accumulated or delete
+pressure is building.
+
+**CDC / high-frequency streaming tables:** `retain_last = N` is inadequate when
+the table commits thousands of times per day — even `retain_last = 100` may
+represent only minutes of history. For these tables, use **time-based
+expiration** instead:
+```sql
+-- Prefer time-based window over count-based for CDC tables
+ALTER TABLE cat.db.tbl SET TBLPROPERTIES (
+  'history.expire.max-snapshot-age-ms' = '7200000'   -- retain last 2 hours
+);
+-- or via procedure:
+CALL cat.system.expire_snapshots(
+  table => 'db.tbl',
+  older_than => TIMESTAMP '...',  -- now() - 2h
+  retain_last => 1                -- safety floor, but time window governs
+);
+```
+The 2-hour window is a starting point; size to your rollback SLA. CDC tables
+should also compact MOR delete files every 5–30 minutes to prevent read-time
+merge cost from compounding.
+
 ---
 
 ## Threshold triggers (metadata-driven)
@@ -44,7 +70,23 @@ Run a monitor (e.g. hourly) and fire the matching op when a threshold trips:
 | distinct `partition_spec_id` (`manifests`) | > 1 | `rewrite-all` compaction |
 
 A common pattern: commit-count trigger — compact after every N commits
-(e.g. default 10) rather than on a clock.
+(e.g. default 10) rather than on a clock. Implementation:
+
+```sql
+-- Count new commits since last maintenance snapshot
+SELECT COUNT(*) AS new_commits
+FROM db.tbl.snapshots
+WHERE committed_at > (
+  SELECT MAX(committed_at) FROM db.tbl.snapshots
+  WHERE summary['spark.app.id'] LIKE '%compaction%'  -- or filter by operation='replace'
+)
+AND operation IN ('append', 'overwrite');
+-- If new_commits > N, trigger compaction
+```
+In practice, track last-compaction timestamp in a metadata table and compare to
+current commit count from the `snapshots` table. Many Iceberg clients also
+expose a commit-count trigger natively (e.g., Flink's `min-commits-required`
+option in the Iceberg sink).
 
 ---
 

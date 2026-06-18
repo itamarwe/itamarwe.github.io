@@ -2,8 +2,26 @@
 
 Verified against Apache Iceberg docs, Spark procedures, and the Trino 481 Iceberg
 connector. **Always run in this order:** compact → expire snapshots → remove
-orphans → rewrite manifests. Never remove orphans before expiring snapshots
-(expiry dereferences files; orphan removal then deletes them).
+orphans → rewrite manifests.
+
+**Why this order matters (dependency chain):**
+- **Compact before expire snapshots:** compaction must run first because expiring
+  snapshots makes previously-referenced delete files unreachable. If snapshots
+  expire before compaction, the ability to physically remove those rows is lost
+  permanently — the deleted-row data survives in data files until those files are
+  rewritten in a future compaction, but the delete files that track them may no
+  longer be valid.
+- **Expire before orphan cleanup:** running orphan cleanup too early risks deleting
+  files that are still referenced by unexpired snapshots. Always expire first to
+  dereference stale files, then remove orphans to reclaim storage for files no
+  longer referenced by any snapshot.
+
+**Engine flexibility:** Any Iceberg-compatible engine (Spark, Trino, Dremio, or
+others) can run maintenance operations. Organizations can centralize maintenance
+workflows even in heterogeneous multi-engine environments. The choice of engine
+per operation is driven by capability (sort/z-order require Spark; bin-pack and
+snapshot expiry work in Trino or Spark) rather than by data ownership. See the
+engine selection table below.
 
 ## Format-version upgrade (one-time prerequisite for delete workloads)
 
@@ -20,6 +38,18 @@ compaction procedure (`rewrite_data_files`) is the same, but the resulting
 delete format is more efficient. Until v3 is standard in your environment,
 target v2 and use `rewrite_position_delete_files` (see below) to manage
 position delete accumulation.
+
+**Migration notes:**
+- v1 → v2 is fully backwards-compatible. V1 tables remain readable by v2 engines
+  with no metadata changes required; the upgrade is an additive metadata-only
+  operation. Existing files stay valid. Safe to apply to production tables without
+  a maintenance window.
+- v3 features (deletion vectors, extended types, row lineage, encryption) are
+  additive but adoption depends on engine support across all engines that read the
+  table. Before upgrading to v3, verify that every engine in your environment
+  (Spark, Trino, Dremio, Flink, etc.) supports it. No ALTER TABLE migration
+  procedure for v3 is standardized across engines — check current release notes
+  for your specific engine before proceeding.
 
 ```sql
 -- Check current version
@@ -336,9 +366,24 @@ operations on threshold triggers.
 
 ## Table properties worth setting
 
+**File size guidance:** The default `target-file-size-bytes` is 512 MB, but this
+is rarely the right value for all workloads. Choose based on workload type:
+- **High-write / streaming / CDC tables:** 10–20 MB. Many production streaming
+  environments produce better results with smaller target sizes because the overhead
+  of large-file compaction cycles outweighs the scan benefits.
+- **Mixed workloads (read + write):** 128–256 MB. Balances write throughput with
+  scan efficiency. The 256 MB default used in examples here is appropriate for
+  most mixed environments.
+- **Large analytic engines (Dremio, Trino over large tables):** 256–512 MB. These
+  engines are optimized for large sequential scans and can handle larger files
+  without per-file overhead penalties.
+- **Memory-constrained environments or wide schemas:** 128–256 MB. Very wide tables
+  (50+ columns) or deeply nested schemas increase per-file memory pressure —
+  smaller files reduce peak executor memory usage.
+
 ```sql
 ALTER TABLE cat.db.tbl SET TBLPROPERTIES (
-  'write.target-file-size-bytes'           = '268435456',  -- 256 MB
+  'write.target-file-size-bytes'           = '268435456',  -- 256 MB (tune per guidance above)
   'write.distribution-mode'                = 'hash',        -- curb thin-spread small files
   'commit.manifest.target-size-bytes'      = '8388608',
   'history.expire.max-snapshot-age-ms'     = '604800000',  -- 7 days
@@ -352,3 +397,57 @@ ALTER TABLE cat.db.tbl SET TBLPROPERTIES (
 -- Persisted sort order (writers cluster up front):
 ALTER TABLE cat.db.tbl WRITE ORDERED BY event_date, tenant_id;   -- Spark
 ```
+
+---
+
+## Access control for maintenance jobs
+
+Maintenance jobs need elevated but scoped permissions. Apply least-privilege
+principles:
+
+- **Required permissions:** write access to data files (compaction rewrites them),
+  delete access to old data/delete files and orphaned objects, and metadata-write
+  access (snapshot creation, manifest updates). Read-only permissions are
+  insufficient.
+- **`remove_orphan_files` is destructive** — it deletes files by path, and a
+  misconfigured `older_than` window can corrupt live tables. Require explicit
+  approval or a separate elevated role before running in production. Always
+  `dry_run` first.
+- **Path-based scoping:** grant the maintenance job identity (IAM role, service
+  account) write/delete access only to the specific S3 prefixes or GCS paths
+  for the tables it maintains. Never grant bucket-wide delete permissions.
+- **Catalog RBAC:** if using a modern catalog (Polaris, Nessie, Unity Catalog),
+  use its metadata-layer access control to restrict which tables a maintenance
+  role can call procedures on. Catalog-level RBAC is the preferred control plane
+  — storage permissions are a defense-in-depth layer, not the primary control.
+- **Separation of duties:** the maintenance identity should not have query or
+  data-write access beyond what maintenance requires. A job that can compact
+  tables should not also be able to read PII data or write to application tables.
+
+---
+
+## Maintenance failure patterns and alerting
+
+Common failure signatures and what they indicate:
+
+- **Repeated task failures with system exceptions** (e.g., "too many open files",
+  OOM, executor lost): usually signals that a partition is too large for the
+  executor configuration. Raise `max-file-group-size-bytes` or increase executor
+  memory; alternatively, scope the compaction to a narrower `WHERE` clause.
+- **Inconsistent task durations** (some compaction runs take 10x longer than
+  others): often caused by partition skew — one partition is vastly larger than
+  others. Profile with the `partitions` metadata table; use partition-targeted
+  `WHERE` clauses for the skewed partition.
+- **Monotonically increasing delete file counts** (no sawtooth pattern): if delete
+  file counts only ever grow and never drop after a compaction run, compaction
+  is not keeping up with ingestion, is misconfigured (e.g., wrong `where` clause
+  that excludes the hot partition), or is silently failing. A healthy compaction
+  cycle produces a sawtooth: counts rise between runs and drop after each
+  successful compaction. Flat or monotonically increasing counts mean the
+  maintenance job is not functioning as intended. (See also: sawtooth diagnostic
+  in metadata-tables.md.)
+- **Alert on:** (1) compaction job missing its schedule for N consecutive periods;
+  (2) delete file count not decreasing after a scheduled compaction run; (3)
+  total snapshot count exceeding 2× the configured `retain_last` (indicates
+  expiry is failing); (4) orphan file count growing faster than write rate
+  (indicates aborted writes are not being cleaned up).

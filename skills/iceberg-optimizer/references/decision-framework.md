@@ -223,6 +223,12 @@ Position deletes are a row-level seek per file and are far cheaper.
   supports it. Compaction semantics (`rewrite_data_files`) are the same; the
   output delete format is just more efficient. For current-generation deployments
   target v2; plan v3 as a follow-on upgrade once engine support is confirmed.
+- **Wide/nested tables and file sizing:** Tables with many columns (50+) or
+  deeply nested structures may need smaller target file sizes to avoid excessive
+  memory usage during query execution. Reduce `write.target-file-size-bytes` by
+  roughly 50% from whatever the baseline recommendation would be for the workload
+  type (e.g. 128 MB instead of 256 MB for mixed workloads). Wide schemas amplify
+  the per-file memory cost when query engines materialize full rows.
 
 ### Z. Do nothing / minimal
 - **When:** `lifecycle = cold` AND `query_frequency ∈ {rare, almost_never}` AND
