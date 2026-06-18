@@ -58,6 +58,12 @@ current_sort_order, current_partition_spec
 - **Gate:** `latency_req = interactive` AND `query_frequency ∈ {constant, regular}`.
 - **Pick key:** the most frequent filter column used in **range** predicates;
   add secondary columns hierarchically. Don't sort by the partition column.
+- **Wide/nested table note:** Tables with many columns (>100) or deeply nested
+  structs put more memory pressure during sort. Consider using a smaller
+  `target-file-size-bytes` (128–256 MB instead of 512 MB) to avoid executor
+  spill during compaction and to keep row groups below ~128 MB in the output
+  files — oversized row groups limit parallelism since row groups are not
+  splittable within a file.
 
 ### C. Z-order compaction (multi-dimensional)
 - **Trigger:** 2–4 high-cardinality columns appear in `WHERE` clauses in varying
@@ -77,6 +83,16 @@ current_sort_order, current_partition_spec
   (sub-second, zero downtime). Old data keeps its spec; optionally `rewrite-all`
   compact old partitions to migrate them. Skew on identity transform → switch to
   `bucket(N, col)`.
+- **Hidden partitioning note:** Iceberg's `bucket(N, col)` and `truncate(N, col)`
+  transforms are *hidden* — query engines pass plain predicates (e.g.,
+  `WHERE col = X`); Iceberg applies the transform invisibly for pruning. Writers
+  distribute rows by hash bucket, avoiding hotspots. Identity partitions expose
+  raw values and can cause skew on high-cardinality columns or uneven data
+  distributions. Prefer `bucket` transforms for update-heavy or high-cardinality
+  partition columns; use identity only for natural, low-cardinality dimensions
+  (e.g., date, region). Bucket count `N`: start at `ceil(table_size_gb / 1)` up to
+  ~1000; a good heuristic is that each bucket should hold 1–5 GB of data at steady
+  state. Too few buckets → skew; too many → metadata overhead.
 - **Rank override:** if `partition_prune_rate < 0.2` AND the dominant filter column
   is **not** in the current partition spec, promote D *above* B/C in ROI ranking.
   Partition evolution is a metadata-only operation (zero data rewrite) that
@@ -158,6 +174,14 @@ Position deletes are a row-level seek per file and are far cheaper.
   `write.target-file-size-bytes`, define a table sort order
   (`ALTER TABLE … WRITE ORDERED BY …`) so writers cluster up front and downstream
   compaction shrinks. Fixing ingestion beats perpetually compacting its output.
+- **Interaction with K (write-time sort order):** `distribution-mode = hash`
+  controls *which partition a row goes to* (prevents thin spread — rows for the
+  same sort key landing in different tasks). Write-time sort order (K) controls
+  *the order of rows within each file*. Apply J first (stop the thin spread) then
+  K (add the sort order). Both together produce well-sized, clustered files at
+  zero extra maintenance cost. Without `hash` distribution, a sort order may have
+  limited effect because rows destined for the same sort-key range are still spread
+  across many small files in different tasks.
 
 ### K. Write-time sort order (free clustering, no rewrite)
 - **Trigger:** `has_sort_order = false` AND top filter column is used in range
@@ -193,6 +217,12 @@ Position deletes are a row-level seek per file and are far cheaper.
 - **Rank:** Execute before E1/E2 in the plan. It is a prerequisite, not a
   performance action — list it as "Step 0" in any plan that involves delete-file
   compaction.
+- **V3 note:** Iceberg v3 replaces position delete files with **deletion vectors**
+  (compact per-file bitmaps). This reduces delete-file count, simplifies retention,
+  and lowers per-scan merge overhead. Upgrade from v2 to v3 when your engine
+  supports it. Compaction semantics (`rewrite_data_files`) are the same; the
+  output delete format is just more efficient. For current-generation deployments
+  target v2; plan v3 as a follow-on upgrade once engine support is confirmed.
 
 ### Z. Do nothing / minimal
 - **When:** `lifecycle = cold` AND `query_frequency ∈ {rare, almost_never}` AND

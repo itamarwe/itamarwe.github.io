@@ -10,6 +10,17 @@ orphans → rewrite manifests. Never remove orphans before expiring snapshots
 Must be run before any E1/E2 delete-file compaction on a v1 table.
 Metadata-only, instant, backwards-compatible.
 
+**Format version roadmap:** v1 → v2 → v3. V2 adds row-level deletes
+(position and equality delete files). V3 replaces position delete files with
+**deletion vectors** — compact bitmaps stored per data file that track which
+rows are deleted. Deletion vectors reduce per-scan overhead and simplify
+retention (fewer files to track), but require engine support (e.g., Amazon EMR
+with Iceberg v3 enabled). Upgrade to v3 only when your engines support it; the
+compaction procedure (`rewrite_data_files`) is the same, but the resulting
+delete format is more efficient. Until v3 is standard in your environment,
+target v2 and use `rewrite_position_delete_files` (see below) to manage
+position delete accumulation.
+
 ```sql
 -- Check current version
 SHOW TBLPROPERTIES db.tbl ('format-version');    -- Spark
@@ -114,6 +125,43 @@ CALL cat.system.remove_orphan_files(
 ```
 Default safety interval is 3 days. Shorter than the longest in-flight write can
 corrupt the table — never reduce it without certainty.
+
+### rewrite_position_delete_files (MOR-specific)
+
+Compacts and restructures position delete files without rewriting data files.
+Use when position delete files have accumulated (high `pos_delete_pressure`)
+but you want to reduce delete-file overhead without paying the full cost of a
+data-file rewrite. Also used for compliance: removes dangling position deletes
+that reference rows already removed by prior compaction.
+
+```sql
+-- Consolidate position delete files for a table (Spark)
+CALL cat.system.rewrite_position_delete_files(
+  table => 'db.tbl',
+  options => map(
+    'target-file-size-bytes', '67108864',   -- 64 MB for delete files
+    'partial-progress.enabled', 'true'
+  )
+);
+
+-- Target a specific partition (where clause supported)
+CALL cat.system.rewrite_position_delete_files(
+  table => 'db.tbl',
+  options => map('target-file-size-bytes', '67108864'),
+  where => 'event_date < current_date()'
+);
+```
+
+**Key distinction from `rewrite_data_files`:** `rewrite_data_files` rewrites
+data files and can absorb delete files during the process (when
+`remove-dangling-deletes: true`). `rewrite_position_delete_files` only
+rewrites delete files — cheaper but leaves data files untouched. Use it as a
+lightweight maintenance pass when delete file count is high but data files are
+already well-sized. For full physical removal of deleted rows (e.g., GDPR),
+`rewrite_data_files` is still required.
+
+**Trino:** No direct equivalent. Use `rewrite_data_files` (via Spark) or
+`EXECUTE optimize` (which merges deletes into data files as a side effect).
 
 ### rewrite_manifests
 
@@ -263,6 +311,28 @@ ALTER TABLE cat.db.tbl SET TBLPROPERTIES (
 ```
 
 ---
+
+## Engine selection for maintenance operations
+
+Choose the engine based on the operation and available infrastructure:
+
+| Operation | Use Spark | Use Trino | Notes |
+|---|---|---|---|
+| Bin-pack compaction | Yes | Yes | Trino is simpler; Spark supports more options (`partial-progress`, `rewrite-job-order`) |
+| Sort / z-order compaction | Yes | No | Trino does not expose sort strategies; must use Spark |
+| Expire snapshots | Yes | Yes | Both support this; Trino enforces catalog minimum retention floors |
+| Remove orphan files | Yes | Yes | Same note on minimum retention floors for Trino |
+| Rewrite manifests (consolidate) | Yes | Yes | Both support basic consolidation |
+| Rewrite manifests (cluster by partition) | Yes | No | `sort_by` option is Spark-only |
+| Rewrite position delete files | Yes | No | Spark-only procedure; Trino has no equivalent |
+| Format version upgrade | Yes | Yes | `ALTER TABLE SET TBLPROPERTIES` works in both |
+
+**Practical guidance:** Use Trino for lightweight, low-overhead maintenance
+(snapshot expiry, bin-pack, orphan cleanup) when a Spark cluster is not
+available or too costly to spin up. Use Spark for any operation requiring sort
+order, z-order, manifest clustering, or position delete file rewriting. In
+mixed environments, run Trino operations on a schedule and gate Spark
+operations on threshold triggers.
 
 ## Table properties worth setting
 
