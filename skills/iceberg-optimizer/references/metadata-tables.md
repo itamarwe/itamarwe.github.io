@@ -110,6 +110,31 @@ means equality deletes are accumulating — the scan cost compounds until compac
 If the deletion pattern is driven by compliance (GDPR), treat compaction + snapshot
 expiry as a compliance obligation, not a performance optimization.
 
+**Sawtooth pattern diagnostic:** In a healthy compaction cycle, delete file counts
+rise between compaction runs (as new deletes arrive) and drop sharply after each
+successful compaction run — a sawtooth wave over time. Query the snapshot summary
+keys over a window to check the shape:
+
+```sql
+SELECT
+  committed_at,
+  CAST(COALESCE(summary['total-delete-files'],'0') AS long) AS total_delete_files,
+  CAST(COALESCE(summary['total-equality-deletes'],'0') AS long) AS total_eq_deletes,
+  CAST(COALESCE(summary['total-position-deletes'],'0') AS long) AS total_pos_deletes,
+  operation
+FROM db.tbl.snapshots
+WHERE committed_at > now() - INTERVAL 7 DAYS
+ORDER BY committed_at;
+```
+
+If `total_delete_files` only grows and never drops, compaction is not keeping up
+or is silently failing. Look for: (1) `replace` operations (compaction commits)
+in the `operation` column — their absence means no compaction ran; (2) compaction
+commits that don't reduce the count — indicates the `where` clause excludes the
+partitions with the highest delete accumulation. A monotonically increasing trend
+without drops warrants immediate investigation of the compaction job's
+configuration and logs.
+
 ---
 
 ## `partitions` — partition-level health
