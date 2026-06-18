@@ -1,0 +1,23 @@
+{
+  "table": "prod.ops.customer_events",
+  "matched_query_count": 300,
+  "filter_columns": [
+    {
+      "column": "customer_id",
+      "count": 200,
+      "dominant": "equality"
+    },
+    {
+      "column": "updated_at",
+      "count": 100,
+      "dominant": "range"
+    }
+  ],
+  "equality_cols": ["customer_id"],
+  "range_cols": ["updated_at"],
+  "partition_prune_rate": 0.6,
+  "selectivity": {
+    "median_bytes_scanned": 21474836480
+  },
+  "parser": "sqlglot"
+}

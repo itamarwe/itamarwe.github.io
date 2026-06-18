@@ -1,0 +1,23 @@
+{
+  "table": "prod.streaming.flink_events",
+  "matched_query_count": 500,
+  "filter_columns": [
+    {
+      "column": "tenant_id",
+      "count": 400,
+      "dominant": "equality"
+    },
+    {
+      "column": "event_time",
+      "count": 350,
+      "dominant": "range"
+    }
+  ],
+  "equality_cols": ["tenant_id"],
+  "range_cols": ["event_time"],
+  "partition_prune_rate": 0.6,
+  "selectivity": {
+    "median_bytes_scanned": 53687091200
+  },
+  "parser": "spark-eventlog-regex"
+}

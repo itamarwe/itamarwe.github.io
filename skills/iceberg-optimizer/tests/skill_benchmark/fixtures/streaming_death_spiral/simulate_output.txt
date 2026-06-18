@@ -1,0 +1,14 @@
+queries/month = 1500   priority = query_latency
+
+SCENARIO COMPARISON (directional estimates, not a benchmark):
+
+scenario        scan GB/q     latency s    query $/mo    maint $/mo      storage $/mo  total $/mo
+--------------  ------------  -----------  ------------  --------------  ------------  ------------
+do_nothing      654.5         480.0        4776.9        0.0             70.32         4847.2
+light           550.0         400.0        4016.5        7.03            68.50         4091.9
+targeted_sort   150.0         120.0        1095.9        17.58           66.80         1180.2
+aggressive      80.0          60.0         584.5         52.73           65.30         702.5
+storage_min     600.0         450.0        4382.1        0.0             67.50         4449.6
+
+>>> Optimizing for 'query_latency': recommend 'aggressive' — EMERGENCY: fix write-time distribution FIRST, then emergency compaction.
+WARNING: This table is in a compaction death spiral. Compaction cannot keep up with ingest rate. Write-time fix (distribution-mode=hash, target-file-size-bytes=256MB) is required immediately to stop new small-file production.

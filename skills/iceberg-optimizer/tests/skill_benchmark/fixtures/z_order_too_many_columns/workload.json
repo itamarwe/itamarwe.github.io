@@ -1,0 +1,15 @@
+{
+  "table": "prod.analytics.events",
+  "matched_query_count": 800,
+  "filter_columns": [
+    {"column": "tenant_id", "count": 400, "dominant": "equality"},
+    {"column": "event_time", "count": 300, "dominant": "range"},
+    {"column": "region", "count": 50, "dominant": "equality"},
+    {"column": "product_id", "count": 30, "dominant": "equality"}
+  ],
+  "equality_cols": ["tenant_id", "region", "product_id"],
+  "range_cols": ["event_time"],
+  "partition_prune_rate": 0.4,
+  "selectivity": null,
+  "parser": "sqlglot"
+}

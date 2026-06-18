@@ -1,0 +1,73 @@
+{
+  "files": {
+    "data_files": 200,
+    "delete_files": 240,
+    "position_delete_files": 240,
+    "equality_delete_files": 0,
+    "data_records": 50000000,
+    "position_delete_records": 7500000,
+    "equality_delete_records": 0,
+    "delete_file_pct": 0.5455,
+    "eq_delete_pressure": 0.0,
+    "pos_delete_pressure": 0.15,
+    "avg_mb": 256.0,
+    "median_mb": 256.0,
+    "files_under_64mb": 0,
+    "files_under_64mb_pct": 0.0,
+    "total_gb": 50.0,
+    "target_mb": 256,
+    "needs_binpack": false
+  },
+  "snapshots": {
+    "snapshot_count": 350,
+    "operation_mix": {
+      "append": 50,
+      "merge": 280,
+      "replace": 20
+    },
+    "append_only_observed": false,
+    "write_cadence": {
+      "median_gap_sec": 600.0,
+      "class": "micro_batch"
+    },
+    "write_file_size": {
+      "avg_added_file_mb": 64.0,
+      "median_files_per_commit": 3.0,
+      "buffers_to_target": true
+    },
+    "partition_fanout": {
+      "median_partitions_per_commit": 2.0,
+      "thin_spread": false
+    },
+    "delete_pattern": {
+      "delete_commits": 280,
+      "added_delete_files_total": 240,
+      "added_equality_delete_records_total": 0,
+      "added_position_delete_records_total": 7500000,
+      "delete_rate_per_day": 3.2,
+      "total_equality_deletes_latest": null,
+      "total_position_deletes_latest": 7500000
+    },
+    "first_commit": "2024-01-01T00:00:00+00:00",
+    "last_commit": "2024-03-12T00:00:00+00:00"
+  },
+  "flags": {
+    "needs_binpack": false,
+    "delete_pressure": true,
+    "equality_delete_pressure": false,
+    "delete_accumulating": true,
+    "thin_spread": false,
+    "structural_small_files": false,
+    "mutated": true,
+    "manifest_bloat": false,
+    "mixed_specs": false,
+    "snapshot_bloat": false
+  },
+  "format_version": 2,
+  "has_sort_order": false,
+  "sort_order": null,
+  "partition_spec": ["customer_id_bucket(32)"],
+  "table_properties": {
+    "write.merge.mode": "merge-on-read"
+  }
+}

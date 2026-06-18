@@ -1,0 +1,13 @@
+{
+  "table": "prod.compliance.user_data",
+  "matched_query_count": 120,
+  "filter_columns": [
+    {"column": "user_id", "count": 100, "dominant": "equality"},
+    {"column": "deletion_date", "count": 20, "dominant": "range"}
+  ],
+  "equality_cols": ["user_id"],
+  "range_cols": ["deletion_date"],
+  "partition_prune_rate": 0.4,
+  "selectivity": null,
+  "parser": "sqlglot"
+}

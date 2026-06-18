@@ -1,0 +1,13 @@
+queries/month = 500   priority = query_latency
+
+SCENARIO COMPARISON (directional estimates, not a benchmark):
+
+scenario        scan GB/q     latency s    query $/mo    maint $/mo      storage $/mo  total $/mo
+--------------  ------------  -----------  ------------  --------------  ------------  ------------
+do_nothing      600.0         300.0        1463.4        0.0             45.00         1508.4
+light           540.0         270.0        1317.1        4.50            44.50         1366.1
+targeted_sort   160.0         80.0         390.2         11.25           43.80         445.3
+aggressive      100.0         50.0         243.9         33.75           43.20         320.8
+storage_min     570.0         285.0        1390.3        0.0             44.20         1434.5
+
+>>> Optimizing for 'query_latency': recommend 'targeted_sort' — but PRIMARY fix is reducing write.target-file-size-bytes to 128-256 MB. The 512 MB default causes memory pressure on this 250-column wide table.

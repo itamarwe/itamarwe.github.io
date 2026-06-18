@@ -1,0 +1,56 @@
+{
+  "files": {
+    "data_files": 80,
+    "delete_files": 80,
+    "position_delete_files": 0,
+    "equality_delete_files": 80,
+    "data_records": 50000000,
+    "position_delete_records": 0,
+    "equality_delete_records": 6000000,
+    "delete_file_pct": 0.5,
+    "eq_delete_pressure": 0.12,
+    "pos_delete_pressure": 0.0,
+    "avg_mb": 256.0,
+    "median_mb": 256.0,
+    "files_under_64mb": 0,
+    "files_under_64mb_pct": 0.0,
+    "total_gb": 20.0,
+    "target_mb": 256,
+    "needs_binpack": false
+  },
+  "snapshots": {
+    "snapshot_count": 3,
+    "operation_mix": {"append": 500, "delete": 12},
+    "append_only_observed": false,
+    "write_cadence": {"median_gap_sec": 86400.0, "class": "batch"},
+    "write_file_size": {"avg_added_file_mb": 256.0, "median_files_per_commit": 1.0, "buffers_to_target": true},
+    "partition_fanout": {"median_partitions_per_commit": 1.0, "thin_spread": false},
+    "delete_pattern": {"delete_commits": 12, "added_delete_files_total": 80, "added_equality_delete_records_total": 6000000, "added_position_delete_records_total": 0, "delete_rate_per_day": 200000.0, "total_equality_deletes_latest": 6000000, "total_position_deletes_latest": null},
+    "first_commit": "2024-02-01T00:00:00+00:00",
+    "last_commit": "2024-03-01T00:00:00+00:00"
+  },
+  "flags": {
+    "needs_binpack": false,
+    "delete_pressure": true,
+    "equality_delete_pressure": true,
+    "delete_accumulating": true,
+    "thin_spread": false,
+    "structural_small_files": false,
+    "mutated": true,
+    "manifest_bloat": false,
+    "mixed_specs": false,
+    "snapshot_bloat": false
+  },
+  "format_version": 2,
+  "has_sort_order": false,
+  "sort_order": null,
+  "partition_spec": ["month(deletion_date)"],
+  "maintenance_history": {
+    "last_snapshot_expiry": "2024-02-28T00:00:00+00:00",
+    "last_compaction": null,
+    "note": "Snapshots were expired aggressively (retain_last=1) BEFORE compaction ran. Equality delete files still present — physical removal incomplete."
+  },
+  "table_properties": {
+    "history.expire.min-snapshots-to-keep": "1"
+  }
+}
