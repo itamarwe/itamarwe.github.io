@@ -247,23 +247,86 @@ interview (it affects copy-on-write vs merge-on-read and compaction urgency).
 
 ---
 
-## `manifests` — metadata-layer health
+## `manifests` — metadata-layer health and planning efficiency
+
+Every Iceberg query plan works in two layers of pruning:
+1. **Manifest pruning** — the planner reads each manifest's `partition_summaries`
+   (per-field lower/upper bounds) and skips manifests whose bounds don't overlap
+   the query predicate. This is *before* any file is opened.
+2. **File pruning** — within surviving manifests, the planner skips files by their
+   per-file `lower_bounds`/`upper_bounds` (the sort-key effectiveness).
+
+If manifests are poorly clustered (each manifest contains a random mix of
+partitions), manifest pruning fires rarely and the planner must read *all*
+manifests to find qualifying files — even for a narrow partition filter.
+`rewrite_manifests(sort_by)` fixes this by clustering manifests so that each
+covers a contiguous range of a partition column; the planner can then skip
+entire manifests with a single bounds comparison.
 
 | Column | Use |
 |---|---|
-| `path`, `length` | manifest file size |
+| `path`, `length` | manifest file size; many small manifests increase planning I/O |
 | `partition_spec_id` | **detect mixed specs** after partition evolution |
 | `added_files_count` / `existing_files_count` / `deleted_files_count` | manifest churn |
 | `added_rows_count` / `existing_rows_count` / `deleted_rows_count` | row churn |
+| `partition_summaries` | array of per-field `{contains_null, contains_nan, lower_bound, upper_bound}` — the basis for manifest-level pruning; bounds are type-serialized binary, not directly human-readable in SQL |
+
+### Overall manifest health
 
 ```sql
-SELECT partition_spec_id, COUNT(*) AS manifests, SUM(existing_files_count) AS files
+SELECT
+  partition_spec_id,
+  COUNT(*)                                   AS manifests,
+  ROUND(AVG(length)/1048576, 2)              AS avg_manifest_mb,
+  SUM(added_files_count + existing_files_count) AS files_referenced
+FROM db.tbl.manifests
+GROUP BY partition_spec_id
+ORDER BY manifests DESC;
+```
+`COUNT(*) > 500` → `rewrite_manifests` / `optimize_manifests`. Multiple
+`partition_spec_id` values → old data still on the old partition layout; a
+`rewrite-all` compaction is needed to physically migrate it. Small `avg_manifest_mb`
+(< 1 MB) with many manifests → high planning I/O; consolidate.
+
+### Manifest clustering / scatter diagnostic
+
+A well-clustered manifest list means each manifest covers a narrow, contiguous
+partition range, so the planner can skip most manifests for a narrow filter. A
+scattered manifest list means each manifest contains a random mix of partitions;
+the planner cannot skip any of them.
+
+```sql
+-- Scatter proxy: how many manifests reference each distinct partition spec?
+-- A ratio of manifests >> distinct partition values suggests random ordering.
+SELECT
+  partition_spec_id,
+  COUNT(*)                                    AS manifest_count,
+  SUM(added_files_count + existing_files_count) AS total_files,
+  ROUND(SUM(length)/1048576, 1)              AS total_manifest_mb,
+  -- Average files per manifest: low value = many tiny manifests (bad for planning)
+  ROUND(
+    SUM(added_files_count + existing_files_count) / NULLIF(COUNT(*), 0), 1
+  )                                           AS avg_files_per_manifest
 FROM db.tbl.manifests
 GROUP BY partition_spec_id;
 ```
-`COUNT(*)` high (≳ 500) → `rewrite_manifests` / `optimize_manifests`. Multiple
-`partition_spec_id` values → old data still on the old partition layout; a
-`rewrite-all` compaction is needed to physically migrate it.
+
+**Interpretation:**
+- `avg_files_per_manifest < 100` with `manifest_count > 500` → many tiny manifests,
+  high planning I/O. `rewrite_manifests` consolidates them.
+- `manifest_count` is high but `partition_spec_id` is homogeneous → run
+  `rewrite_manifests(sort_by => array('<partition_col>'))` (Spark) to cluster
+  manifests by partition and restore skip efficiency.
+- Multiple `partition_spec_id` values → mixed spec; each query must consult
+  manifests from all specs. A `rewrite-all` compaction (or `rewrite_manifests`
+  covering all specs) normalises this.
+
+**Note on `partition_summaries` bounds:** The per-manifest lower/upper bounds
+in `partition_summaries` are type-serialized binary and cannot be decoded in plain
+SQL. To quantitatively measure manifest overlap (the true signal for clustering
+quality), you need the Iceberg Java/Python library or a custom Spark UDF that
+reads the bounds as Iceberg types. For the SQL-only diagnostic above, use
+`avg_files_per_manifest` and `manifest_count` as heuristic proxies.
 
 ---
 

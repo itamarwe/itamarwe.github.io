@@ -5,6 +5,44 @@ connector. **Always run in this order:** compact → expire snapshots → remove
 orphans → rewrite manifests. Never remove orphans before expiring snapshots
 (expiry dereferences files; orphan removal then deletes them).
 
+## Format-version upgrade (one-time prerequisite for delete workloads)
+
+Must be run before any E1/E2 delete-file compaction on a v1 table.
+Metadata-only, instant, backwards-compatible.
+
+```sql
+-- Check current version
+SHOW TBLPROPERTIES db.tbl ('format-version');    -- Spark
+SELECT * FROM catalog.db."tbl$properties"
+  WHERE key = 'format-version';                  -- Trino
+
+-- Upgrade to v2 (enables row-level deletes, merge-on-read, Puffin stats)
+ALTER TABLE cat.db.tbl SET TBLPROPERTIES ('format-version' = '2');
+```
+
+## Write-time sort order (free clustering — no rewrite)
+
+Set once; all future writes cluster by the sort key at zero extra maintenance cost.
+The table sort order persists in the table metadata and is respected by Spark and
+Trino writers.
+
+```sql
+-- Spark: persisted sort order (writers cluster up-front)
+ALTER TABLE cat.db.tbl WRITE ORDERED BY event_date ASC NULLS LAST, tenant_id ASC NULLS LAST;
+
+-- Trino: equivalent via table property
+ALTER TABLE cat.db.tbl SET PROPERTIES sorted_by = ARRAY['event_date', 'tenant_id'];
+
+-- Remove sort order (revert to unsorted writes)
+ALTER TABLE cat.db.tbl WRITE UNORDERED;  -- Spark
+```
+
+**When to use:** table has no sort order AND writers buffer to near-target file
+size (i.e. `avg_added_file_mb ≥ 64`). Writers that flush tiny files get little
+benefit — fix write-time buffering (Action J) first, then add sort order.
+
+---
+
 ---
 
 ## Spark (most complete)
@@ -79,12 +117,33 @@ corrupt the table — never reduce it without certainty.
 
 ### rewrite_manifests
 
+Two goals — pick per situation:
+
 ```sql
-CALL cat.system.rewrite_manifests(table => 'db.tbl');           -- consolidate
-CALL cat.system.rewrite_manifests(table => 'db.tbl', sort_by => array('event_date'));
+-- 1. Consolidate: merge many small manifests into fewer large ones
+--    (reduces planning I/O; run after high-frequency streaming commits)
+CALL cat.system.rewrite_manifests(table => 'db.tbl');
+
+-- 2. Cluster: reorder manifests so each covers a contiguous partition range
+--    (enables manifest-level pruning — the planner skips entire manifests
+--    for narrow partition filters without reading their file lists)
+CALL cat.system.rewrite_manifests(
+  table   => 'db.tbl',
+  sort_by => array('event_date')   -- the dominant partition / filter column
+);
 ```
-Cheap, concurrent with reads/writes. Output size via
-`commit.manifest.target-size-bytes`.
+
+Cheap, concurrent with reads/writes. Target manifest size via
+`commit.manifest.target-size-bytes` (default 8 MB).
+
+**When clustering matters:** after many streaming commits, each manifest
+contains a random mix of partition values (one file from partition_A, one from
+partition_B, etc.). A query for `event_date = '2025-01-01'` must read ALL
+manifests to find qualifying files because no manifest is exclusively
+`event_date = '2025-01-01'`. After `sort_by => array('event_date')`, manifests
+are ordered by `event_date` and the planner can skip most of them with a single
+bounds check. This reduces planning latency for all queries, independently of
+data skipping.
 
 ---
 
@@ -106,7 +165,9 @@ ALTER TABLE cat.db.tbl EXECUTE expire_snapshots(retention_threshold => '7d');
 -- Remove orphan files (>= iceberg.remove-orphan-files.min-retention, default 7d)
 ALTER TABLE cat.db.tbl EXECUTE remove_orphan_files(retention_threshold => '7d');
 
--- Rewrite/cluster manifests by top-level partition (Trino ~479+; PR #25378)
+-- Rewrite/consolidate manifests (Trino ~479+; PR #25378)
+-- Note: Trino's optimize_manifests consolidates but does NOT sort by partition.
+-- For manifest clustering (sort_by), use Spark's rewrite_manifests procedure.
 ALTER TABLE cat.db.tbl EXECUTE optimize_manifests;
 ```
 
@@ -116,11 +177,14 @@ writes clustered data: `ALTER TABLE cat.db.tbl SET PROPERTIES sorted_by = ARRAY[
 
 | Operation | Spark | Trino |
 |---|---|---|
-| Compact data | `CALL …rewrite_data_files(...)` | `ALTER TABLE t EXECUTE optimize(...)` |
-| Sort / z-order | `strategy => 'sort' / zorder(...)` | not available (use Spark) |
+| Format upgrade | `ALTER TABLE … SET TBLPROPERTIES ('format-version' = '2')` | same |
+| Write-time sort order | `ALTER TABLE … WRITE ORDERED BY col` | `ALTER TABLE … SET PROPERTIES sorted_by = ARRAY['col']` |
+| Compact data (bin-pack) | `CALL …rewrite_data_files(strategy=>'binpack',...)` | `ALTER TABLE t EXECUTE optimize(...)` |
+| Sort / z-order compaction | `strategy => 'sort' / zorder(...)` | not available (use Spark) |
 | Expire snapshots | `CALL …expire_snapshots(older_than => TIMESTAMP …)` | `EXECUTE expire_snapshots(retention_threshold => '7d')` |
 | Remove orphans | `CALL …remove_orphan_files(...)` | `EXECUTE remove_orphan_files(retention_threshold => '7d')` |
-| Rewrite manifests | `CALL …rewrite_manifests(...)` | `EXECUTE optimize_manifests` |
+| Rewrite manifests (consolidate) | `CALL …rewrite_manifests(...)` | `EXECUTE optimize_manifests` |
+| Rewrite manifests (cluster by partition) | `CALL …rewrite_manifests(sort_by => array('col'))` | not available (use Spark) |
 
 ---
 

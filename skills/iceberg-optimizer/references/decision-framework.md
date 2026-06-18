@@ -22,9 +22,11 @@ eq_delete_pressure        = equality_delete_records / data_records  # >0.05 = ur
 pos_delete_pressure       = position_delete_records / data_records
 delete_rate_per_day       = added_delete_files / observation_span_days
 partition_skew_ratio      = max_partition_rows / min_partition_rows
-snapshot_count, manifest_count, mixed_partition_specs (bool)
+snapshot_count, manifest_count, avg_files_per_manifest, mixed_partition_specs (bool)
 write_cadence_class, avg_added_file_mb, thin_spread (bool), late_data (bool)
 operation_mix
+format_version            = 1 or 2 (from table properties / DESCRIBE EXTENDED)
+has_sort_order            = bool (table has a persisted WRITE ORDERED BY / sorted_by)
 ```
 
 From the workload (`workload.json` + interview):
@@ -75,6 +77,11 @@ current_sort_order, current_partition_spec
   (sub-second, zero downtime). Old data keeps its spec; optionally `rewrite-all`
   compact old partitions to migrate them. Skew on identity transform → switch to
   `bucket(N, col)`.
+- **Rank override:** if `partition_prune_rate < 0.2` AND the dominant filter column
+  is **not** in the current partition spec, promote D *above* B/C in ROI ranking.
+  Partition evolution is a metadata-only operation (zero data rewrite) that
+  eliminates full-table scans permanently; sort/z-order is a full data rewrite
+  that only improves data skipping within a scan that still touches all partitions.
 
 ### E. Delete-file compaction
 
@@ -113,10 +120,25 @@ Position deletes are a row-level seek per file and are far cheaper.
 - **Always low-cost** (metadata-only) — include in almost every plan, but size
   the retention to intent.
 
-### G. Manifest rewrite
-- **Trigger:** `manifest_count > ~500` OR `mixed_partition_specs` OR many small
-  manifests from high commit frequency.
+### G. Manifest rewrite / clustering
+- **Trigger:** `manifest_count > ~500` OR `avg_files_per_manifest < 100` with
+  many manifests OR `mixed_partition_specs` OR manifest-level pruning is poor
+  (planner reads all manifests for narrow partition queries).
 - **Gate:** none meaningful — cheap, safe; include when triggered.
+- **Two goals — choose per situation:**
+  1. **Consolidation** (default): `rewrite_manifests(table => '...')` merges many
+     small manifests into fewer large ones → reduces planning I/O.
+  2. **Clustering** (when `partition_prune_rate` is poor despite partition match):
+     `rewrite_manifests(table => '...', sort_by => array('<partition_col>'))` (Spark)
+     reorders manifests so each covers a contiguous partition range → the planner
+     can skip entire manifests for narrow filters without reading their file lists.
+     Use this when the partition spec is correct but queries still read many
+     manifests (common after many small streaming commits scatter files across
+     manifests randomly). Trino `optimize_manifests` consolidates but does not
+     sort — use Spark for clustering.
+- **Planning cost proxy:** `manifest_count × avg_manifest_mb` is proportional to
+  planning I/O per query. Reducing either shrinks latency for all queries
+  regardless of data skipping.
 
 ### H. Orphan-file removal
 - **Trigger:** suspected failed writes / aborted jobs / external file ops.
@@ -137,6 +159,41 @@ Position deletes are a row-level seek per file and are far cheaper.
   (`ALTER TABLE … WRITE ORDERED BY …`) so writers cluster up front and downstream
   compaction shrinks. Fixing ingestion beats perpetually compacting its output.
 
+### K. Write-time sort order (free clustering, no rewrite)
+- **Trigger:** `has_sort_order = false` AND top filter column is used in range
+  predicates AND `avg_added_file_mb` is near-target (writer already buffers — so
+  adding a sort order will produce well-sized, sorted files at zero extra cost).
+- **Gate:** `write_cadence ∈ {batch, micro_batch}` — writers must buffer enough
+  rows to sort meaningfully. Streaming writers with tiny micro-batches benefit
+  less (sort within a 1 MB file has limited skip value).
+- **Action (Spark):** `ALTER TABLE cat.db.tbl WRITE ORDERED BY <col> [ASC|DESC] NULLS LAST`
+  — persisted as the table sort order; all future writes cluster by `<col>`.
+  **Action (Trino):** `ALTER TABLE cat.db.tbl SET PROPERTIES sorted_by = ARRAY['<col>']`
+- **Why this ranks above B (compaction sort) in many cases:** Compaction sort
+  rewrites existing data (full I/O cost, paid once or periodically). Write-time
+  sort order clusters *all new data for free* — no rewrite, no maintenance job.
+  The correct sequence is K first (stop writing unsorted data), then B once to
+  retroactively sort the existing backlog if selectivity justifies it.
+- **Does not help:** tables with late-arriving out-of-order data (`late_data =
+  true`) — sort order at write time only clusters data written in a single batch;
+  late files arriving into old partitions remain unsorted relative to what's
+  already there.
+
+### L. Format-version upgrade (one-time prerequisite)
+- **Trigger:** `format_version = 1` AND the table has or will have row-level
+  deletes (equality or position delete files), OR `mutability_outlook ∈
+  {updates, deletes, gdpr}`.
+- **Gate:** none — always upgrade before E1/E2 compaction or any merge-on-read
+  workload. V2 enables row-level deletes, merge-on-read, and Puffin statistics
+  (bloom filters, column-level NDV). V1 tables can have equality deletes *written*
+  by Spark but the format is technically non-compliant; upgrade to v2 first.
+- **Action:** `ALTER TABLE cat.db.tbl SET TBLPROPERTIES ('format-version' = '2')`
+  — metadata-only, instant, zero downtime, backwards-compatible (all existing
+  files remain valid).
+- **Rank:** Execute before E1/E2 in the plan. It is a prerequisite, not a
+  performance action — list it as "Step 0" in any plan that involves delete-file
+  compaction.
+
 ### Z. Do nothing / minimal
 - **When:** `lifecycle = cold` AND `query_frequency ∈ {rare, almost_never}` AND
   no delete-file pressure. Recommend at most periodic snapshot expiry for storage.
@@ -152,17 +209,27 @@ Position deletes are a row-level seek per file and are far cheaper.
 Order surviving candidates by expected benefit per unit cost, conditioned on
 `cost_priority`:
 
+0. **Format-version upgrade** (L) — one-time prerequisite; execute before any
+   delete-related action. Zero cost, zero downtime.
 1. **Equality delete compaction** (E1) — highest urgency: equality deletes penalize
    every scan regardless of which rows are actually queried. Compliance tables
    (GDPR) have no opt-out.
 2. **Position delete compaction** (E2) — high read win when position deletes
    accumulate, but lower urgency than equality deletes.
-3. **Sort / Z-order** (B/C) — when selective + frequently read.
-4. **Partition evolution** (D) — when pruning is poor.
-5. **Bin-pack** (A) — pure small-file latency/planning fix.
-6. **Write-time tuning** (J) — stops the bleeding; pairs with A.
-7. **Bloom filters** (I) — marginal outside frequent point lookups.
-8. **Metadata cleanup** (F/G/H) — low cost, almost always worth it; size to intent.
+3. **Write-time sort order** (K) — free clustering for all future writes; no
+   rewrite cost. Prefer over compaction sort (B) when the writer buffers well.
+   Exception: rank D above K when `partition_prune_rate < 0.2` and the dominant
+   filter column is not in the partition spec (see D rank override).
+4. **Partition evolution** (D) — when pruning is poor. Ranked above sort/z-order
+   when `partition_prune_rate < 0.2` and dominant filter column is not a partition
+   key (metadata-only fix that eliminates full scans; z-order only improves skipping
+   within a scan that already touches all partitions).
+5. **Sort / Z-order** (B/C) — when selective + frequently read + K alone is insufficient
+   (e.g. need to retroactively sort the existing backlog).
+6. **Bin-pack** (A) — pure small-file latency/planning fix.
+7. **Write-time tuning** (J) — stops the bleeding; pairs with A.
+8. **Bloom filters** (I) — marginal outside frequent point lookups.
+9. **Metadata cleanup** (F/G/H) — low cost, almost always worth it; size to intent.
    Note: for GDPR tables, F (snapshot expiry) moves to rank 1 alongside E1 — they
    must run together in sequence (compact first, then expire) to physically remove data.
 
@@ -177,19 +244,28 @@ proposes; the simulation decides.
 - **Streaming events, interactive dashboards, queried constantly, filter by
   `tenant_id` + `event_time`, no replay need:** E (if deletes) → C z-order
   `(tenant_id, event_time)` → A on cold partitions every 1–4 h → F aggressive
-  expiry (retain ~10) → J `distribution-mode=hash`.
+  expiry (retain ~10) → J `distribution-mode=hash` → G manifest clustering
+  (`sort_by tenant_id`) if manifest scatter is high.
 - **Daily batch fact table, BI queries by `date`, append-only, monthly reports:**
-  B sort by `date` after each load → F daily expiry (retain to reporting window)
-  → G after load. No streaming compaction.
+  K write-time sort order by `date` (free, applies to all new loads) → B sort
+  compaction once on existing backlog → F daily expiry (retain to reporting window)
+  → G after load.
 - **Cold archive, queried a few times a year:** Z do nothing except quarterly
   snapshot expiry for storage. No compaction, no sort — the scan is cheaper than
   the maintenance.
-- **GDPR table with user_id deletes, any query frequency:** E1 equality-delete
-  compaction → F snapshot expiry (≥ deletion date), in that order, on a schedule
-  that honors the 30-day regulatory clock. COW (`write.merge.mode = copy-on-write`)
-  considered if delete rate is high (eliminates delete-file accumulation entirely).
-  **State explicitly:** snapshot expiry is part of the compliance posture — retained
-  snapshots expose the deleted rows. Never size expiry to "nice to have" here.
+- **GDPR table with user_id deletes, any query frequency:** L upgrade to v2 (if
+  on v1) → E1 equality-delete compaction → F snapshot expiry (≥ deletion date),
+  in that order, on a schedule that honors the 30-day regulatory clock. COW
+  (`write.merge.mode = copy-on-write`) considered if delete rate is high (eliminates
+  delete-file accumulation entirely). **State explicitly:** snapshot expiry is part
+  of the compliance posture — retained snapshots expose the deleted rows.
 - **High-churn SCD/CDC table (position deletes, merge-on-read):** E2 position-delete
   compaction with `remove-dangling-deletes` → optionally switch to COW if write
-  throughput permits. Sort by the merge key if scans are selective on it.
+  throughput permits. K write-time sort by the merge key; B compaction sort on
+  the backlog if scans are selective.
+- **Partition-misalignment (partitioned by `event_date`, queried 98% by `tenant_id`,
+  `partition_prune_rate = 0.0`):** D partition evolution (add `bucket(N, tenant_id)`
+  as leading field — metadata-only, zero downtime) → G manifest clustering
+  (`sort_by tenant_id`) → K write-time sort by `tenant_id`. Z-order is a valid
+  but more expensive alternative if partition evolution is blocked (e.g. very large
+  table with no maintenance window for `rewrite-all`).
