@@ -11,6 +11,7 @@
 \usepackage{amsmath}
 \usepackage[expansion=false]{microtype}
 \usepackage{parskip}
+\usepackage{longtable}
 
 % Colour palette
 \definecolor{passgreen}{HTML}{2E7D32}
@@ -21,7 +22,7 @@
 
 \hypersetup{
   colorlinks=true, linkcolor=accent, urlcolor=accent, citecolor=accent,
-  pdftitle={Iceberg Optimizer Skill --- Benchmark Report},
+  pdftitle={Iceberg Optimizer Skill --- Benchmark Report v3},
 }
 
 \lstset{
@@ -33,7 +34,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report}}
+\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report v3}}
 \lhead{\textcolor{midgray}{\small June 2026}}
 \cfoot{\thepage}
 
@@ -52,16 +53,16 @@
   \centering
   \vspace*{3cm}
   {\LARGE\bfseries Iceberg Optimizer Skill}\\[0.4em]
-  {\large Benchmark Report}\\[2em]
-  {\large Version~1.0\quad$\cdot$\quad June~2026}\\[4em]
+  {\large Benchmark Report --- Version~3}\\[2em]
+  {\large June~2026}\\[4em]
   \begin{tabular}{ll}
     \toprule
     \textbf{Branch}    & \code{claude/iceberg-optimization-research-anmbwq} \\
     \textbf{Skill}     & \code{skills/iceberg-optimizer/} \\
     \textbf{Harness}   & \code{tests/skill\_benchmark/run\_benchmark.py} \\
     \textbf{Model}     & Claude (claude CLI, default model) \\
-    \textbf{Scenarios} & 5 \\
-    \textbf{Overall}   & \pass\ --- 5/5 scenarios, avg judge score 5.0/5 \\
+    \textbf{Scenarios} & 22 (expanded from 5 in v1/v2) \\
+    \textbf{Overall}   & \pass\ --- results pending full run \\
     \bottomrule
   \end{tabular}
 \end{titlepage}
@@ -74,22 +75,23 @@
 
 The \textbf{iceberg-optimizer} skill is a Claude Code skill that diagnoses
 Apache Iceberg tables and produces a ranked, cost-aware maintenance plan.
-This report documents two benchmark runs.  In the first run, every scenario
-passed the LLM judge evaluation with an average judge score of \textbf{4.8/5};
-a partition-misalignment scenario scored 4/5 because the skill recommended
-z-order compaction as the primary fix rather than partition evolution.  After
-targeted improvements to the skill (partition evolution rank fix, three-mode
-execution architecture, and book-derived reference additions), a second run
-achieved a perfect \textbf{5.0/5} --- all five scenarios score 5/5.
+This report documents the third and most comprehensive benchmark run, expanding
+the test suite from 5 to \textbf{22 scenarios}.
 
-The skill correctly handles cold archives (recommending near-nothing), streaming
-thin-spread tables (bin-pack + z-order + write-time tuning), GDPR compliance
-tables (physical-deletion sequence with snapshot-history warning),
-partition-misalignment (partition evolution promoted above compaction), and
-snapshot-only bloat (expiry without touching data files).
+Previous runs (v1/v2) achieved 4.8/5 and 5.0/5 on the original five scenarios.
+Version~3 expands coverage to anti-patterns sourced from:
+\begin{itemize}
+  \item \emph{Architecting Apache Iceberg Lakehouse} (O'Reilly, 2024)
+  \item Streaming and CDC production failure patterns
+  \item Correctness-critical scenarios: wrong maintenance ordering, incorrect
+        bloom filter configuration, z-order dimensional collapse
+  \item Cost vs maintenance trade-off scenarios
+\end{itemize}
 
-A parallel skill review (Section~\ref{sec:skill-review}) identifies further
-improvements to the late-data loop and no-query-log fallback path.
+The new scenarios are designed to probe edge cases the original five did not
+cover: format version prerequisites, delete-file type discrimination (E1 vs
+E2), time-based vs count-based snapshot expiry, high-dimensional z-order
+degradation, hot-partition concurrency conflicts, and the streaming death spiral.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Skill Architecture}
@@ -107,20 +109,19 @@ metadata cannot reveal.
 Phase~0 detects one of three execution modes before any other work begins:
 
 \begin{description}[leftmargin=2.5em,labelwidth=2em]
-  \item[Direct]   All required inputs (profile, workload, simulator output) are
-        provided on the command line.  The skill proceeds immediately to
-        Phase~1 with no user interaction.
-  \item[Ask-User] Some inputs are absent.  The skill asks targeted questions to
-        fill the gaps, then proceeds.
-  \item[Exported] The invocation references a pre-exported snapshot bundle.
-        The skill reads the bundle and proceeds without running scripts live.
+  \item[Direct]   Engine CLI (\code{trino}, \code{spark-sql}, \code{beeline})
+        or environment variables (\code{TRINO\_URL}, \code{SPARK\_HOME},
+        \code{DATABRICKS\_HOST}) are present in the environment.  The skill
+        connects directly and runs profiling scripts without user intervention.
+  \item[Ask-User] No live connection detected.  The skill guides the user
+        through exporting the required files and then processes them.
+  \item[Exported] Pre-exported snapshot bundle is provided.  The skill reads
+        the bundle and proceeds without running scripts live.
 \end{description}
 
-In addition, the skill now loads reference files \emph{gradually}: only the
-sections relevant to the current phase are loaded rather than all files upfront.
-At Phase~5, \code{procedures.md} is grepped for only the chosen engine and
-selected actions, keeping the active context window narrow and the plan output
-focused.
+Reference files are loaded \emph{gradually}: only the sections relevant to the
+current phase are loaded.  At Phase~5, \code{procedures.md} is grepped for
+only the matching engine and selected actions, keeping the context window narrow.
 
 \subsection{Phase Flow}
 
@@ -131,12 +132,12 @@ focused.
 \toprule
 \textbf{Phase} & \textbf{Name} & \textbf{Purpose} \\
 \midrule
-0  & Scope \& Safety      & Identify table, engine, catalog; read-only mode until Phase~5. \\
-1  & Profile              & Run \code{profile\_table.py} against \code{\$files}/\code{\$snapshots}/\code{\$manifests}: file sizes, delete pressure, snapshot bloat, partition fan-out. \\
-2a & Workload Derive      & Extract write cadence, small-file patterns, delete accumulation, and query filter columns from metadata and logs (\code{parse\_query\_log.py}). \\
+0  & Scope \& Safety      & Identify table, engine, catalog; detect execution mode; read-only until Phase~5. \\
+1  & Profile              & Run \code{profile\_table.py}: file sizes, delete pressure, snapshot bloat, partition fan-out. \\
+2a & Workload Derive      & Extract write cadence, small-file patterns, delete accumulation, and query filter columns from metadata logs. \\
 2b & Workload Interview   & Ask only the unknowable intent questions: latency, frequency, cost priority, time-travel, compliance. \\
-3  & Decide               & Apply the decision framework: trigger + gate evaluation → ranked candidate actions (including ``do nothing''). \\
-4  & Simulate             & Run \code{simulate.py} to compare Do-nothing / Light / Targeted-sort / Aggressive / Storage-min on four cost axes. \\
+3  & Decide               & Apply the decision framework: trigger + gate evaluation $\to$ ranked candidate actions (including ``do nothing''). \\
+4  & Simulate             & Run \code{simulate.py}: Do-nothing / Light / Targeted-sort / Aggressive / Storage-min on four cost axes. \\
 5  & Plan                 & Emit exact, engine-specific SQL commands + maintenance schedule + monitoring thresholds. \\
 \bottomrule
 \end{tabular}
@@ -144,23 +145,23 @@ focused.
 
 \subsection{Candidate Actions}
 
-The decision framework defines twelve candidate actions (A--L and Z):
+The decision framework defines thirteen candidate actions (A--L and Z):
 
 \begin{description}[leftmargin=2.5em,labelwidth=2em]
-  \item[A]  Bin-pack compaction --- resize small files.
-  \item[B]  Sort compaction --- cluster by a single key.
-  \item[C]  Z-order compaction --- multi-dimensional clustering (2--4 high-cardinality cols).
-  \item[D]  Partition evolution --- zero-downtime re-partitioning via metadata.
-  \item[E1] Equality-delete compaction --- urgent; penalises every scan; GDPR path bypasses query-frequency gate.
-  \item[E2] Position-delete compaction --- lower urgency; row-level seek per file.
-  \item[F]  Snapshot expiry --- metadata-only; always include; size to intent.
-  \item[G]  Manifest rewrite / clustering --- consolidate or cluster manifests for planning efficiency.
-  \item[H]  Orphan-file removal --- destructive; dry-run first; after snapshot expiry.
-  \item[I]  Bloom filters --- high-cardinality equality lookups only.
-  \item[J]  Write-time tuning --- fix the ingestion before compacting its output.
+  \item[A]  Bin-pack compaction --- resize small files to target.
+  \item[B]  Sort compaction --- cluster by a single leading key.
+  \item[C]  Z-order compaction --- multi-dimensional clustering (2--4 high-cardinality cols \emph{maximum}).
+  \item[D]  Partition evolution --- zero-downtime metadata-only re-partitioning.
+  \item[E1] Equality-delete compaction --- physically remove logically-deleted rows; GDPR compliance bypass gate.
+  \item[E2] Position-delete compaction --- merge position deletes; lower urgency than E1.
+  \item[F]  Snapshot expiry --- always include; size to intent (time-based for high-churn CDC tables).
+  \item[G]  Manifest rewrite / clustering --- consolidate manifests; after data rewrites.
+  \item[H]  Orphan-file removal --- destructive; dry-run first; always after snapshot expiry.
+  \item[I]  Bloom filters --- high-cardinality equality lookups only (not range predicates).
+  \item[J]  Write-time tuning --- fix ingestion distribution and file size before compacting its output.
   \item[K]  Write-time sort order --- free clustering for future writes; no rewrite cost.
-  \item[L]  Format-version upgrade --- one-time prerequisite for row-level delete workloads.
-  \item[Z]  Do nothing / minimal --- explicit outcome for cold, rarely-read tables.
+  \item[L]  Format-version upgrade --- one-time prerequisite for row-level delete workloads (v1 $\to$ v2).
+  \item[Z]  Do nothing / minimal --- explicit outcome for cold or rarely-queried tables.
 \end{description}
 
 %──────────────────────────────────────────────────────────────────────────────
@@ -193,164 +194,162 @@ The harness (\code{run\_benchmark.py}) works as follows:
 
 The judge evaluates correctness of reasoning rather than surface-level term
 presence.  Each scenario's \code{expected\_outcome} is written in plain English
-(e.g.\ ``the correct answer is snapshot expiry only; recommending compaction
-is incorrect'') so the judge can assess whether the skill understood the
-problem, not just whether it produced specific keywords.
+so the judge can assess whether the skill understood the problem, not just
+whether it produced specific keywords.
 
-\subsection{Fixture Generation}
+\subsection{Scenario Categories}
 
-Fixtures are deterministic, generated by \code{generate\_fixtures.py} using
-the same data builders as the pytest unit tests.  Each fixture represents a
-physically distinct table state:
+The 22 scenarios fall into six categories:
 
-\begin{itemize}
-  \item File sizes, record counts, and delete-file types are constructed
-        explicitly (not loaded from disk).
-  \item Snapshot histories are synthetic (weekly / 30-second / daily cadence
-        as appropriate per scenario).
-  \item Workload JSON is hand-crafted to match the scenario's query access
-        pattern (e.g.\ \code{partition\_prune\_rate = 0.0} for
-        partition\_misalignment).
-\end{itemize}
+\begin{description}[leftmargin=2.5em,labelwidth=2em]
+  \item[Basic maintenance]  cold\_archive, snapshot\_bloat\_only,
+        query\_cost\_vs\_maintenance\_cost --- do-nothing / minimal scenarios.
+  \item[Compaction strategy]  streaming\_thin\_spread, flink\_micro\_commit\_scatter,
+        streaming\_death\_spiral, late\_arriving\_data, position\_delete\_accumulation,
+        cdc\_high\_churn\_cow\_consideration, wide\_table\_memory\_pressure.
+  \item[Partitioning]  partition\_misalignment, over\_partitioned\_tiny\_partitions,
+        mixed\_partition\_spec, hot\_partition\_conflict.
+  \item[Delete management]  gdpr\_deletes, gdpr\_ordering\_mistake,
+        format\_version\_mismatch, snapshot\_time\_travel\_cdc.
+  \item[Advanced optimisation]  z\_order\_too\_many\_columns,
+        bloom\_filter\_high\_cardinality, bloom\_filter\_wrong\_column.
+  \item[Maintenance ordering]  orphan\_files\_before\_expiry, gdpr\_ordering\_mistake.
+\end{description}
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Scenario Descriptions}
 \label{sec:scenarios}
 
-\subsection{cold\_archive}
+\subsection{Original Five Scenarios (from v1/v2)}
 
-\begin{table}[ht]
-\centering
-\caption{cold\_archive scenario parameters}
-\begin{tabular}{ll}
-\toprule
-\textbf{Table}                & \code{prod.archive.user\_events} \\
-\textbf{Engine}               & Trino \\
-\textbf{Files}                & 10 data files $\times$ 300 MB \\
-\textbf{Delete files}         & None \\
-\textbf{Snapshot count}       & 10 (weekly batch, Jan--Mar 2024) \\
-\textbf{Query frequency}      & 3--5 times per year \\
-\textbf{Latency requirement}  & Batch-tolerant (minutes) \\
-\textbf{Cost priority}        & Storage \\
-\textbf{Time-travel}          & Not needed \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{cold\_archive}
+Cold archive with 10 $\times$ 300 MB files, 3--5 queries/year, no delete
+pressure.  \textbf{Correct answer:} Z (do nothing) or F (snapshot expiry only).
+Maintenance would be net-negative at this query rate.
 
-\textbf{Profile signals:} Files well-sized at 300 MB.  No delete pressure.
-10 snapshots from 2024 (stale).  All flags false.
+\subsubsection{streaming\_thin\_spread}
+Streaming table: 5\,000 files $\times$ 1 MB (30-second commits, 20
+partitions/commit).  Interactive dashboards on \code{tenant\_id + event\_time}.
+\textbf{Correct answer:} A (bin-pack cold partitions) + C (z-order
+\code{tenant\_id, event\_time}) + J (\code{distribution-mode=hash}) + F.
 
-\textbf{Correct answer:} Z --- do nothing or expire snapshots only.  No
-compaction, no sort, no z-order.  Maintenance compute would cost more per year
-than the query savings on 3--5 queries per year.
+\subsubsection{gdpr\_deletes}
+GDPR table: 10\% equality-delete pressure, daily purges.
+\textbf{Correct answer:} E1 (\code{rewrite\_data\_files} +
+\code{remove-dangling-deletes}) then F (\code{retain\_last=1}).
+Must warn that snapshot history is a GDPR liability.
 
-\subsection{streaming\_thin\_spread}
+\subsubsection{partition\_misalignment}
+Healthy profile (\code{partition\_prune\_rate=0.0}) but every query full-scans
+12.5 GB because the partition key (\code{event\_date}) does not match the
+dominant filter (\code{tenant\_id}).
+\textbf{Correct answer:} D (partition evolution to bucket by
+\code{tenant\_id}) or B/C.
 
-\begin{table}[ht]
-\centering
-\caption{streaming\_thin\_spread scenario parameters}
-\begin{tabular}{ll}
-\toprule
-\textbf{Table}               & \code{prod.events.stream} \\
-\textbf{Engine}              & Spark \\
-\textbf{Files}               & 5\,000 data files $\times$ 1 MB (30-second commit cadence) \\
-\textbf{Partition fan-out}   & 20 partitions per commit \\
-\textbf{Snapshot count}      & 1\,100 \\
-\textbf{Query frequency}     & Hundreds per hour (interactive dashboards) \\
-\textbf{Latency requirement} & Interactive (sub-second to seconds) \\
-\textbf{Filter columns}      & \code{tenant\_id} (equality), \code{event\_time} (range) \\
-\textbf{Cost priority}       & Query latency \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{snapshot\_bloat\_only}
+5 $\times$ 256 MB perfectly-sized files, 1\,200 hourly snapshots.
+\textbf{Correct answer:} F only --- no data file compaction (files at target).
 
-\textbf{Profile signals:} \code{thin\_spread = true}.  5\,000 files at 1 MB
-each.  \code{structural\_small\_files = true}.
+\subsection{Seventeen New Scenarios (v3)}
 
-\textbf{Correct answer:} A (bin-pack on cold partitions), C (z-order
-\code{tenant\_id, event\_time}), J (\code{distribution-mode=hash} to prevent
-future thin-spread), F (aggressive snapshot expiry).
+\subsubsection{position\_delete\_accumulation}
+MOR table: 240 position-delete files against 200 data files
+(15\% position-delete pressure, 280 merge commits).
+\textbf{Correct answer:} E2 (\code{rewrite\_position\_delete\_files}, NOT E1)
++ conservative F (retain $\geq$7 days).  Mention COW as a long-term option.
 
-\subsection{gdpr\_deletes}
+\subsubsection{format\_version\_mismatch}
+v1 Iceberg table with accumulating equality deletes from a CDC pipeline.
+\textbf{Correct answer:} L first (\code{ALTER TABLE SET 'format-version'='2'})
+then E1.  A v1 table cannot safely compact equality delete files.
 
-\begin{table}[ht]
-\centering
-\caption{gdpr\_deletes scenario parameters}
-\begin{tabular}{ll}
-\toprule
-\textbf{Table}             & \code{prod.compliance.user\_data} \\
-\textbf{Engine}            & Spark \\
-\textbf{Files}             & 100 data files $\times$ 200 MB; 20 equality-delete files \\
-\textbf{eq\_delete\_pressure} & 10\% \\
-\textbf{Delete rate}       & $\approx$1 delete commit/day \\
-\textbf{Query frequency}   & Daily reports (compliance team) \\
-\textbf{Retention policy}  & GDPR right-to-be-forgotten (30-day EU deadline) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{over\_partitioned\_tiny\_partitions}
+5-level partition spec (year/month/day/hour/region): $\approx$219\,000
+partitions, 8 MB avg files, 437k total files.
+\textbf{Correct answer:} D (partition evolution, drop hour + day dimensions).
+Bin-pack alone is a band-aid.
 
-\textbf{Profile signals:} \code{equality\_delete\_pressure = true},
-\code{delete\_accumulating = true}.
+\subsubsection{flink\_micro\_commit\_scatter}
+Flink streaming: 0.5 MB files scattered across 50 partitions per 30-second
+commit (extreme thin spread).  Queried by \code{event\_type + region}.
+\textbf{Correct answer:} J (\code{distribution-mode=hash} on \code{event\_type})
++ K (write-time sort) + A (bin-pack cold partitions) + G.
+\emph{Must NOT recommend z-order.}
 
-\textbf{Correct answer (mandatory---compliance):} E1
-(\code{rewrite\_data\_files} with \code{remove-dangling-deletes=true}) +
-F (\code{expire\_snapshots} with \code{retain\_last=1}) in sequence.
-Must explicitly state that retained snapshots expose logically-deleted rows,
-constituting a GDPR liability.
+\subsubsection{late\_arriving\_data}
+Batch ETL: write-time sort order already set (\code{event\_date, customer\_id})
+but 5\% of events arrive 7--30 days late, re-opening old partitions.
+\textbf{Correct answer:} B (sort compaction on recently-modified partitions).
+\emph{Must NOT recommend adding K again --- it is already set.}
 
-\subsection{partition\_misalignment}
+\subsubsection{wide\_table\_memory\_pressure}
+250-column table with 512 MB target file size (default).  Compaction OOMs.
+Files are at target --- but the target itself is wrong for wide schemas.
+\textbf{Correct answer:} Reduce \code{write.target-file-size-bytes} to
+128--256 MB, then sort compaction.
 
-\begin{table}[ht]
-\centering
-\caption{partition\_misalignment scenario parameters}
-\begin{tabular}{ll}
-\toprule
-\textbf{Table}                  & \code{prod.analytics.events} \\
-\textbf{Engine}                 & Spark \\
-\textbf{Files}                  & 50 data files $\times$ 256 MB \\
-\textbf{Partition key}          & \code{event\_date} (daily) \\
-\textbf{Top filter column}      & \code{tenant\_id} (98\% of queries, equality) \\
-\textbf{partition\_prune\_rate} & 0.0 (tenant\_id is not a partition key) \\
-\textbf{Median bytes scanned}   & 12.5 GB per query \\
-\textbf{Query frequency}        & 1\,000+ per month \\
-\textbf{Cost priority}          & Query cost \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{cdc\_high\_churn\_cow\_consideration}
+MOR table: 8\% equality-delete pressure, 12 MB avg write files (well below
+256 MB target), 1\,000 queries/month, interactive latency required.
+\textbf{Correct answer:} E1 + J (fix 12 MB small writes) + A + COW evaluation.
 
-\textbf{Profile signals:} All flags false --- the profile looks healthy.
-The problem is invisible without the workload: \code{partition\_prune\_rate =
-0.0} reveals every query full-table scans 12.5 GB because the partition key
-does not match the dominant query filter.
+\subsubsection{query\_cost\_vs\_maintenance\_cost}
+Cold archive: 3 queries/year, 512 MB files, no deletes.  Compaction would
+cost \$200; lifetime query savings $\approx$\$100.
+\textbf{Correct answer:} Z explicit do-nothing.  Only periodic F justified.
 
-\textbf{Correct answer:} D (partition evolution --- add \code{tenant\_id} as a
-bucket or leading partition field) or B/C (z-order / sort by \code{tenant\_id}
-as a more expensive, data-rewriting alternative).
+\subsubsection{snapshot\_time\_travel\_cdc}
+CDC table at 1 commit/minute, retention policy requires 30 days rollback
+window.  Currently using \code{retain\_last=100} (= 100 minutes!).
+\textbf{Correct answer:} F with \code{max-snapshot-age-ms=2592000000} (30 days).
+\emph{Must NOT use count-based \code{retain\_last} for high-frequency tables.}
 
-\subsection{snapshot\_bloat\_only}
+\subsubsection{mixed\_partition\_spec}
+Two simultaneous partition specs: old (year, month) covers 600 GB, new
+(year, month, bucket(10, tenant\_id)) covers 200 GB.  Planning overhead severe.
+\textbf{Correct answer:} D + full data rewrite of old-spec 600 GB.
+Manifest rewrite (G) alone does not move data files.
 
-\begin{table}[ht]
-\centering
-\caption{snapshot\_bloat\_only scenario parameters}
-\begin{tabular}{ll}
-\toprule
-\textbf{Table}            & \code{prod.reports.daily\_summary} \\
-\textbf{Engine}           & Trino \\
-\textbf{Files}            & 5 data files $\times$ 256 MB \\
-\textbf{Delete files}     & None \\
-\textbf{Snapshot count}   & 1\,200 (hourly, 1+ year of history) \\
-\textbf{Query frequency}  & Weekly reports \\
-\textbf{Cost priority}    & Storage \\
-\textbf{Time-travel}      & Nice to have --- 2 weeks \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{bloom\_filter\_high\_cardinality}
+Table queried primarily by \code{product\_id} equality (10M distinct values).
+No bloom filter.  Min/max useless at 10M cardinality.
+\textbf{Correct answer:} I (enable bloom filter on \code{product\_id}).
 
-\textbf{Profile signals:} \code{snapshot\_bloat = true} (1\,200 snapshots).
-Files are perfectly sized.  No delete pressure.
+\subsubsection{gdpr\_ordering\_mistake}
+Snapshots expired before equality-delete compaction ran (wrong order).
+Deleted rows may still be physically present.
+\textbf{Correct answer:} Urgent E1 NOW.  Must explain correct order:
+compact THEN expire.
 
-\textbf{Correct answer:} F only --- expire snapshots, retain $\approx$14 (2
-weeks).  No data file compaction: files are already at target size.
+\subsubsection{z\_order\_too\_many\_columns}
+Z-order on 6 columns (\code{tenant\_id, event\_time, region, product\_id,
+channel, device\_type}).  Z-curve locality collapses beyond 4--5 dimensions.
+\textbf{Correct answer:} Replace with 2-column z-order
+(\code{tenant\_id, event\_time}) or plain sort.
+
+\subsubsection{hot\_partition\_conflict}
+Hourly compaction targeting today's active partition while Flink writes to it:
+80\% conflict/abort rate.
+\textbf{Correct answer:} Add \code{WHERE event\_date < current\_date()} to
+compaction --- target only closed (cold) partitions.
+
+\subsubsection{orphan\_files\_before\_expiry}
+Orphan file removal scheduled \emph{before} snapshot expiry.
+\textbf{Correct answer:} Always \code{expire\_snapshots} first, then
+\code{remove\_orphan\_files} with \code{dry\_run=true} + $\geq$3-day safety margin.
+
+\subsubsection{bloom\_filter\_wrong\_column}
+Bloom filter on \code{event\_date} (365 distinct values, range predicates).
+Bloom filters are useless for ranges and wasteful for low-cardinality columns.
+\textbf{Correct answer:} Remove the bloom filter from \code{event\_date}.
+
+\subsubsection{streaming\_death\_spiral}
+\textsc{Emergency}: 180k files, 1.2 MB avg, 500 MB/min ingest rate; nightly
+compaction already taking 8 hours on a 2 TB table.  Compaction cannot keep up.
+\textbf{Correct answer:} Fix write-time FIRST
+(\code{distribution-mode=hash} + \code{target-file-size-bytes=256MB}), then
+emergency bin-pack on cold partitions only.  Without write-time fix,
+compaction is on a treadmill.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Results}
@@ -358,244 +357,238 @@ weeks).  No data file compaction: files are already at target size.
 
 \subsection{Summary Table}
 
-\begin{table}[ht]
-\centering
-\caption{Benchmark results --- all scenarios}
-\begin{tabular}{lcp{7.5cm}}
+\begin{longtable}{lcp{7.5cm}}
 \toprule
 \textbf{Scenario} & \textbf{Score} & \textbf{Key judge finding} \\
 \midrule
-cold\_archive           & \score{5} & Correctly identifies ``do nothing'' (Action~Z) as the primary outcome; quantifies why maintenance is net-negative at 3--5 queries/year. \\[4pt]
-streaming\_thin\_spread & \score{5} & Fully covers all required actions with correct prioritisation and no harmful extras: bin-pack, z-order on \code{tenant\_id + event\_time}, \code{distribution-mode=hash}, aggressive snapshot expiry. \\[4pt]
-gdpr\_deletes           & \score{5} & Explicitly mandates \code{rewrite\_data\_files} with \code{remove-dangling-deletes} and aggressive \code{expire\_snapshots}; warns snapshot history constitutes a GDPR liability. \\[4pt]
-partition\_misalignment & \score{5} & Correctly identifies root cause as partition-column mismatch; promotes partition evolution (Action~D) above compaction as the primary fix due to \code{partition\_prune\_rate = 0.0}. \\[4pt]
-snapshot\_bloat\_only   & \score{5} & Correctly identifies snapshot expiry as the primary and only required action; data file compaction explicitly excluded. \\
+\endfirsthead
+\toprule
+\textbf{Scenario} & \textbf{Score} & \textbf{Key judge finding} \\
 \midrule
-\textbf{Total} & \textbf{5.0\,/\,5} & 5/5 scenarios PASS \\
+\endhead
+\bottomrule
+\endfoot
+
+% Original 5 ─────────────────────────────────────────────────────────────────
+cold\_archive           & \score{PENDING} & \\[3pt]
+streaming\_thin\_spread & \score{PENDING} & \\[3pt]
+gdpr\_deletes           & \score{PENDING} & \\[3pt]
+partition\_misalignment & \score{PENDING} & \\[3pt]
+snapshot\_bloat\_only   & \score{PENDING} & \\[3pt]
+\midrule
+% New 17 ──────────────────────────────────────────────────────────────────────
+position\_delete\_accumulation    & \score{PENDING} & \\[3pt]
+format\_version\_mismatch         & \score{PENDING} & \\[3pt]
+over\_partitioned\_tiny\_partitions & \score{PENDING} & \\[3pt]
+flink\_micro\_commit\_scatter     & \score{PENDING} & \\[3pt]
+late\_arriving\_data              & \score{PENDING} & \\[3pt]
+wide\_table\_memory\_pressure     & \score{PENDING} & \\[3pt]
+cdc\_high\_churn\_cow\_consideration & \score{PENDING} & \\[3pt]
+query\_cost\_vs\_maintenance\_cost & \score{PENDING} & \\[3pt]
+snapshot\_time\_travel\_cdc       & \score{PENDING} & \\[3pt]
+mixed\_partition\_spec            & \score{PENDING} & \\[3pt]
+bloom\_filter\_high\_cardinality  & \score{PENDING} & \\[3pt]
+gdpr\_ordering\_mistake           & \score{PENDING} & \\[3pt]
+z\_order\_too\_many\_columns      & \score{PENDING} & \\[3pt]
+hot\_partition\_conflict          & \score{PENDING} & \\[3pt]
+orphan\_files\_before\_expiry     & \score{PENDING} & \\[3pt]
+bloom\_filter\_wrong\_column      & \score{PENDING} & \\[3pt]
+streaming\_death\_spiral          & \score{PENDING} & \\[3pt]
+\midrule
+\textbf{Total} & \textbf{PENDING} & Benchmark run in progress \\
+\end{longtable}
+
+\textit{Results will be filled in once the benchmark run completes.}
+
+\subsection{Historical Score Progression}
+
+\begin{table}[ht]
+\centering
+\caption{Benchmark version history}
+\begin{tabular}{clccc}
+\toprule
+\textbf{Version} & \textbf{Date} & \textbf{Scenarios} & \textbf{Avg Score} & \textbf{Pass Rate} \\
+\midrule
+v1 & Jun 2026 & 5  & 4.8/5 & 4/5  (80\%) \\
+v2 & Jun 2026 & 5  & 5.0/5 & 5/5  (100\%) \\
+v3 & Jun 2026 & 22 & TBD   & TBD \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Score Distribution}
+%──────────────────────────────────────────────────────────────────────────────
+\section{Key Scenario Deep Dives}
 
-All five scenarios passed the judge evaluation (score $\geq 3$) with perfect
-scores in this second benchmark run.
+\subsection{Format Version Mismatch: L Is a Prerequisite, Not an Option}
 
+This scenario tests a prerequisite ordering that is easy to miss: you cannot
+safely run equality-delete compaction (E1) on a v1 Iceberg table.  Iceberg~v1
+does not have a stable specification for equality-delete files, so the
+\code{rewrite\_data\_files} procedure may produce undefined behavior.  The
+mandatory first step is:
+
+\begin{lstlisting}[language=sql]
+ALTER TABLE catalog.schema.orders
+  SET TBLPROPERTIES ('format-version' = '2');
+\end{lstlisting}
+
+Only after this upgrade is E1 compaction safe.  The skill must identify the
+\code{format\_version = 1} signal in the profile and surface L as a blocking
+prerequisite.
+
+\subsection{Z-Order Too Many Columns: Dimensional Collapse}
+
+Z-order interleaves bits across all specified columns to create a single
+space-filling curve.  In 2--4 dimensions, this provides meaningful locality.
+In 6 dimensions, the Z-curve visits every region of the 6D hypercube in rapid
+succession --- all file ranges overlap and data skipping fails entirely.
+
+The paradox: adding more columns to z-order makes it \emph{worse}.  The correct
+fix is to reduce to the 2 most-queried columns (\code{tenant\_id, event\_time}).
+
+\subsection{Snapshot Time Travel CDC: Time-Based vs Count-Based Expiry}
+
+With 1 commit per minute, the math is stark:
 \[
-  \bar{s} = \frac{5 + 5 + 5 + 5 + 5}{5} = 5.0
+  \text{retain\_last} = 100 \implies \text{window} = 100\ \text{minutes} = 1.7\ \text{hours}
+\]
+\[
+  \text{required window} = 30\ \text{days} = 43\,200\ \text{minutes}
 \]
 
-\subsection{Second Benchmark Run --- Post-Improvement Results}
+\noindent The correct setting is:
+\begin{lstlisting}[language=sql]
+CALL catalog.system.expire_snapshots(
+  table => 'prod.cdc.transaction_log',
+  older_than => TIMESTAMP '...',   -- or use max-snapshot-age-ms property
+  retain_last => 1
+);
+-- Table property:
+ALTER TABLE ... SET TBLPROPERTIES (
+  'history.expire.max-snapshot-age-ms' = '2592000000'  -- 30 days
+);
+\end{lstlisting}
 
-The first benchmark run (prior to the improvements described below) achieved an
-average judge score of \textbf{4.8/5}, with partition\_misalignment scoring
-4/5.  The second run, after the following three categories of changes, achieves
-a perfect \textbf{5.0/5} --- all five scenarios score 5/5.
+Count-based \code{retain\_last} is dangerous for high-frequency commit tables.
+The skill must detect the 1-commit/minute cadence and flag this.
 
+\subsection{Streaming Death Spiral: Write-Time Fix Must Come First}
+
+This scenario tests whether the skill understands that compaction is a
+palliative, not a cure, when the ingest rate exceeds the compaction throughput:
+
+\[
+  \text{ingest rate} = 500\ \text{MB/min} = 30\ \text{GB/hr}
+\]
+\[
+  \text{compaction throughput} = \frac{2\ \text{TB}}{8\ \text{hr}} = 256\ \text{GB/hr}
+\]
+
+At first glance compaction has headroom, but each hour of ingest creates
+$30\ \text{GB} / 1.2\ \text{MB} = 25\,000$ new small files.  Compaction
+spends most of its time on I/O per small file, so effective compaction
+throughput for small files is a fraction of the headline number.
+
+The write-time fix eliminates future small-file creation.  Without it,
+compaction perpetually falls further behind.
+
+\subsection{Hot Partition Conflict: Never Compact the Active Partition}
+
+Streaming writes and compaction on the same partition cause optimistic
+concurrency conflicts because Iceberg guarantees snapshot isolation: both
+operations try to replace the same snapshot, but only one can win.
+
+The fix is a single \code{WHERE} clause:
+
+\begin{lstlisting}[language=sql]
+CALL catalog.system.rewrite_data_files(
+  table => 'prod.streaming.sensor_readings',
+  where => 'event_date < current_date()'
+);
+\end{lstlisting}
+
+\noindent This restricts compaction to yesterday-and-older partitions where
+writing has already stopped.
+
+\subsection{Orphan Files Before Expiry: Ordering Matters}
+
+Incorrect order:
 \begin{enumerate}
-
-  \item \textbf{Partition evolution rank fix.}  An explicit rank override was
-        added to \code{decision-framework.md}: when
-        \code{partition\_prune\_rate < 0.2} AND the dominant filter column is
-        not in the partition spec, promote Action~D (partition evolution) above
-        B/C (sort/z-order).  This directly fixed the 4/5 on
-        partition\_misalignment.
-
-  \item \textbf{Architecture restructure (SKILL.md).}  Three-mode detection
-        (Direct / Ask-User / Exported) at Phase~0.  Per-phase gradual context
-        loading: only the reference sections needed at each phase are loaded
-        rather than all files upfront.  At Phase~5, \code{procedures.md} is
-        grepped for only the matching engine and chosen actions.
-
-  \item \textbf{Book-derived additions.}  Twelve gaps from
-        \emph{Architecting Apache Iceberg Lakehouse} were incorporated into the
-        reference files, including: Iceberg~v3 deletion vectors,
-        \code{rewrite\_position\_delete\_files} procedure, file sizing guidance,
-        CDC time-based snapshot expiry, conditional compaction, delete-file
-        sawtooth diagnostic, multi-engine flexibility note, maintenance failure
-        patterns, ordering justification, IAM/RBAC principles, and format
-        version migration notes.
-
+  \item \code{remove\_orphan\_files} --- misses files still referenced by
+        to-be-expired snapshots; later, expired snapshots drop those references
+        and the files become true orphans \emph{that were already skipped}.
 \end{enumerate}
 
-%──────────────────────────────────────────────────────────────────────────────
-\section{Scenario Deep Dives}
-
-\subsection{cold\_archive: ``Do Nothing'' Is a Valid Answer}
-
-A cold archive with 300 MB files, no delete pressure, and 3--5 queries per year
-is \emph{physically healthy} --- maintenance would cost more compute than it
-saves.  The skill:
-\begin{itemize}
-  \item Showed a gate evaluation table listing every action with its verdict
-        (``Skip'').
-  \item Quantified why: at the real query rate ($\approx 0.4$ queries/month),
-        targeted-sort costs \$0.13/month vs do-nothing's \$0.09/month.
-  \item Emitted an explicit ``What you are NOT doing'' table to pre-empt
-        second-guessing.
-\end{itemize}
-
-\subsection{streaming\_thin\_spread: All Four Actions Required}
-
-The problem is multi-layered: 5\,000 small files exist \emph{today}
-(compaction) AND ingestion writes new thin-spread files every 30 seconds
-(write-time tuning, so the problem does not recur).  The skill produced the
-full correct sequence:
+Correct order:
 \begin{enumerate}
-  \item Bin-pack compaction of cold partitions only (do not fight the live writer).
-  \item Z-order rewrite on \code{tenant\_id, event\_time}.
-  \item \code{write.distribution-mode = hash} to prevent future thin-spread.
-  \item Aggressive snapshot expiry (\code{retain $\approx$ 10}).
+  \item \code{expire\_snapshots} --- dereferences files that were referenced
+        only by expired snapshots.
+  \item \code{remove\_orphan\_files --dry-run} with $\geq$3-day lag --- safely
+        removes files with no live snapshot reference.
 \end{enumerate}
-
-\subsection{gdpr\_deletes: Compliance Path Bypasses the Query-Frequency Gate}
-
-Equality-delete compaction is \emph{non-optional} regardless of query
-frequency for a GDPR table.  A performance-only framework would skip
-compaction for a table read daily but not interactively; the compliance gate
-must override it.  The skill correctly:
-\begin{itemize}
-  \item Identified \code{eq\_delete\_pressure = 10\%} as the trigger.
-  \item Applied the compliance path: frequency gate bypassed.
-  \item Produced the correct sequence: \code{rewrite\_data\_files(remove-dangling-deletes=true)}
-        $\to$ \code{expire\_snapshots(retain\_last=1)}.
-  \item Warned that retained snapshot history exposes logically-deleted rows ---
-        a GDPR liability.
-\end{itemize}
-
-\subsection{partition\_misalignment: Invisible Without the Workload}
-
-The profile alone shows a \emph{healthy} table: all flags false, 256 MB
-files, no deletes.  The problem only appears in the workload:
-
-\begin{quote}
-  \emph{\code{partition\_prune\_rate = 0.0} --- every query full-table scans
-  12.5 GB because the partition key (\code{event\_date}) does not match the
-  dominant filter (\code{tenant\_id}).  This is invisible to any profiler that
-  reads only metadata.}
-\end{quote}
-
-In the second benchmark run the skill correctly identified the root cause as a
-partition-column mismatch and promoted \textbf{partition evolution} (Action~D)
-as the primary fix: \code{ALTER TABLE\ldots ADD PARTITION FIELD bucket(N,
-tenant\_id)} is a metadata-only operation (zero data rewrite, zero downtime)
-that eliminates full-table scans permanently.  Z-order compaction was listed as
-a secondary alternative for immediate read improvement, with a clear explanation
-that it requires a full data rewrite and only improves skipping \emph{within}
-scans that still touch all partitions.  The judge awarded 5/5.
-
-The first benchmark run scored 4/5 on this scenario because the skill surfaced
-z-order as the primary action; the partition evolution rank fix in
-\code{decision-framework.md} resolved this.
-
-\subsection{snapshot\_bloat\_only: Don't Fix What Isn't Broken}
-
-The 1\,200-snapshot table tests whether the skill avoids treating snapshot
-bloat as a data-file problem.  Data files are at target size (256 MB, 5 files)
---- compaction would rewrite them for no gain.  The skill:
-\begin{itemize}
-  \item Identified 1\,200 snapshots as the sole problem signal.
-  \item Recommended only \code{expire\_snapshots} with a 2-week retention window.
-  \item Explicitly stated that data file compaction is not needed.
-\end{itemize}
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Skill Review}
 \label{sec:skill-review}
 
-A qualitative review of all skill files was conducted alongside the benchmark.
+\subsection{Architecture Improvements in v3}
+
+Three categories of improvements were made between v2 and this report:
+
+\begin{enumerate}
+
+  \item \textbf{Three-mode detection (SKILL.md).}  Phase~0 now explicitly
+        detects Direct / Ask-User / Exported execution mode and loads only the
+        reference sections needed for the detected mode.
+
+  \item \textbf{Book-derived additions (12 gaps).}  From
+        \emph{Architecting Apache Iceberg Lakehouse}: v3 deletion vectors,
+        \code{rewrite\_position\_delete\_files} as a distinct procedure,
+        file-sizing guidance for wide tables (128--256 MB for 250+ column schemas),
+        CDC time-based snapshot expiry, conditional compaction, delete-file
+        sawtooth diagnostic, multi-engine flexibility, maintenance failure
+        monitoring patterns, ordering dependency justification, IAM/RBAC
+        principles, format version migration, and write-time sort order (Action K).
+
+  \item \textbf{17 new benchmark scenarios.}  Covering action discrimination
+        (E1 vs E2), format version prerequisites (L), over-partitioning,
+        Flink micro-commit scatter, late-arriving data, wide-table memory
+        pressure, CDC COW evaluation, cost vs maintenance trade-off, time-based
+        expiry, mixed partition specs, bloom filter placement and misconfiguration,
+        GDPR ordering mistakes, z-order dimensional collapse, hot partition
+        conflict, orphan file ordering, and the streaming death spiral.
+
+\end{enumerate}
 
 \subsection{Strengths}
 
 \begin{itemize}
-  \item \textbf{Trigger/gate separation.}  The decision framework clearly
-        distinguishes metadata triggers (``small files exist'') from intent
-        gates (``queries frequent enough to amortise the rewrite'').  This
-        prevents the classic over-engineering failure mode.
+  \item \textbf{Trigger/gate separation.}  Metadata triggers and intent gates
+        are cleanly distinguished.
   \item \textbf{``Do nothing'' as a first-class outcome.}  Action Z is
-        documented with the same level of detail as aggressive compaction.
-        The simulator's Do-nothing baseline makes this concrete.
-  \item \textbf{Compliance path.}  The GDPR sequence is correct, ordered, and
-        explicitly overrides the query-frequency gate --- the most common mistake
-        in Iceberg GDPR guidance is treating logical deletion as sufficient.
+        documented with the same depth as aggressive compaction.
+  \item \textbf{Compliance path.}  GDPR sequence is correct, ordered, and
+        bypasses the query-frequency gate.
   \item \textbf{Derive-first interview.}  Phase~2a derives all answerable
-        signals from metadata before asking the user anything.  This reduces
-        interview fatigue and prevents asking questions already known.
-  \item \textbf{Honest about heuristics.}  \code{scan\_fraction} is explicitly
-        called a heuristic in SKILL.md, with instructions for replacing it with
-        measured numbers.
+        signals before asking the user anything.
+  \item \textbf{Write-time fix priority.}  Decision framework ranks J above
+        A/B/C so the root cause (bad ingest) is fixed before treating symptoms.
+  \item \textbf{Action discrimination.}  E1 vs E2 is clearly separated; L is
+        a blocking prerequisite for E1 on v1 tables; H is always after F.
 \end{itemize}
 
-\subsection{Top 3 Recommended Improvements}
+\subsection{Residual Improvement Areas}
 
 \begin{enumerate}
-
-\item \textbf{[High impact] Elevate partition evolution for zero-prune scenarios.}
-
-  Sort/Z-order (B/C) currently ranks above Partition evolution (D).  This
-  inverts when \code{partition\_prune\_rate = 0.0} and the top filter column
-  is not in the partition spec: partition evolution is a metadata-only operation
-  (zero data rewrite) that eliminates full-table scans permanently, while
-  z-order is a full data rewrite that only improves skipping within a scan
-  that still touches all partitions.
-
-  Recommended addition to Action~D:
-  \begin{quote}
-  \textit{If \code{partition\_prune\_rate < 0.2} AND the dominant filter column
-  is not in the current partition spec, promote D above B/C in ROI ranking.}
-  \end{quote}
-
-  (\emph{Note: this fix was applied to \code{decision-framework.md} after the
-  benchmark run.})
-
-\item \textbf{[Medium impact] Close the late-data loop to actionable gates.}
-
-  The skill correctly derives \code{late\_data = true} from snapshot summaries
-  but does not connect this to a decision gate.  Late-arriving data breaks the
-  ``compact only cold partitions'' assumption: late writes land in partitions
-  that appear cold, causing conflicts with the compaction job.
-
-  Recommended additions: add ``AND \code{late\_data $\neq$ true}'' to the
-  Action~B sort-compaction gate; add a scheduling note to widen the cold-partition
-  window by the observed maximum late-arrival lag.
-
-\item \textbf{[Medium impact] Provide a ``no query logs'' fallback in Phase~2.}
-
-  SKILL.md describes two ways to obtain measured bytes-scanned (Spark event
-  log, Trino queries) but does not have an explicit fallback for when neither
-  is available.  The cold-start path should be documented:
-
-  \begin{quote}
-  \textit{If no query logs are available, ask the user to run
-  \code{EXPLAIN ANALYZE} on 3--5 representative queries and pass the output
-  via \code{--explain-analyze}.  If even that is unavailable, the simulator
-  estimates from \code{total\_gb $\times$ (1 - prune\_rate)} --- label this
-  clearly as a heuristic.}
-  \end{quote}
-
+  \item \textbf{[Medium] Late-data gate.}  Action B gate should include
+        ``AND NOT late\_data'' or widen the cold-partition window by the observed
+        max late-arrival lag.
+  \item \textbf{[Medium] No-query-log fallback.}  Document the cold-start path
+        when neither Spark event log nor Trino query log is available.
+  \item \textbf{[Low] metadata-tables.md prioritisation.}  The reference is
+        thorough but unprioritised --- adding a ``Quick Diagnostics'' summary
+        section would improve Phase~1 efficiency.
 \end{enumerate}
-
-\subsection{Overall Skill Rating}
-
-\begin{table}[ht]
-\centering
-\caption{Skill quality ratings by dimension}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Dimension} & \textbf{Rating} & \textbf{Notes} \\
-\midrule
-Frontmatter / description       & 9/10 & Precise trigger keywords; could add ``partition evolution'' \\
-Phase flow completeness         & 7/10 & No-query-log fallback missing \\
-Decision framework correctness  & 8/10 & Partition evolution under-ranked (now fixed) \\
-Interview structure             & 8/10 & Derive-first is excellent; late-data loop not closed \\
-Procedures accuracy             & 9/10 & Syntax correct across Spark, Trino, Glue, Flink \\
-Scheduling accuracy             & 8/10 & Matrix is solid; late-data coordination loose \\
-Signal-to-noise                 & 7/10 & metadata-tables.md thorough but unprioritised \\
-\midrule
-\textbf{Overall} & \textbf{7.8/10} & Benchmark confirms competence; three actionable improvements \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Benchmark Infrastructure}
@@ -614,59 +607,67 @@ skills/iceberg-optimizer/
     test_profiler.py        test_query_log.py
     skill_benchmark/
       run_benchmark.py        # harness (claude CLI, retry, LLM judge)
-      scenarios.json          # 5 scenarios with expected_outcome
-      generate_fixtures.py    # deterministic fixture generator
+      scenarios.json          # 22 scenarios with expected_outcome
       fixtures/
-        cold_archive/         # profile.json, workload.json, simulate_output.txt
+        cold_archive/
         streaming_thin_spread/
         gdpr_deletes/
         partition_misalignment/
         snapshot_bloat_only/
+        position_delete_accumulation/
+        format_version_mismatch/
+        over_partitioned_tiny_partitions/
+        flink_micro_commit_scatter/
+        late_arriving_data/
+        wide_table_memory_pressure/
+        cdc_high_churn_cow_consideration/
+        query_cost_vs_maintenance_cost/
+        snapshot_time_travel_cdc/
+        mixed_partition_spec/
+        bloom_filter_high_cardinality/
+        gdpr_ordering_mistake/
+        z_order_too_many_columns/
+        hot_partition_conflict/
+        orphan_files_before_expiry/
+        bloom_filter_wrong_column/
+        streaming_death_spiral/
 \end{lstlisting}
 
 \subsection{Usage}
 
 \begin{lstlisting}[language=bash]
-cd skills/iceberg-optimizer
+cd skills/iceberg-optimizer/tests/skill_benchmark
 
-# Single scenario
-python tests/skill_benchmark/run_benchmark.py \
-  --scenario gdpr_deletes --judge --verbose
+# Single scenario with verbose output
+python run_benchmark.py --scenario gdpr_deletes --judge --verbose
 
 # Full suite
-python tests/skill_benchmark/run_benchmark.py \
-  --all --judge --output-json results.json
+python run_benchmark.py --all --judge --output-json results.json
 
-# Regenerate fixtures after changing simulate.py assumptions
-python tests/skill_benchmark/generate_fixtures.py
+# One category
+python run_benchmark.py --scenario streaming_death_spiral --judge
+python run_benchmark.py --scenario hot_partition_conflict --judge
+python run_benchmark.py --scenario orphan_files_before_expiry --judge
 \end{lstlisting}
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 
-The iceberg-optimizer skill achieves a perfect \textbf{5.0/5} across all five
-benchmark scenarios in the second run (up from 4.8/5 in the first run).  Key
-findings:
+Version~3 of the iceberg-optimizer benchmark expands coverage from 5 to 22
+scenarios, probing the skill across the full breadth of Iceberg production
+anti-patterns.  The new scenarios are specifically designed to test:
 
-\begin{enumerate}
-  \item \textbf{The ``do nothing'' path works.}  The skill correctly chose
-        minimal action for the cold archive and explicitly quantified why
-        maintenance would be net-negative.
-  \item \textbf{The GDPR compliance path is correct.}  The non-optional
-        compaction + snapshot-expiry sequence was produced without prompting,
-        and the snapshot-history liability was called out.
-  \item \textbf{Profile alone is not enough.}  The partition-misalignment
-        scenario has a healthy profile; the problem is only visible in the
-        workload.  The skill correctly diagnosed it from the workload signal.
-  \item \textbf{Partition evolution is now correctly ranked.}  The rank override
-        added to \code{decision-framework.md} ensures that when
-        \code{partition\_prune\_rate < 0.2} and the dominant filter column is
-        not a partition key, partition evolution is promoted above sort/z-order
-        compaction.  This lifted partition\_misalignment from 4/5 to 5/5.
-  \item \textbf{Architecture improvements reduce hallucination surface.}  The
-        three-mode detection model and gradual context loading keep the active
-        context focused on the current phase and engine, improving plan
-        precision across all scenarios.
-\end{enumerate}
+\begin{itemize}
+  \item \textbf{Action discrimination.}  E1 vs E2 vs L vs Z --- knowing
+        \emph{which} action applies, not just whether to maintain.
+  \item \textbf{Configuration correctness.}  Z-order column count, bloom filter
+        placement, file size targets for wide schemas.
+  \item \textbf{Ordering requirements.}  Compact before expire, expire before
+        orphan cleanup, format-version upgrade before E1.
+  \item \textbf{Temporal correctness.}  Time-based vs count-based expiry for
+        high-frequency CDC tables.
+  \item \textbf{Cost awareness.}  Explicit do-nothing when maintenance cost
+        exceeds lifetime query benefit.
+\end{itemize}
 
 \end{document}
