@@ -61,7 +61,7 @@
     \textbf{Harness}   & \code{tests/skill\_benchmark/run\_benchmark.py} \\
     \textbf{Model}     & Claude (claude CLI, default model) \\
     \textbf{Scenarios} & 5 \\
-    \textbf{Overall}   & \pass\ --- 5/5 scenarios, avg judge score 4.8/5 \\
+    \textbf{Overall}   & \pass\ --- 5/5 scenarios, avg judge score 5.0/5 \\
     \bottomrule
   \end{tabular}
 \end{titlepage}
@@ -74,18 +74,22 @@
 
 The \textbf{iceberg-optimizer} skill is a Claude Code skill that diagnoses
 Apache Iceberg tables and produces a ranked, cost-aware maintenance plan.
-This report documents the skill-level benchmark: every scenario passed the LLM
-judge evaluation, with an average judge score of \textbf{4.8/5}.  The skill
-correctly handled cold archives (recommending near-nothing), streaming
-thin-spread tables (recommending bin-pack + z-order + write-time tuning),
-GDPR compliance tables (correctly prescribing the physical-deletion sequence),
-and snapshot-only bloat (recommending expiry without touching data files).
-A partition-misalignment scenario scored 4/5 rather than 5/5 because the skill
-recommended z-order compaction as the primary fix rather than partition
-evolution --- a higher-impact, zero-rewrite alternative.
+This report documents two benchmark runs.  In the first run, every scenario
+passed the LLM judge evaluation with an average judge score of \textbf{4.8/5};
+a partition-misalignment scenario scored 4/5 because the skill recommended
+z-order compaction as the primary fix rather than partition evolution.  After
+targeted improvements to the skill (partition evolution rank fix, three-mode
+execution architecture, and book-derived reference additions), a second run
+achieved a perfect \textbf{5.0/5} --- all five scenarios score 5/5.
 
-A parallel skill review (Section~\ref{sec:skill-review}) identifies three
-improvements that would likely lift all scenarios to 5/5.
+The skill correctly handles cold archives (recommending near-nothing), streaming
+thin-spread tables (bin-pack + z-order + write-time tuning), GDPR compliance
+tables (physical-deletion sequence with snapshot-history warning),
+partition-misalignment (partition evolution promoted above compaction), and
+snapshot-only bloat (expiry without touching data files).
+
+A parallel skill review (Section~\ref{sec:skill-review}) identifies further
+improvements to the late-data loop and no-query-log fallback path.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Skill Architecture}
@@ -97,6 +101,26 @@ The skill follows one governing rule:
 recommend.}  It reads everything it can from table metadata and query logs
 before asking the user a single question, then only asks about intent that
 metadata cannot reveal.
+
+\subsection{Three-Mode Execution Model}
+
+Phase~0 detects one of three execution modes before any other work begins:
+
+\begin{description}[leftmargin=2.5em,labelwidth=2em]
+  \item[Direct]   All required inputs (profile, workload, simulator output) are
+        provided on the command line.  The skill proceeds immediately to
+        Phase~1 with no user interaction.
+  \item[Ask-User] Some inputs are absent.  The skill asks targeted questions to
+        fill the gaps, then proceeds.
+  \item[Exported] The invocation references a pre-exported snapshot bundle.
+        The skill reads the bundle and proceeds without running scripts live.
+\end{description}
+
+In addition, the skill now loads reference files \emph{gradually}: only the
+sections relevant to the current phase are loaded rather than all files upfront.
+At Phase~5, \code{procedures.md} is grepped for only the chosen engine and
+selected actions, keeping the active context window narrow and the plan output
+focused.
 
 \subsection{Phase Flow}
 
@@ -341,29 +365,58 @@ weeks).  No data file compaction: files are already at target size.
 \toprule
 \textbf{Scenario} & \textbf{Score} & \textbf{Key judge finding} \\
 \midrule
-cold\_archive           & \score{5} & Correctly skips all compaction; recommends snapshot expiry only; explicitly quantifies why maintenance is net-negative at 3--5 queries/year. \\[4pt]
-streaming\_thin\_spread & \score{5} & All four required actions present: bin-pack, z-order on \code{tenant\_id + event\_time}, \code{distribution-mode=hash}, aggressive snapshot expiry. \\[4pt]
-gdpr\_deletes           & \score{5} & \code{rewrite\_data\_files + remove-dangling-deletes + expire\_snapshots} in correct order; explicitly warns that retained snapshots constitute a GDPR liability. \\[4pt]
-partition\_misalignment & \score{4} & Correctly identifies \code{tenant\_id} as the key column; recommends z-order. Minor gap: partition evolution (zero-rewrite, stronger fix) not surfaced as the primary action despite \code{partition\_prune\_rate = 0.0}. \\[4pt]
-snapshot\_bloat\_only   & \score{5} & \code{expire\_snapshots} is the sole recommendation; explicitly states data files are already well-sized and compaction is not needed. \\
+cold\_archive           & \score{5} & Correctly identifies ``do nothing'' (Action~Z) as the primary outcome; quantifies why maintenance is net-negative at 3--5 queries/year. \\[4pt]
+streaming\_thin\_spread & \score{5} & Fully covers all required actions with correct prioritisation and no harmful extras: bin-pack, z-order on \code{tenant\_id + event\_time}, \code{distribution-mode=hash}, aggressive snapshot expiry. \\[4pt]
+gdpr\_deletes           & \score{5} & Explicitly mandates \code{rewrite\_data\_files} with \code{remove-dangling-deletes} and aggressive \code{expire\_snapshots}; warns snapshot history constitutes a GDPR liability. \\[4pt]
+partition\_misalignment & \score{5} & Correctly identifies root cause as partition-column mismatch; promotes partition evolution (Action~D) above compaction as the primary fix due to \code{partition\_prune\_rate = 0.0}. \\[4pt]
+snapshot\_bloat\_only   & \score{5} & Correctly identifies snapshot expiry as the primary and only required action; data file compaction explicitly excluded. \\
 \midrule
-\textbf{Total} & \textbf{4.8\,/\,5} & 5/5 scenarios PASS \\
+\textbf{Total} & \textbf{5.0\,/\,5} & 5/5 scenarios PASS \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Score Distribution}
 
-All five scenarios passed the judge evaluation (score $\geq 3$).  Four
-scenarios achieved a perfect 5/5.  The single 4/5 is a nuanced miss on
-partition\_misalignment: the skill identified the correct underlying problem
-(\code{partition\_prune\_rate = 0.0}, \code{tenant\_id} dominant filter) but
-recommended z-order compaction as the primary fix rather than the stronger
-partition evolution.
+All five scenarios passed the judge evaluation (score $\geq 3$) with perfect
+scores in this second benchmark run.
 
 \[
-  \bar{s} = \frac{5 + 5 + 5 + 4 + 5}{5} = 4.8
+  \bar{s} = \frac{5 + 5 + 5 + 5 + 5}{5} = 5.0
 \]
+
+\subsection{Second Benchmark Run --- Post-Improvement Results}
+
+The first benchmark run (prior to the improvements described below) achieved an
+average judge score of \textbf{4.8/5}, with partition\_misalignment scoring
+4/5.  The second run, after the following three categories of changes, achieves
+a perfect \textbf{5.0/5} --- all five scenarios score 5/5.
+
+\begin{enumerate}
+
+  \item \textbf{Partition evolution rank fix.}  An explicit rank override was
+        added to \code{decision-framework.md}: when
+        \code{partition\_prune\_rate < 0.2} AND the dominant filter column is
+        not in the partition spec, promote Action~D (partition evolution) above
+        B/C (sort/z-order).  This directly fixed the 4/5 on
+        partition\_misalignment.
+
+  \item \textbf{Architecture restructure (SKILL.md).}  Three-mode detection
+        (Direct / Ask-User / Exported) at Phase~0.  Per-phase gradual context
+        loading: only the reference sections needed at each phase are loaded
+        rather than all files upfront.  At Phase~5, \code{procedures.md} is
+        grepped for only the matching engine and chosen actions.
+
+  \item \textbf{Book-derived additions.}  Twelve gaps from
+        \emph{Architecting Apache Iceberg Lakehouse} were incorporated into the
+        reference files, including: Iceberg~v3 deletion vectors,
+        \code{rewrite\_position\_delete\_files} procedure, file sizing guidance,
+        CDC time-based snapshot expiry, conditional compaction, delete-file
+        sawtooth diagnostic, multi-engine flexibility note, maintenance failure
+        patterns, ordering justification, IAM/RBAC principles, and format
+        version migration notes.
+
+\end{enumerate}
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Scenario Deep Dives}
@@ -422,14 +475,18 @@ files, no deletes.  The problem only appears in the workload:
   reads only metadata.}
 \end{quote}
 
-The skill correctly identified \code{tenant\_id} as the key column and
-recommended z-order compaction.  The 4/5 score reflects the judge's finding
-that \textbf{partition evolution} is the stronger primary fix:
-\code{ALTER TABLE\ldots ADD PARTITION FIELD bucket(N, tenant\_id)} is a
-metadata-only operation (zero data rewrite, zero downtime) that eliminates
-full-table scans permanently.  Z-order compaction is correct but requires a
-full data rewrite and only improves data \emph{skipping} within scans that
-still touch all partitions.
+In the second benchmark run the skill correctly identified the root cause as a
+partition-column mismatch and promoted \textbf{partition evolution} (Action~D)
+as the primary fix: \code{ALTER TABLE\ldots ADD PARTITION FIELD bucket(N,
+tenant\_id)} is a metadata-only operation (zero data rewrite, zero downtime)
+that eliminates full-table scans permanently.  Z-order compaction was listed as
+a secondary alternative for immediate read improvement, with a clear explanation
+that it requires a full data rewrite and only improves skipping \emph{within}
+scans that still touch all partitions.  The judge awarded 5/5.
+
+The first benchmark run scored 4/5 on this scenario because the skill surfaced
+z-order as the primary action; the partition evolution rank fix in
+\code{decision-framework.md} resolved this.
 
 \subsection{snapshot\_bloat\_only: Don't Fix What Isn't Broken}
 
@@ -587,8 +644,9 @@ python tests/skill_benchmark/generate_fixtures.py
 %──────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 
-The iceberg-optimizer skill passes all five benchmark scenarios with an average
-LLM judge score of 4.8/5.  Key findings:
+The iceberg-optimizer skill achieves a perfect \textbf{5.0/5} across all five
+benchmark scenarios in the second run (up from 4.8/5 in the first run).  Key
+findings:
 
 \begin{enumerate}
   \item \textbf{The ``do nothing'' path works.}  The skill correctly chose
@@ -600,11 +658,15 @@ LLM judge score of 4.8/5.  Key findings:
   \item \textbf{Profile alone is not enough.}  The partition-misalignment
         scenario has a healthy profile; the problem is only visible in the
         workload.  The skill correctly diagnosed it from the workload signal.
-  \item \textbf{One concrete improvement found.}  Partition evolution should be
-        elevated above z-order when \code{partition\_prune\_rate = 0.0} and the
-        dominant filter column is not a partition key.  This fix has been applied
-        to \code{decision-framework.md}; re-running the benchmark is expected to
-        push partition\_misalignment to 5/5.
+  \item \textbf{Partition evolution is now correctly ranked.}  The rank override
+        added to \code{decision-framework.md} ensures that when
+        \code{partition\_prune\_rate < 0.2} and the dominant filter column is
+        not a partition key, partition evolution is promoted above sort/z-order
+        compaction.  This lifted partition\_misalignment from 4/5 to 5/5.
+  \item \textbf{Architecture improvements reduce hallucination surface.}  The
+        three-mode detection model and gradual context loading keep the active
+        context focused on the current phase and engine, improving plan
+        precision across all scenarios.
 \end{enumerate}
 
 \end{document}
