@@ -34,10 +34,10 @@ SCENARIOS_FILE = Path(__file__).parent / "scenarios.json"
 CLAUDE_CLI = "claude"
 
 
-BASELINE_SYSTEM = """You are an expert Apache Iceberg data engineer and DBA.
-You will be given Apache Iceberg table profiling data, query workload data, and
-a cost simulation, plus the user's stated priorities.
-Provide specific, actionable maintenance recommendations."""
+BASELINE_SYSTEM = """You are an expert Apache Iceberg data engineer.
+You will be given raw table metadata (from DESCRIBE EXTENDED and metadata tables)
+and context about how the table is used. Analyze the data and provide specific,
+actionable optimization recommendations with SQL commands."""
 
 
 # ── Context loading ───────────────────────────────────────────────────────────
@@ -59,6 +59,47 @@ def load_skill_context() -> str:
 
 
 # ── Message building ──────────────────────────────────────────────────────────
+
+def build_baseline_message(scenario: dict) -> str:
+    """Build a minimal message: raw profile + interview answers only.
+
+    Omits workload.json (query filter analysis) and simulate_output.txt (cost
+    projections) — those are produced by harness scripts that the skill knows
+    how to invoke and interpret. The baseline agent must reason from raw metadata
+    and the user's stated priorities alone.
+    """
+    sid = scenario["id"]
+    fixture = FIXTURE_DIR / sid
+
+    profile = json.loads((fixture / "profile.json").read_text())
+    answers = scenario.get("interview_answers", {})
+    engine = scenario.get("engine", "Spark")
+    table = scenario.get("table", "catalog.schema.table")
+
+    answer_lines = "\n".join(
+        f"- **{k.replace('_', ' ').title()}**: {v}"
+        for k, v in answers.items()
+    )
+
+    return f"""I need your help optimizing an Apache Iceberg table.
+
+**Table**: `{table}`
+**Engine**: {engine}
+
+Here is the current table state from metadata queries:
+
+```json
+{json.dumps(profile, indent=2)}
+```
+
+Here is context about how this table is used:
+
+{answer_lines}
+
+Please analyze the table state and provide specific optimization recommendations
+with SQL commands and a maintenance schedule.
+"""
+
 
 def build_scenario_message(scenario: dict) -> str:
     """Build the single-turn user message for a scenario."""
@@ -265,8 +306,12 @@ def run_scenario(scenario: dict, skill_context: str,
     print(f"  {scenario['description'][:80]}...")
     print(f"{'─' * 60}")
 
-    user_msg = build_scenario_message(scenario)
-    context = BASELINE_SYSTEM if no_skill else skill_context
+    if no_skill:
+        user_msg = build_baseline_message(scenario)
+        context = BASELINE_SYSTEM
+    else:
+        user_msg = build_scenario_message(scenario)
+        context = skill_context
 
     print("  Calling Claude...", end="", flush=True)
     output = call_claude(context, user_msg)
