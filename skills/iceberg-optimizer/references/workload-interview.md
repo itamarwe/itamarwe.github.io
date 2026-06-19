@@ -10,7 +10,29 @@ them to confirm/correct. **(A)** = ask; metadata cannot know it.
 
 ---
 
-## Part 1 — Ingestion semantics (mostly D)
+## Part 1a — Ingestion pipeline identification (D then confirm)
+
+These questions identify the *writer* so Group 2 actions can be targeted
+correctly. Derive from the signal combinations in SKILL.md Phase 2a, then
+confirm with the user before prescribing a fix.
+
+| Question | How to derive | Confirm/ask |
+|---|---|---|
+| **Writer type** (Flink / Spark SS / Spark batch / Kafka Connect / CDC / unknown) | `write_cadence` + `avg_added_file_mb` + `thin_spread` + `operation_mix` pattern | (D) "This looks like [type] based on [evidence]. Is that right? What connector/framework writes to this table?" |
+| **Distribution mode** (`none` / `hash` / `range`) | `thin_spread = true` → likely `none`; else unknown | (A) "Is `write.distribution-mode` set on the sink or as a table property? If yes, which value?" |
+| **Checkpoint / trigger interval** (Flink or Spark SS only) | Median inter-commit gap as a proxy | (D) "Commits land ~every Xs. Is that the checkpoint interval? What is it configured to?" |
+| **CDC write mode** (`mor` / `cow`) | Equality-delete presence → MOR; absence + overwrites → COW | (D) "We see equality-delete files accumulating → this looks like MOR (merge-on-read). Is the CDC sink configured for MOR or COW?" |
+| **CDC connector / framework** (Debezium / DeltaStreamer / AWS DMS / Hudi-bridge / other) | `operation_mix` has high `merge` or `overwrite` | (A) "Which CDC connector or framework generates these writes?" |
+| **Backfills / historical loads** | Large `append`/`overwrite` commits with old event-time bounds | (A) "Do you backfill or replay historical data into this table?" |
+
+**Why this matters:** Group 2 (Ingestion) fixes are writer-specific. Flink needs
+`write.distribution-mode=hash` and checkpoint interval tuning; Spark SS needs
+trigger interval and fan-out settings; CDC pipelines may need MOR→COW switch.
+Without knowing the writer, any ingestion recommendation is a guess.
+
+---
+
+## Part 1b — Ingestion semantics (mostly D)
 
 | Dimension | How to derive | What to confirm / ask |
 |---|---|---|

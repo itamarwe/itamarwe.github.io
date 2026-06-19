@@ -19,9 +19,8 @@ wrong answer for a specific table, and getting it wrong isn't just wasteful — 
 can be actively harmful. Compacting a cold archive that gets three queries a year
 costs more than the query savings will ever justify. Running orphan file removal
 *before* snapshot expiry can silently skip files that should have been deleted.
-Applying an equality-delete compaction to a Format v1 table produces undefined
-behavior. Wrong order, wrong action, or wrong timing — any of them can negate
-the work or make things worse.
+Wrong order, wrong action, or wrong timing — any of them can negate the work or
+make things worse.
 
 So I built an Iceberg optimizer as a **Claude Code skill** — a structured agent
 that reads table metadata, derives what it can, asks only what it can't, simulates
@@ -34,11 +33,12 @@ into the model's context when you invoke them. They can include instructions,
 reference documents, decision frameworks, and pointers to scripts — effectively
 encoding expert knowledge as structured text that the model reads before responding.
 
-The iceberg-optimizer skill is about 12,000 words of structured knowledge: a main
-instruction file (`SKILL.md`), a decision framework that maps table signals to
-candidate actions, procedure templates for six different engines, scheduling
-patterns, and a workload interview guide. When you invoke it, Claude reads all of
-that before touching your table.
+The iceberg-optimizer skill is structured as a lean orchestration file (`SKILL.md`)
+plus a collection of reference documents loaded on demand: a decision framework,
+engine-specific procedure files, scheduling patterns, and a workload interview guide.
+The base instruction file is about 1,500 words. Claude loads engine-specific detail
+only when it knows which engine you're using, so a Trino-only session never pollutes
+its context with Snowflake procedures or Flink connector configuration.
 
 ## The core principle: observe before you ask
 
@@ -52,9 +52,17 @@ single question. Then it parses query logs (Spark event logs, Trino query logs)
 to derive filter columns, write cadence, and small-file patterns without
 requiring any manual input.
 
+Phase 2a also tries to identify the *writer* — whether it's Flink, Spark
+Structured Streaming, a Spark batch job, or a CDC connector (Debezium,
+DeltaStreamer). It does this from the commit pattern: Flink typically leaves
+one small file per checkpoint per task per partition; CDC connectors show high
+`merge`/`overwrite` operation mix; Spark batch leaves large files per partition
+per run. Knowing the writer type is the prerequisite for Group 2 ingestion fixes.
+
 Only after all of that does it ask about the things metadata genuinely cannot
 reveal: latency requirements, query frequency, cost priorities, time-travel
-compliance windows.
+compliance windows, and — crucially — whether the CDC connector is using
+merge-on-read or copy-on-write mode.
 
 The result is that the interview is very short — usually four or five questions —
 because most of the relevant signals were already in the metadata.
@@ -65,8 +73,8 @@ because most of the relevant signals were already in the metadata.
 
 The skill detects which mode it's in before any other work:
 
-- **Direct mode** — a Trino URL, Spark session, or Databricks host is present.
-  The skill connects and runs everything without asking.
+- **Direct mode** — a Trino URL, Spark session, Databricks host, or Snowflake
+  account is present. The skill connects and runs everything without asking.
 - **Ask-User mode** — no live connection. The skill guides you through running
   the profiling scripts and exports them as JSON.
 - **Exported mode** — you already have the script outputs from a previous run.
@@ -76,36 +84,51 @@ This matters for production tables where you might not want to run profiling on 
 live cluster mid-day, or where the person doing the analysis isn't the one with
 cluster access.
 
-## Thirteen candidate actions
+## Candidate actions, organized by domain
 
-The decision framework defines thirteen candidate actions (A through L, plus Z
-for "do nothing"):
+The decision framework organizes actions into three groups. A complete plan
+typically draws from more than one. The recommendation always specifies
+*which groups* and *which order* — Group 2 before Group 1, because fixing
+the writer before compacting its output prevents the problem from recurring.
+
+**Group 1 — Table Layout** (run after fixing the writer)
 
 | Code | Action |
 |------|--------|
 | A | Bin-pack compaction — resize small files to target |
 | B | Sort compaction — cluster by a leading key |
-| C | Z-order compaction — multi-dimensional clustering (2–4 high-cardinality cols max) |
+| C | Z-order compaction — multi-dimensional clustering (equality + range predicates) |
 | D | Partition evolution — zero-downtime metadata-only re-partitioning |
 | E1 | Equality-delete compaction — physically remove logically deleted rows |
 | E2 | Position-delete compaction — merge position deletes into data files |
-| F | Snapshot expiry — always include; size to intent |
+| L | Format-version upgrade — prerequisite for v2 row-level delete features |
+
+**Group 2 — Ingestion** (fix the writer first)
+
+| Code | Action |
+|------|--------|
+| J | Write-time distribution and file sizing — set `distribution-mode=hash` and target file size on the Flink/Spark/CDC sink |
+| K | Write-time sort order — free clustering for future writes; persisted on the table, no per-file rewrite cost |
+
+**Group 3 — Maintenance** (ongoing)
+
+| Code | Action |
+|------|--------|
+| F | Snapshot expiry — always include; size to intent and time-travel requirements |
 | G | Manifest rewrite — consolidate manifests after data rewrites |
-| H | Orphan file removal — always after F, always dry-run first |
+| H | Orphan file removal — always *after* F, always dry-run first |
 | I | Bloom filters — high-cardinality equality lookups only |
-| J | Write-time tuning — fix ingest distribution before compacting its output |
-| K | Write-time sort order — free clustering for future writes; no rewrite cost |
-| L | Format-version upgrade — one-time prerequisite for v2 row-level delete features |
 | Z | Do nothing — explicit outcome for cold or rarely-queried tables |
 
 The framework evaluates each action against the table's signals and produces a
 ranked list. Actions have gates (prerequisites that must be true) and triggers
 (signals that make the action relevant). A few non-obvious rules:
 
-**J ranks above everything else.** If the root cause is bad write-time behavior
-(tiny files from streaming writers with no distribution mode set), fixing that
-first is more important than any amount of compaction. Compacting the output of
-a broken writer is a treadmill — you'll be back next week.
+**Group 2 before Group 1.** If the root cause is bad write-time behavior — tiny
+files from streaming writers with no distribution mode set, or a Flink job writing
+500 files per checkpoint instead of letting hash distribution consolidate them —
+fixing the writer (Group 2) first is more important than any amount of compaction
+(Group 1). Compacting the output of a broken writer is a treadmill.
 
 **Z is a first-class outcome.** A cold archive with 3 queries a year and no
 delete pressure genuinely warrants no maintenance. The simulator makes this
@@ -213,8 +236,12 @@ Or just describe the problem: *"the events table is getting slow, help me tune i
 the skill is triggered by keywords like optimize, compact, tune, shrink, or maintenance
 schedule.
 
-If you don't have a live Spark/Trino connection, the skill will guide you through
-exporting the profile manually and will work from the exported files.
+Supported engines: Spark, Trino, AWS Glue/EMR, Snowflake (managed and external),
+Flink, and Kafka Connect. The skill loads engine-specific procedures only for the
+engine you're actually using.
+
+If you don't have a live connection, the skill will guide you through exporting
+the profile manually and will work from the exported files.
 
 The benchmark harness is included in the repository if you want to evaluate the
 skill on your own scenarios or extend it for your stack.
