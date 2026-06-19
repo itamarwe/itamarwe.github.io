@@ -18,7 +18,7 @@ confirm with the user before prescribing a fix.
 
 | Question | How to derive | Confirm/ask |
 |---|---|---|
-| **Writer type** (Flink / Spark SS / Spark batch / Kafka Connect / CDC / unknown) | `write_cadence` + `avg_added_file_mb` + `thin_spread` + `operation_mix` pattern | (D) "This looks like [type] based on [evidence]. Is that right? What connector/framework writes to this table?" |
+| **Writer type** (Flink / Spark SS / Spark batch / Kafka Connect / NiFi / Beam+Dataflow / Airbyte / Fivetran / AWS DMS / CDC / unknown) | `write_cadence` + `avg_added_file_mb` + `thin_spread` + `operation_mix` pattern | (D) "This looks like [type] based on [evidence]. Is that right? What connector/framework writes to this table?" |
 | **Distribution mode** (`none` / `hash` / `range`) | `thin_spread = true` → likely `none`; else unknown | (A) "Is `write.distribution-mode` set on the sink or as a table property? If yes, which value?" |
 | **Checkpoint / trigger interval** (Flink or Spark SS only) | Median inter-commit gap as a proxy | (D) "Commits land ~every Xs. Is that the checkpoint interval? What is it configured to?" |
 | **CDC write mode** (`mor` / `cow`) | Equality-delete presence → MOR; absence + overwrites → COW | (D) "We see equality-delete files accumulating → this looks like MOR (merge-on-read). Is the CDC sink configured for MOR or COW?" |

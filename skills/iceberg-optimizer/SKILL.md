@@ -128,9 +128,13 @@ then confirm with the user (see `references/workload-interview.md` Part 1a):
 | `streaming`, `avg_added_file_mb ≥ 50` | Flink with large checkpoint interval |
 | `micro_batch` (5s–5min commits) | Spark Structured Streaming |
 | `batch`, large commits, `late_data = false` | Spark batch ETL or dbt |
-| high `overwrite` + `append` in `operation_mix` | CDC connector (Debezium, DeltaStreamer) |
+| `batch`, small-to-medium commits, irregular intervals | Apache NiFi (`PutIcebergRecord`) or Beam batch |
+| `streaming`, small files, `thin_spread = false`, low parallelism | Apache Beam / Dataflow streaming with low `numShards` |
+| `operation_mix` dominated by full partition `overwrite`, regular cadence | Airbyte full-refresh or Fivetran managed sync |
+| high `overwrite` + `append` in `operation_mix` | CDC connector (Debezium, DeltaStreamer, Airbyte merge) |
 | `eq_delete_pressure > 0.05`, `merge` in `operation_mix` | MOR CDC — equality deletes accumulating |
 | `pos_delete_pressure > 0.2`, no equality deletes | COW CDC or MOR with position deletes |
+| `batch`, very large one-off commits then silence | AWS DMS migration or historical backfill |
 
 Always show the derived writer type and ask the user to confirm:
 *"Based on commit patterns (~Xs gaps, ~Y MB files, spread across N partitions),
