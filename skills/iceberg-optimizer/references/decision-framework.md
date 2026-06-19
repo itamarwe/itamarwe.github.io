@@ -66,12 +66,20 @@ current_sort_order, current_partition_spec
   splittable within a file.
 
 ### C. Z-order compaction (multi-dimensional)
-- **Trigger:** 2–4 high-cardinality columns appear in `WHERE` clauses in varying
-  combinations (no single dominant column).
-- **Gate:** same as Sort, plus columns are high-cardinality. Cap at 3–4 columns;
-  locality degrades past that.
-- **Sort vs Z-order:** one dominant filter column → Sort. Several co-equal
-  high-cardinality filters → Z-order.
+- **Trigger:** 2–4 columns appear in `WHERE` clauses in varying combinations (no
+  single dominant column) AND at least one column is used in **range** predicates.
+- **Gate:** same as Sort, plus columns are high-cardinality (>1000 distinct
+  values). Cap at 3–4 columns; locality degrades past that.
+- **Sort vs Z-order:** one dominant filter column → Sort (B). Several co-equal
+  high-cardinality filters → Z-order (C). **Predicate type rule:** if ALL filter
+  columns use equality predicates (no range column), Z-order provides no benefit
+  over Sort — a simple sort on the highest-cardinality equality column gives
+  equivalent skipping at lower compaction cost. Z-order specifically helps when
+  you need to skip on an equality column AND a range column simultaneously (e.g.
+  `WHERE tenant_id = X AND event_time BETWEEN a AND b`). For all-equality or
+  all-range patterns, prefer B (sort). For low-to-medium cardinality equality
+  columns (e.g. `region` with 5–20 values, `event_type` with 10–50 values),
+  bloom filters (I) or bucket partitioning (D) are more effective than z-order.
 
 ### D. Partition evolution / repartition
 - **Trigger:** `partition_prune_rate < 0.5` (queries scan most partitions) OR
@@ -184,6 +192,12 @@ Position deletes are a row-level seek per file and are far cheaper.
   across many small files in different tasks.
 
 ### K. Write-time sort order (free clustering, no rewrite)
+- **Prerequisite check:** Before evaluating K, read `has_sort_order` from the
+  profile. If `has_sort_order = true`, **skip K entirely** and note explicitly:
+  "Write-time sort order is already configured — no change needed." Do not
+  recommend adding or changing the sort order. When late data scrambles the sort
+  on old partitions (`late_data = true`), the remedy is B (sort compaction on
+  affected partitions), not K.
 - **Trigger:** `has_sort_order = false` AND top filter column is used in range
   predicates AND `avg_added_file_mb` is near-target (writer already buffers — so
   adding a sort order will produce well-sized, sorted files at zero extra cost).

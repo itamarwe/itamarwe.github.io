@@ -1,20 +1,20 @@
 {
   "table": "prod.streaming.flink_events",
-  "matched_query_count": 500,
+  "matched_query_count": 600,
   "filter_columns": [
     {
-      "column": "tenant_id",
-      "count": 400,
+      "column": "event_type",
+      "count": 450,
       "dominant": "equality"
     },
     {
-      "column": "event_time",
-      "count": 350,
-      "dominant": "range"
+      "column": "region",
+      "count": 280,
+      "dominant": "equality"
     }
   ],
-  "equality_cols": ["tenant_id"],
-  "range_cols": ["event_time"],
+  "equality_cols": ["event_type", "region"],
+  "range_cols": [],
   "partition_prune_rate": 0.6,
   "selectivity": {
     "median_bytes_scanned": 53687091200

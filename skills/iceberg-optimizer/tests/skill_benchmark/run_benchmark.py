@@ -34,6 +34,12 @@ SCENARIOS_FILE = Path(__file__).parent / "scenarios.json"
 CLAUDE_CLI = "claude"
 
 
+BASELINE_SYSTEM = """You are an expert Apache Iceberg data engineer and DBA.
+You will be given Apache Iceberg table profiling data, query workload data, and
+a cost simulation, plus the user's stated priorities.
+Provide specific, actionable maintenance recommendations."""
+
+
 # ── Context loading ───────────────────────────────────────────────────────────
 
 def load_skill_context() -> str:
@@ -250,17 +256,20 @@ Does the AI's recommendation match the expected outcome? Return JSON only, no ma
 # ── Single scenario runner ────────────────────────────────────────────────────
 
 def run_scenario(scenario: dict, skill_context: str,
-                 use_judge: bool = False, verbose: bool = False) -> dict:
+                 use_judge: bool = False, verbose: bool = False,
+                 no_skill: bool = False) -> dict:
     """Run one scenario: call Claude CLI, evaluate, optionally judge."""
+    mode_tag = "[baseline]" if no_skill else "[skill]"
     print(f"\n{'─' * 60}")
-    print(f"  Scenario: {scenario['id']}")
+    print(f"  Scenario: {scenario['id']}  {mode_tag}")
     print(f"  {scenario['description'][:80]}...")
     print(f"{'─' * 60}")
 
     user_msg = build_scenario_message(scenario)
+    context = BASELINE_SYSTEM if no_skill else skill_context
 
     print("  Calling Claude...", end="", flush=True)
-    output = call_claude(skill_context, user_msg)
+    output = call_claude(context, user_msg)
     word_count = len(output.split())
     print(f" done ({word_count} words)")
 
@@ -362,6 +371,10 @@ def main() -> None:
                         help="Print full LLM response for each scenario")
     parser.add_argument("--output-json", metavar="FILE",
                         help="Save full results as JSON to FILE")
+    parser.add_argument("--no-skill", action="store_true",
+                        help="Baseline mode: use a generic expert system prompt "
+                             "instead of the full skill context. Use to measure "
+                             "how much the skill adds over raw Claude.")
     args = parser.parse_args()
 
     scenarios = json.loads(SCENARIOS_FILE.read_text())
@@ -376,16 +389,22 @@ def main() -> None:
             sys.exit(1)
         selected = [scenario_map[args.scenario]]
 
-    print(f"\nLoading skill context from {SKILL_DIR}...")
-    skill_context = load_skill_context()
-    print(f"  {len(skill_context):,} chars ({len(skill_context.split()):,} words)")
+    no_skill = getattr(args, "no_skill", False)
+    if no_skill:
+        skill_context = BASELINE_SYSTEM
+        print(f"\nBaseline mode (no skill) — generic expert prompt ({len(BASELINE_SYSTEM)} chars)")
+    else:
+        print(f"\nLoading skill context from {SKILL_DIR}...")
+        skill_context = load_skill_context()
+        print(f"  {len(skill_context):,} chars ({len(skill_context.split()):,} words)")
 
     results = []
     for i, scenario in enumerate(selected):
         if i > 0:
             time.sleep(3)  # brief pause between scenarios to avoid rate-limit bursts
         r = run_scenario(scenario, skill_context,
-                         use_judge=args.judge, verbose=args.verbose)
+                         use_judge=args.judge, verbose=args.verbose,
+                         no_skill=no_skill)
         results.append(r)
 
     print_report(results, use_judge=args.judge)
