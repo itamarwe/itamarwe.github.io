@@ -22,7 +22,7 @@
 
 \hypersetup{
   colorlinks=true, linkcolor=accent, urlcolor=accent, citecolor=accent,
-  pdftitle={Iceberg Optimizer Skill --- Benchmark Report v3},
+  pdftitle={Iceberg Optimizer Skill --- Benchmark Report v4},
 }
 
 \lstset{
@@ -34,7 +34,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report v3}}
+\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report v4}}
 \lhead{\textcolor{midgray}{\small June 2026}}
 \cfoot{\thepage}
 
@@ -53,7 +53,7 @@
   \centering
   \vspace*{3cm}
   {\LARGE\bfseries Iceberg Optimizer Skill}\\[0.4em]
-  {\large Benchmark Report --- Version~3}\\[2em]
+  {\large Benchmark Report --- Version~4}\\[2em]
   {\large June~2026}\\[4em]
   \begin{tabular}{ll}
     \toprule
@@ -62,7 +62,8 @@
     \textbf{Harness}   & \code{tests/skill\_benchmark/run\_benchmark.py} \\
     \textbf{Model}     & Claude (claude CLI, default model) \\
     \textbf{Scenarios} & 22 (expanded from 5 in v1/v2) \\
-    \textbf{Overall}   & \pass\ --- 22/22 scenarios, avg judge score 4.86/5 \\
+    \textbf{Overall (skill)}    & \pass\ --- 22/22 scenarios, avg judge score 5.0/5 \\
+    \textbf{Baseline comparison} & 8 scenarios; skill lifts 3 of them \\
     \bottomrule
   \end{tabular}
 \end{titlepage}
@@ -75,16 +76,25 @@
 
 The \textbf{iceberg-optimizer} skill is a Claude Code skill that diagnoses
 Apache Iceberg tables and produces a ranked, cost-aware maintenance plan.
-This report documents the third and most comprehensive benchmark run, expanding
-the test suite from 5 to \textbf{22 scenarios}.
+This report documents the fourth benchmark run: 22 scenarios with a full
+skill vs.\ baseline comparison on 8 of them.
 
 Previous runs (v1/v2) achieved 4.8/5 and 5.0/5 on the original five scenarios.
-Version~3 expands coverage to \textbf{22 scenarios} and achieves an average judge
-score of \textbf{4.86/5} with a \textbf{100\% pass rate} (22/22 PASS).  Two
-scenarios scored below 5/5: \code{flink\_micro\_commit\_scatter} (3/5 --- correct
-root-cause diagnosis but included z-order which the expected outcome says to omit)
-and \code{late\_arriving\_data} (4/5 --- correct compaction strategy but did not
-explicitly note that write-time sort order K was already set).
+Version~3 expanded coverage to 22 scenarios (avg 4.86/5) and identified two
+below-5 cases: \code{flink\_micro\_commit\_scatter} (3/5 --- z-order
+erroneously included) and \code{late\_arriving\_data} (4/5 --- K recommended
+despite already being set).  Version~4 fixes both via targeted improvements to
+the decision framework and fixture data, achieving a \textbf{perfect 5.0/5}
+across all 22 scenarios.
+
+Version~4 also introduces a \textbf{baseline comparison} mode
+(\texttt{--no-skill} flag) that sends only raw table metadata and
+interview answers --- no skill document, no workload analysis, no cost
+simulation output.  This isolates what the skill framework actually adds.
+Key finding: the skill's value is concentrated in \emph{cross-signal
+reasoning} (profile $\times$ workload signals $\times$ user intent~$\to$
+action selection), not in general Iceberg domain knowledge which Claude
+already has.
 
 Anti-patterns sourced from:
 \begin{itemize}
@@ -95,10 +105,10 @@ Anti-patterns sourced from:
   \item Cost vs maintenance trade-off scenarios
 \end{itemize}
 
-The new scenarios are designed to probe edge cases the original five did not
-cover: format version prerequisites, delete-file type discrimination (E1 vs
-E2), time-based vs count-based snapshot expiry, high-dimensional z-order
-degradation, hot-partition concurrency conflicts, and the streaming death spiral.
+The 22 scenarios probe edge cases the original five did not cover: format
+version prerequisites, delete-file type discrimination (E1 vs E2), time-based
+vs count-based snapshot expiry, high-dimensional z-order degradation,
+hot-partition concurrency conflicts, and the streaming death spiral.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Skill Architecture}
@@ -181,7 +191,9 @@ A \emph{skill-level} benchmark evaluates the full end-to-end recommendation
 rather than any individual script.  It answers: \emph{given a table's complete
 profile and scripted interview answers, does the skill give the right advice?}
 
-The harness (\code{run\_benchmark.py}) works as follows:
+The harness (\code{run\_benchmark.py}) supports two modes:
+
+\paragraph{Skill mode (default).}
 \begin{enumerate}
   \item Load \code{SKILL.md} and all \code{references/*.md} files as the system
         prompt --- the same context Claude receives when the skill is invoked.
@@ -198,6 +210,22 @@ The harness (\code{run\_benchmark.py}) works as follows:
         scenario's \code{expected\_outcome} description and the skill's response;
         it returns a score 1--5 and a binary PASS/FAIL (threshold: score~$\geq 3$).
 \end{enumerate}
+
+\paragraph{Baseline mode (\texttt{--no-skill}).}
+Identical to skill mode except:
+\begin{itemize}
+  \item The system prompt is a minimal 247-character generic expert prompt
+        (\emph{``You are an expert Apache Iceberg data engineer\ldots''}) ---
+        no \code{SKILL.md}, no reference documents.
+  \item The user message contains \emph{only} \code{profile.json} and the
+        scripted Phase~2b interview answers --- no \code{workload.json} and
+        no simulator output.
+\end{itemize}
+
+This isolates the contribution of the skill framework: workload signal
+interpretation, cost simulation, and the decision-framework's cross-signal
+reasoning.  The baseline agent must derive everything from raw table metadata
+and stated user priorities alone.
 
 The judge evaluates correctness of reasoning rather than surface-level term
 presence.  Each scenario's \code{expected\_outcome} is written in plain English
@@ -387,8 +415,8 @@ snapshot\_bloat\_only   & \score{5} & Snapshot expiry identified as the only req
 position\_delete\_accumulation    & \score{5} & Correctly selects E2 (\code{rewrite\_position\_delete\_files}), not E1; conservative expiry (retain $\geq$7 days); mentions COW consideration. \\[3pt]
 format\_version\_mismatch         & \score{5} & Identifies format\_version=1 and mandates Action~L (upgrade to v2) as Step~0 before any E1 compaction. \\[3pt]
 over\_partitioned\_tiny\_partitions & \score{5} & Diagnoses 5-level over-partition spec (219k partitions); prescribes partition evolution to reduce granularity; correctly rejects bin-pack as primary fix. \\[3pt]
-flink\_micro\_commit\_scatter     & \score{3} & Correctly prioritises \code{distribution-mode=hash} (Action~J) first; produced all required actions but also included z-order which the expected outcome says to omit. \\[3pt]
-late\_arriving\_data              & \score{4} & Correctly prescribes sort compaction on recently-modified partitions; minor gap in not explicitly noting that K is already set and should not be added again. \\[3pt]
+flink\_micro\_commit\_scatter     & \score{5} & Identifies root cause as writer-side thin-spread; prescribes \code{distribution-mode=hash} (J) first, then write-time sort on \code{(event\_type, region)} (K), bin-pack on cold partitions, manifest rewrite (G); correctly excludes z-order (all filters are equality-only). \\[3pt]
+late\_arriving\_data              & \score{5} & Correctly prescribes sort compaction (B) on recently-modified partitions in a 7--30-day window; explicitly notes that write-time sort order (K) is already configured and must not be added again; does not recommend CTAS. \\[3pt]
 wide\_table\_memory\_pressure     & \score{5} & Identifies 512 MB target as wrong for a 250-column wide table; prescribes reducing \code{write.target-file-size-bytes} to 128--256 MB as the primary fix. \\[3pt]
 cdc\_high\_churn\_cow\_consideration & \score{5} & Covers all four required elements: E1 (equality-delete compaction), J (write-time fix for 12 MB files), A (bin-pack), and COW mode evaluation. \\[3pt]
 query\_cost\_vs\_maintenance\_cost & \score{5} & Selects explicit Action~Z (do nothing); correctly quantifies that maintenance cost exceeds lifetime query savings at 3 queries/year. \\[3pt]
@@ -402,13 +430,13 @@ orphan\_files\_before\_expiry     & \score{5} & Identifies maintenance ordering 
 bloom\_filter\_wrong\_column      & \score{5} & Identifies bloom filter on \code{event\_date} (365 distinct values, range predicates) as misconfigured; prescribes removal. \\[3pt]
 streaming\_death\_spiral          & \score{5} & Treats as emergency; explicitly mandates write-time fix (\code{distribution-mode=hash}) first; explains compaction alone cannot break the spiral. \\[3pt]
 \midrule
-\textbf{Total} & \textbf{4.86\,/\,5} & 22/22 scenarios PASS (100\%) \\
+\textbf{Total} & \textbf{5.0\,/\,5} & 22/22 scenarios PASS (100\%) \\
 \end{longtable}
 
 \subsection{Score Distribution}
 
 \[
-  \bar{s} = \frac{20 \times 5 + 1 \times 4 + 1 \times 3}{22} = \frac{107}{22} \approx 4.86
+  \bar{s} = \frac{22 \times 5}{22} = 5.0
 \]
 
 \begin{table}[ht]
@@ -418,9 +446,7 @@ streaming\_death\_spiral          & \score{5} & Treats as emergency; explicitly 
 \toprule
 \textbf{Score} & \textbf{Count} & \textbf{Scenarios} \\
 \midrule
-5/5 & 20 & All except flink\_micro\_commit\_scatter, late\_arriving\_data \\
-4/5 &  1 & late\_arriving\_data \\
-3/5 &  1 & flink\_micro\_commit\_scatter \\
+5/5 & 22 & All \\
 \midrule
 \textbf{Pass ($\geq$3/5)} & \textbf{22} & \textbf{100\%} \\
 \bottomrule
@@ -439,9 +465,79 @@ streaming\_death\_spiral          & \score{5} & Treats as emergency; explicitly 
 v1 & Jun 2026 & 5  & 4.8/5 & 4/5  (80\%) \\
 v2 & Jun 2026 & 5  & 5.0/5 & 5/5  (100\%) \\
 v3 & Jun 2026 & 22 & 4.86/5 & 22/22 (100\%) \\
+v4 & Jun 2026 & 22 & 5.0/5 & 22/22 (100\%) + baseline comparison \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Baseline Comparison}
+\label{sec:baseline}
+
+The baseline agent receives only \code{profile.json} and interview answers ---
+no workload analysis, no cost simulation, no skill document.  The comparison
+was run on 8 representative scenarios.
+
+\begin{table}[ht]
+\centering
+\caption{Skill vs.\ baseline comparison (8 scenarios, LLM-judge scores)}
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Scenario} & \textbf{Baseline} & \textbf{Skill} & \textbf{$\Delta$} & \textbf{Baseline failure mode} \\
+\midrule
+format\_version\_mismatch        & 5/5 & 5/5 & 0  & --- \\
+position\_delete\_accumulation   & 5/5 & 5/5 & 0  & --- \\
+gdpr\_deletes                    & 5/5 & 5/5 & 0  & Missing keyword only$^*$ \\
+snapshot\_time\_travel\_cdc      & 5/5 & 5/5 & 0  & --- \\
+z\_order\_too\_many\_columns     & 5/5 & 5/5 & 0  & --- \\
+cdc\_high\_churn\_cow\_consider. & 4/5 & 5/5 & +1 & Did not surface COW mode evaluation \\
+flink\_micro\_commit\_scatter    & 4/5 & 5/5 & +1 & Included z-order (no filter-type reasoning) \\
+\textbf{late\_arriving\_data}    & \textcolor{failred}{\textbf{2/5 FAIL}} & 5/5 & \textbf{+3} & \textit{(see below)} \\
+\midrule
+\textbf{Average}                 & 4.38/5 & 5.0/5 & \textbf{+0.63} & \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+{\small $^*$ LLM judge passed (5/5); keyword check failed on \code{remove-dangling-deletes}.}
+\end{table}
+
+\subsubsection*{Deep Dive: late\_arriving\_data (baseline 2/5 FAIL)}
+
+The \code{late\_arriving\_data} scenario is the clearest demonstration of
+what the skill framework adds.  Without workload signals, the baseline agent:
+
+\begin{itemize}
+  \item Recommended \emph{bin-pack} compaction (Action~A) instead of sort
+        compaction (Action~B) on recently-modified partitions.
+  \item Recommended rebuilding the sort key via CTAS (Action~K analogue),
+        despite the table already having \code{has\_sort\_order=true}.
+  \item Incorrectly described the existing sort order as \code{event\_id~ASC}
+        instead of reading it from the profile (\code{event\_date, customer\_id}).
+  \item Did not scope compaction to the 7--30-day late-arrival window --- it
+        recommended full-table compaction.
+\end{itemize}
+
+The skill fixes all four failures because it reads \code{has\_sort\_order=true}
+from \code{profile.json} (skipping K), reads the late\_data flag from
+\code{workload.json} (triggering B on affected partitions only), and applies
+the K prerequisite check from \code{decision-framework.md}.
+
+\subsubsection*{Interpretation}
+
+The skill's largest lift occurs where \textbf{cross-signal reasoning} is
+required: combining profile metadata + workload signals + user intent to
+select the correct action among multiple plausible alternatives.
+
+For scenarios where a single strong signal dominates (format version mismatch,
+GDPR ordering, time math error, z-order collapse), the baseline already scores
+5/5 --- the knowledge is in Claude's training data and raw metadata is
+sufficient.
+
+For scenarios where the correct action depends on combining \emph{multiple
+weak signals} (late arrival + existing sort order + affected partitions only;
+Flink thin spread + equality-only predicates; CDC + 12~MB writes + COW
+evaluation), the skill framework provides the structured reasoning path that
+the baseline misses.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Key Scenario Deep Dives}
@@ -558,33 +654,56 @@ Correct order:
 \section{Skill Review}
 \label{sec:skill-review}
 
-\subsection{Architecture Improvements in v3}
+\subsection{Architecture Improvements}
 
-Three categories of improvements were made between v2 and this report:
-
+\paragraph{v3 improvements (from v2).}
 \begin{enumerate}
-
-  \item \textbf{Three-mode detection (SKILL.md).}  Phase~0 now explicitly
-        detects Direct / Ask-User / Exported execution mode and loads only the
-        reference sections needed for the detected mode.
+  \item \textbf{Three-mode detection (SKILL.md).}  Phase~0 explicitly detects
+        Direct / Ask-User / Exported execution mode and loads only the reference
+        sections needed for the detected mode.
 
   \item \textbf{Book-derived additions (12 gaps).}  From
         \emph{Architecting Apache Iceberg Lakehouse}: v3 deletion vectors,
-        \code{rewrite\_position\_delete\_files} as a distinct procedure,
-        file-sizing guidance for wide tables (128--256 MB for 250+ column schemas),
-        CDC time-based snapshot expiry, conditional compaction, delete-file
-        sawtooth diagnostic, multi-engine flexibility, maintenance failure
-        monitoring patterns, ordering dependency justification, IAM/RBAC
-        principles, format version migration, and write-time sort order (Action K).
+        \code{rewrite\_position\_delete\_files}, file-sizing guidance for wide
+        tables (128--256 MB for 250+ columns), CDC time-based snapshot expiry,
+        conditional compaction, delete-file sawtooth diagnostic, format version
+        migration, write-time sort order (Action~K), and more.
 
-  \item \textbf{17 new benchmark scenarios.}  Covering action discrimination
-        (E1 vs E2), format version prerequisites (L), over-partitioning,
-        Flink micro-commit scatter, late-arriving data, wide-table memory
-        pressure, CDC COW evaluation, cost vs maintenance trade-off, time-based
-        expiry, mixed partition specs, bloom filter placement and misconfiguration,
-        GDPR ordering mistakes, z-order dimensional collapse, hot partition
-        conflict, orphan file ordering, and the streaming death spiral.
+  \item \textbf{17 new benchmark scenarios.}  Action discrimination (E1 vs E2),
+        format version prerequisites (L), over-partitioning, Flink scatter,
+        late-arriving data, wide-table OOM, CDC COW evaluation, cost vs
+        maintenance, time-based expiry, mixed partition specs, bloom filter
+        placement, GDPR ordering, z-order collapse, hot partition conflict,
+        orphan ordering, streaming death spiral.
+\end{enumerate}
 
+\paragraph{v4 improvements (this report).}
+
+Two scenarios scored below 5/5 in v3.  Both were fixed via targeted, generalised
+improvements to the decision framework --- no scenario-specific overrides:
+
+\begin{enumerate}
+  \item \textbf{Z-order predicate-type rule (flink 3/5 $\to$ 5/5).}
+        Action~C in \code{decision-framework.md} now states:
+        \emph{``If ALL filter columns use equality predicates only (no range
+        column), do NOT recommend Z-order --- choose Sort (B) or write-time
+        sort order (K) instead.  Z-order's extra cost is only justified when
+        range predicates must be combined with equality filters across different
+        dimensions.''}
+        The Flink fixture's \code{workload.json} was also corrected: the
+        original file listed \code{tenant\_id} (equality) + \code{event\_time}
+        (range) --- a mixed pattern that correctly triggers z-order --- when the
+        scenario intent was \code{event\_type} + \code{region}, both equality.
+
+  \item \textbf{K prerequisite check (late\_arriving 4/5 $\to$ 5/5).}
+        Action~K in \code{decision-framework.md} now has an explicit prerequisite:
+        \emph{``Before evaluating K, read \code{has\_sort\_order} from the
+        profile. If \code{has\_sort\_order=true}, skip K entirely and note:
+        `Write-time sort order is already configured --- no change needed.'\,''}
+        The trigger was also broadened to apply to both range and equality filter
+        columns, since sorting on a low-cardinality equality column
+        (e.g.\ \code{event\_type}) still groups matching rows into contiguous
+        file ranges.
 \end{enumerate}
 
 \subsection{Strengths}
@@ -607,14 +726,15 @@ Three categories of improvements were made between v2 and this report:
 \subsection{Residual Improvement Areas}
 
 \begin{enumerate}
-  \item \textbf{[Medium] Late-data gate.}  Action B gate should include
-        ``AND NOT late\_data'' or widen the cold-partition window by the observed
-        max late-arrival lag.
   \item \textbf{[Medium] No-query-log fallback.}  Document the cold-start path
-        when neither Spark event log nor Trino query log is available.
+        when neither Spark event log nor Trino query log is available; the skill
+        currently assumes workload data exists.
   \item \textbf{[Low] metadata-tables.md prioritisation.}  The reference is
         thorough but unprioritised --- adding a ``Quick Diagnostics'' summary
         section would improve Phase~1 efficiency.
+  \item \textbf{[Low] Expand baseline comparison to all 22 scenarios.}  The 8-
+        scenario sample already shows the pattern clearly, but a full 22-scenario
+        baseline run would give a definitive lift measurement.
 \end{enumerate}
 
 %──────────────────────────────────────────────────────────────────────────────
@@ -668,10 +788,14 @@ cd skills/iceberg-optimizer/tests/skill_benchmark
 # Single scenario with verbose output
 python run_benchmark.py --scenario gdpr_deletes --judge --verbose
 
-# Full suite
+# Full suite (skill mode)
 python run_benchmark.py --all --judge --output-json results.json
 
-# One category
+# Baseline comparison (profile.json + interview answers only; no skill)
+python run_benchmark.py --scenario late_arriving_data --judge --no-skill
+python run_benchmark.py --all --judge --no-skill --output-json baseline.json
+
+# Individual scenarios
 python run_benchmark.py --scenario streaming_death_spiral --judge
 python run_benchmark.py --scenario hot_partition_conflict --judge
 python run_benchmark.py --scenario orphan_files_before_expiry --judge
@@ -680,13 +804,45 @@ python run_benchmark.py --scenario orphan_files_before_expiry --judge
 %──────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 
-Version~3 of the iceberg-optimizer benchmark expands coverage from 5 to 22
-scenarios, probing the skill across the full breadth of Iceberg production
-anti-patterns.  The new scenarios are specifically designed to test:
+Version~4 of the iceberg-optimizer benchmark achieves a \textbf{perfect 5.0/5}
+across all 22 scenarios (up from 4.86/5 in v3), and introduces the first
+systematic baseline comparison showing where the skill framework adds measurable
+value.
 
+\paragraph{Score improvements from v3 to v4.}
+Both below-5 v3 scenarios were fixed via generalised decision-framework updates:
 \begin{itemize}
-  \item \textbf{Action discrimination.}  E1 vs E2 vs L vs Z --- knowing
-        \emph{which} action applies, not just whether to maintain.
+  \item \code{flink\_micro\_commit\_scatter}: 3/5 $\to$ 5/5 via z-order
+        predicate-type rule (equality-only filters $\to$ sort, not z-order)
+        and a corrected fixture.
+  \item \code{late\_arriving\_data}: 4/5 $\to$ 5/5 via Action~K prerequisite
+        check (\code{has\_sort\_order=true} $\to$ skip K entirely).
+\end{itemize}
+
+\paragraph{Baseline comparison findings.}
+The skill's largest lifts occur in \emph{cross-signal} scenarios where the
+correct action requires combining multiple weak signals from profile, workload,
+and intent data:
+\begin{itemize}
+  \item \code{late\_arriving\_data}: baseline 2/5 FAIL $\to$ skill 5/5 (+3) ---
+        the baseline defaults to bin-pack (wrong) and redundantly recommends K
+        (already set).  The skill reads \code{has\_sort\_order} and the
+        late\_data flag to prescribe targeted sort compaction.
+  \item \code{flink\_micro\_commit\_scatter}: baseline 4/5 $\to$ skill 5/5
+        (+1) --- without workload filter-type analysis, the baseline cannot
+        determine that equality-only predicates make z-order wrong.
+  \item \code{cdc\_high\_churn}: baseline 4/5 $\to$ skill 5/5 (+1) --- the
+        COW mode evaluation requires combining write-size and query-rate signals.
+\end{itemize}
+
+For scenarios dominated by a single strong signal (format version, GDPR
+ordering, count vs time math, z-order collapse), the baseline already reaches
+5/5 --- the skill adds nothing because Claude's training data contains the
+relevant knowledge and the raw profile alone is sufficient.
+
+\paragraph{The 22 scenarios test.}
+\begin{itemize}
+  \item \textbf{Action discrimination.}  E1 vs E2 vs L vs Z.
   \item \textbf{Configuration correctness.}  Z-order column count, bloom filter
         placement, file size targets for wide schemas.
   \item \textbf{Ordering requirements.}  Compact before expire, expire before
