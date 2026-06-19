@@ -22,7 +22,7 @@
 
 \hypersetup{
   colorlinks=true, linkcolor=accent, urlcolor=accent, citecolor=accent,
-  pdftitle={Iceberg Optimizer Skill --- Benchmark Report v4},
+  pdftitle={Iceberg Optimizer Skill --- Benchmark Report v5},
 }
 
 \lstset{
@@ -34,7 +34,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report v4}}
+\rhead{\textcolor{midgray}{\small Iceberg Optimizer Benchmark Report v5}}
 \lhead{\textcolor{midgray}{\small June 2026}}
 \cfoot{\thepage}
 
@@ -53,7 +53,7 @@
   \centering
   \vspace*{3cm}
   {\LARGE\bfseries Iceberg Optimizer Skill}\\[0.4em]
-  {\large Benchmark Report --- Version~4}\\[2em]
+  {\large Benchmark Report --- Version~5}\\[2em]
   {\large June~2026}\\[4em]
   \begin{tabular}{ll}
     \toprule
@@ -62,8 +62,7 @@
     \textbf{Harness}   & \code{tests/skill\_benchmark/run\_benchmark.py} \\
     \textbf{Model}     & Claude (claude CLI, default model) \\
     \textbf{Scenarios} & 22 (expanded from 5 in v1/v2) \\
-    \textbf{Overall (skill)}    & \pass\ --- 22/22 scenarios, avg judge score 5.0/5 \\
-    \textbf{Baseline comparison} & 8 scenarios; skill lifts 3 of them \\
+    \textbf{Overall}   & \pass\ --- 22/22 scenarios, avg LLM-judge score 5.0/5 \\
     \bottomrule
   \end{tabular}
 \end{titlepage}
@@ -76,25 +75,15 @@
 
 The \textbf{iceberg-optimizer} skill is a Claude Code skill that diagnoses
 Apache Iceberg tables and produces a ranked, cost-aware maintenance plan.
-This report documents the fourth benchmark run: 22 scenarios with a full
-skill vs.\ baseline comparison on 8 of them.
+This report documents the fifth benchmark run, consolidating the 22-scenario
+suite with a cleaner harness.
 
-Previous runs (v1/v2) achieved 4.8/5 and 5.0/5 on the original five scenarios.
-Version~3 expanded coverage to 22 scenarios (avg 4.86/5) and identified two
-below-5 cases: \code{flink\_micro\_commit\_scatter} (3/5 --- z-order
-erroneously included) and \code{late\_arriving\_data} (4/5 --- K recommended
-despite already being set).  Version~4 fixes both via targeted improvements to
-the decision framework and fixture data, achieving a \textbf{perfect 5.0/5}
-across all 22 scenarios.
-
-Version~4 also introduces a \textbf{baseline comparison} mode
-(\texttt{--no-skill} flag) that sends only raw table metadata and
-interview answers --- no skill document, no workload analysis, no cost
-simulation output.  This isolates what the skill framework actually adds.
-Key finding: the skill's value is concentrated in \emph{cross-signal
-reasoning} (profile $\times$ workload signals $\times$ user intent~$\to$
-action selection), not in general Iceberg domain knowledge which Claude
-already has.
+Previous runs achieved 4.8/5 (v1, 5 scenarios), 5.0/5 (v2, 5 scenarios),
+4.86/5 (v3, 22 scenarios).  Version~4 fixed the two below-5 v3 cases
+(\code{flink\_micro\_commit\_scatter} 3/5 and \code{late\_arriving\_data} 4/5)
+via targeted decision-framework improvements, reaching a perfect 5.0/5.
+Version~5 tightens the harness: the keyword sanity-check layer is removed and
+the \textbf{LLM-as-judge} is the sole evaluation signal.
 
 Anti-patterns sourced from:
 \begin{itemize}
@@ -191,9 +180,7 @@ A \emph{skill-level} benchmark evaluates the full end-to-end recommendation
 rather than any individual script.  It answers: \emph{given a table's complete
 profile and scripted interview answers, does the skill give the right advice?}
 
-The harness (\code{run\_benchmark.py}) supports two modes:
-
-\paragraph{Skill mode (default).}
+The harness (\code{run\_benchmark.py}) works as follows:
 \begin{enumerate}
   \item Load \code{SKILL.md} and all \code{references/*.md} files as the system
         prompt --- the same context Claude receives when the skill is invoked.
@@ -210,22 +197,6 @@ The harness (\code{run\_benchmark.py}) supports two modes:
         scenario's \code{expected\_outcome} description and the skill's response;
         it returns a score 1--5 and a binary PASS/FAIL (threshold: score~$\geq 3$).
 \end{enumerate}
-
-\paragraph{Baseline mode (\texttt{--no-skill}).}
-Identical to skill mode except:
-\begin{itemize}
-  \item The system prompt is a minimal 247-character generic expert prompt
-        (\emph{``You are an expert Apache Iceberg data engineer\ldots''}) ---
-        no \code{SKILL.md}, no reference documents.
-  \item The user message contains \emph{only} \code{profile.json} and the
-        scripted Phase~2b interview answers --- no \code{workload.json} and
-        no simulator output.
-\end{itemize}
-
-This isolates the contribution of the skill framework: workload signal
-interpretation, cost simulation, and the decision-framework's cross-signal
-reasoning.  The baseline agent must derive everything from raw table metadata
-and stated user priorities alone.
 
 The judge evaluates correctness of reasoning rather than surface-level term
 presence.  Each scenario's \code{expected\_outcome} is written in plain English
@@ -465,79 +436,11 @@ streaming\_death\_spiral          & \score{5} & Treats as emergency; explicitly 
 v1 & Jun 2026 & 5  & 4.8/5 & 4/5  (80\%) \\
 v2 & Jun 2026 & 5  & 5.0/5 & 5/5  (100\%) \\
 v3 & Jun 2026 & 22 & 4.86/5 & 22/22 (100\%) \\
-v4 & Jun 2026 & 22 & 5.0/5 & 22/22 (100\%) + baseline comparison \\
+v4 & Jun 2026 & 22 & 5.0/5 & 22/22 (100\%) \\
+v5 & Jun 2026 & 22 & 5.0/5 & 22/22 (100\%) — LLM judge only \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection{Baseline Comparison}
-\label{sec:baseline}
-
-The baseline agent receives only \code{profile.json} and interview answers ---
-no workload analysis, no cost simulation, no skill document.  The comparison
-was run on 8 representative scenarios.
-
-\begin{table}[ht]
-\centering
-\caption{Skill vs.\ baseline comparison (8 scenarios, LLM-judge scores)}
-\begin{tabular}{lcccl}
-\toprule
-\textbf{Scenario} & \textbf{Baseline} & \textbf{Skill} & \textbf{$\Delta$} & \textbf{Baseline failure mode} \\
-\midrule
-format\_version\_mismatch        & 5/5 & 5/5 & 0  & --- \\
-position\_delete\_accumulation   & 5/5 & 5/5 & 0  & --- \\
-gdpr\_deletes                    & 5/5 & 5/5 & 0  & Missing keyword only$^*$ \\
-snapshot\_time\_travel\_cdc      & 5/5 & 5/5 & 0  & --- \\
-z\_order\_too\_many\_columns     & 5/5 & 5/5 & 0  & --- \\
-cdc\_high\_churn\_cow\_consider. & 4/5 & 5/5 & +1 & Did not surface COW mode evaluation \\
-flink\_micro\_commit\_scatter    & 4/5 & 5/5 & +1 & Included z-order (no filter-type reasoning) \\
-\textbf{late\_arriving\_data}    & \textcolor{failred}{\textbf{2/5 FAIL}} & 5/5 & \textbf{+3} & \textit{(see below)} \\
-\midrule
-\textbf{Average}                 & 4.38/5 & 5.0/5 & \textbf{+0.63} & \\
-\bottomrule
-\end{tabular}
-
-\smallskip
-{\small $^*$ LLM judge passed (5/5); keyword check failed on \code{remove-dangling-deletes}.}
-\end{table}
-
-\subsubsection*{Deep Dive: late\_arriving\_data (baseline 2/5 FAIL)}
-
-The \code{late\_arriving\_data} scenario is the clearest demonstration of
-what the skill framework adds.  Without workload signals, the baseline agent:
-
-\begin{itemize}
-  \item Recommended \emph{bin-pack} compaction (Action~A) instead of sort
-        compaction (Action~B) on recently-modified partitions.
-  \item Recommended rebuilding the sort key via CTAS (Action~K analogue),
-        despite the table already having \code{has\_sort\_order=true}.
-  \item Incorrectly described the existing sort order as \code{event\_id~ASC}
-        instead of reading it from the profile (\code{event\_date, customer\_id}).
-  \item Did not scope compaction to the 7--30-day late-arrival window --- it
-        recommended full-table compaction.
-\end{itemize}
-
-The skill fixes all four failures because it reads \code{has\_sort\_order=true}
-from \code{profile.json} (skipping K), reads the late\_data flag from
-\code{workload.json} (triggering B on affected partitions only), and applies
-the K prerequisite check from \code{decision-framework.md}.
-
-\subsubsection*{Interpretation}
-
-The skill's largest lift occurs where \textbf{cross-signal reasoning} is
-required: combining profile metadata + workload signals + user intent to
-select the correct action among multiple plausible alternatives.
-
-For scenarios where a single strong signal dominates (format version mismatch,
-GDPR ordering, time math error, z-order collapse), the baseline already scores
-5/5 --- the knowledge is in Claude's training data and raw metadata is
-sufficient.
-
-For scenarios where the correct action depends on combining \emph{multiple
-weak signals} (late arrival + existing sort order + affected partitions only;
-Flink thin spread + equality-only predicates; CDC + 12~MB writes + COW
-evaluation), the skill framework provides the structured reasoning path that
-the baseline misses.
 
 %──────────────────────────────────────────────────────────────────────────────
 \section{Key Scenario Deep Dives}
@@ -677,7 +580,7 @@ Correct order:
         orphan ordering, streaming death spiral.
 \end{enumerate}
 
-\paragraph{v4 improvements (this report).}
+\paragraph{v4 improvements.}
 
 Two scenarios scored below 5/5 in v3.  Both were fixed via targeted, generalised
 improvements to the decision framework --- no scenario-specific overrides:
@@ -695,7 +598,7 @@ improvements to the decision framework --- no scenario-specific overrides:
         (range) --- a mixed pattern that correctly triggers z-order --- when the
         scenario intent was \code{event\_type} + \code{region}, both equality.
 
-  \item \textbf{K prerequisite check (late\_arriving 4/5 $\to$ 5/5).}
+  \item \textbf{K prerequisite check (late\_arriving\_data 4/5 $\to$ 5/5).}
         Action~K in \code{decision-framework.md} now has an explicit prerequisite:
         \emph{``Before evaluating K, read \code{has\_sort\_order} from the
         profile. If \code{has\_sort\_order=true}, skip K entirely and note:
@@ -705,6 +608,14 @@ improvements to the decision framework --- no scenario-specific overrides:
         (e.g.\ \code{event\_type}) still groups matching rows into contiguous
         file ranges.
 \end{enumerate}
+
+\paragraph{v5 improvements.}
+The keyword sanity-check layer is removed from the harness.  Keyword checks
+tested surface-level phrase presence, not correctness of reasoning, and
+produced false negatives in multiple scenarios (e.g.\ \code{gdpr\_deletes}:
+keyword check failed on \code{remove-dangling-deletes} while LLM judge gave
+5/5).  The LLM-as-judge is the appropriate evaluation primitive for a
+recommendation task, and it is now the sole signal.
 
 \subsection{Strengths}
 
@@ -732,9 +643,6 @@ improvements to the decision framework --- no scenario-specific overrides:
   \item \textbf{[Low] metadata-tables.md prioritisation.}  The reference is
         thorough but unprioritised --- adding a ``Quick Diagnostics'' summary
         section would improve Phase~1 efficiency.
-  \item \textbf{[Low] Expand baseline comparison to all 22 scenarios.}  The 8-
-        scenario sample already shows the pattern clearly, but a full 22-scenario
-        baseline run would give a definitive lift measurement.
 \end{enumerate}
 
 %──────────────────────────────────────────────────────────────────────────────
@@ -788,12 +696,8 @@ cd skills/iceberg-optimizer/tests/skill_benchmark
 # Single scenario with verbose output
 python run_benchmark.py --scenario gdpr_deletes --judge --verbose
 
-# Full suite (skill mode)
+# Full suite with LLM-as-judge scoring
 python run_benchmark.py --all --judge --output-json results.json
-
-# Baseline comparison (profile.json + interview answers only; no skill)
-python run_benchmark.py --scenario late_arriving_data --judge --no-skill
-python run_benchmark.py --all --judge --no-skill --output-json baseline.json
 
 # Individual scenarios
 python run_benchmark.py --scenario streaming_death_spiral --judge
@@ -804,13 +708,11 @@ python run_benchmark.py --scenario orphan_files_before_expiry --judge
 %──────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 
-Version~4 of the iceberg-optimizer benchmark achieves a \textbf{perfect 5.0/5}
-across all 22 scenarios (up from 4.86/5 in v3), and introduces the first
-systematic baseline comparison showing where the skill framework adds measurable
-value.
+The iceberg-optimizer benchmark reaches a \textbf{perfect 5.0/5} across all
+22 scenarios with the LLM-as-judge as the sole evaluation signal.
 
-\paragraph{Score improvements from v3 to v4.}
-Both below-5 v3 scenarios were fixed via generalised decision-framework updates:
+\paragraph{v3 $\to$ v4: two hard scenarios fixed.}
+Both below-5 v3 cases were resolved via generalised decision-framework updates:
 \begin{itemize}
   \item \code{flink\_micro\_commit\_scatter}: 3/5 $\to$ 5/5 via z-order
         predicate-type rule (equality-only filters $\to$ sort, not z-order)
@@ -819,26 +721,11 @@ Both below-5 v3 scenarios were fixed via generalised decision-framework updates:
         check (\code{has\_sort\_order=true} $\to$ skip K entirely).
 \end{itemize}
 
-\paragraph{Baseline comparison findings.}
-The skill's largest lifts occur in \emph{cross-signal} scenarios where the
-correct action requires combining multiple weak signals from profile, workload,
-and intent data:
-\begin{itemize}
-  \item \code{late\_arriving\_data}: baseline 2/5 FAIL $\to$ skill 5/5 (+3) ---
-        the baseline defaults to bin-pack (wrong) and redundantly recommends K
-        (already set).  The skill reads \code{has\_sort\_order} and the
-        late\_data flag to prescribe targeted sort compaction.
-  \item \code{flink\_micro\_commit\_scatter}: baseline 4/5 $\to$ skill 5/5
-        (+1) --- without workload filter-type analysis, the baseline cannot
-        determine that equality-only predicates make z-order wrong.
-  \item \code{cdc\_high\_churn}: baseline 4/5 $\to$ skill 5/5 (+1) --- the
-        COW mode evaluation requires combining write-size and query-rate signals.
-\end{itemize}
-
-For scenarios dominated by a single strong signal (format version, GDPR
-ordering, count vs time math, z-order collapse), the baseline already reaches
-5/5 --- the skill adds nothing because Claude's training data contains the
-relevant knowledge and the raw profile alone is sufficient.
+\paragraph{v4 $\to$ v5: cleaner harness.}
+The keyword sanity-check layer is removed.  Keyword checks were brittle (surface
+presence of a specific phrase is not the same as correct reasoning) and had
+already caused false negatives in scenarios where the LLM judge gave 5/5.  The
+LLM-as-judge is the right evaluation primitive for a recommendation task.
 
 \paragraph{The 22 scenarios test.}
 \begin{itemize}

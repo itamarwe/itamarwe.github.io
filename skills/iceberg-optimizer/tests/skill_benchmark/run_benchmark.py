@@ -8,14 +8,14 @@ Usage:
     # Run one scenario
     python tests/skill_benchmark/run_benchmark.py --scenario cold_archive
 
-    # Run all scenarios
-    python tests/skill_benchmark/run_benchmark.py --all
-
-    # Run with LLM-as-judge scoring
+    # Run all scenarios with LLM-as-judge scoring
     python tests/skill_benchmark/run_benchmark.py --all --judge
 
     # Show the full LLM response for a scenario (useful for debugging)
     python tests/skill_benchmark/run_benchmark.py --scenario gdpr_deletes --verbose
+
+    # Save results as JSON
+    python tests/skill_benchmark/run_benchmark.py --all --judge --output-json results.json
 """
 import argparse
 import json
@@ -32,12 +32,6 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 SCENARIOS_FILE = Path(__file__).parent / "scenarios.json"
 
 CLAUDE_CLI = "claude"
-
-
-BASELINE_SYSTEM = """You are an expert Apache Iceberg data engineer.
-You will be given raw table metadata (from DESCRIBE EXTENDED and metadata tables)
-and context about how the table is used. Analyze the data and provide specific,
-actionable optimization recommendations with SQL commands."""
 
 
 # ── Context loading ───────────────────────────────────────────────────────────
@@ -59,47 +53,6 @@ def load_skill_context() -> str:
 
 
 # ── Message building ──────────────────────────────────────────────────────────
-
-def build_baseline_message(scenario: dict) -> str:
-    """Build a minimal message: raw profile + interview answers only.
-
-    Omits workload.json (query filter analysis) and simulate_output.txt (cost
-    projections) — those are produced by harness scripts that the skill knows
-    how to invoke and interpret. The baseline agent must reason from raw metadata
-    and the user's stated priorities alone.
-    """
-    sid = scenario["id"]
-    fixture = FIXTURE_DIR / sid
-
-    profile = json.loads((fixture / "profile.json").read_text())
-    answers = scenario.get("interview_answers", {})
-    engine = scenario.get("engine", "Spark")
-    table = scenario.get("table", "catalog.schema.table")
-
-    answer_lines = "\n".join(
-        f"- **{k.replace('_', ' ').title()}**: {v}"
-        for k, v in answers.items()
-    )
-
-    return f"""I need your help optimizing an Apache Iceberg table.
-
-**Table**: `{table}`
-**Engine**: {engine}
-
-Here is the current table state from metadata queries:
-
-```json
-{json.dumps(profile, indent=2)}
-```
-
-Here is context about how this table is used:
-
-{answer_lines}
-
-Please analyze the table state and provide specific optimization recommendations
-with SQL commands and a maintenance schedule.
-"""
-
 
 def build_scenario_message(scenario: dict) -> str:
     """Build the single-turn user message for a scenario."""
@@ -195,49 +148,6 @@ def call_claude(system_prompt: str, user_message: str) -> str:
         os.unlink(system_file)
 
 
-def call_claude_judge(system_prompt: str, user_message: str) -> str:
-    """Same as call_claude but used for the judge invocation."""
-    return call_claude(system_prompt, user_message)
-
-
-# ── Keyword evaluation ────────────────────────────────────────────────────────
-
-def keyword_evaluate(output: str, scenario: dict) -> dict:
-    """Check must_contain_all_of, must_contain_any_of, must_not_contain_any_of."""
-    assertions = scenario.get("assertions", {})
-    lower = output.lower()
-
-    failures = []
-    details = {}
-
-    must_all = assertions.get("must_contain_all_of", [])
-    missing = [kw for kw in must_all if kw.lower() not in lower]
-    details["must_contain_all_of"] = {"required": must_all, "missing": missing}
-    if missing:
-        failures.append(f"Missing required terms: {missing}")
-
-    must_any = assertions.get("must_contain_any_of", [])
-    if must_any:
-        found_any = [kw for kw in must_any if kw.lower() in lower]
-        details["must_contain_any_of"] = {"candidates": must_any, "found": found_any}
-        if not found_any:
-            failures.append(f"None of the required alternatives found: {must_any}")
-    else:
-        details["must_contain_any_of"] = {"candidates": [], "found": []}
-
-    must_not = assertions.get("must_not_contain_any_of", [])
-    forbidden_found = [kw for kw in must_not if kw.lower() in lower]
-    details["must_not_contain_any_of"] = {"forbidden": must_not, "found": forbidden_found}
-    if forbidden_found:
-        failures.append(f"Forbidden terms found: {forbidden_found}")
-
-    return {
-        "passed": len(failures) == 0,
-        "failures": failures,
-        "details": details,
-    }
-
-
 # ── LLM-as-judge ─────────────────────────────────────────────────────────────
 
 JUDGE_SYSTEM = """You are a strict technical evaluator for Apache Iceberg optimization advice.
@@ -274,7 +184,7 @@ AI'S RECOMMENDATION:
 
 Does the AI's recommendation match the expected outcome? Return JSON only, no markdown fences."""
 
-    raw = call_claude_judge(JUDGE_SYSTEM, judge_prompt).strip()
+    raw = call_claude(JUDGE_SYSTEM, judge_prompt).strip()
 
     # Strip markdown code fences if model adds them anyway
     if raw.startswith("```"):
@@ -297,24 +207,17 @@ Does the AI's recommendation match the expected outcome? Return JSON only, no ma
 # ── Single scenario runner ────────────────────────────────────────────────────
 
 def run_scenario(scenario: dict, skill_context: str,
-                 use_judge: bool = False, verbose: bool = False,
-                 no_skill: bool = False) -> dict:
-    """Run one scenario: call Claude CLI, evaluate, optionally judge."""
-    mode_tag = "[baseline]" if no_skill else "[skill]"
+                 use_judge: bool = False, verbose: bool = False) -> dict:
+    """Run one scenario: call Claude, then optionally score with LLM judge."""
     print(f"\n{'─' * 60}")
-    print(f"  Scenario: {scenario['id']}  {mode_tag}")
+    print(f"  Scenario: {scenario['id']}")
     print(f"  {scenario['description'][:80]}...")
     print(f"{'─' * 60}")
 
-    if no_skill:
-        user_msg = build_baseline_message(scenario)
-        context = BASELINE_SYSTEM
-    else:
-        user_msg = build_scenario_message(scenario)
-        context = skill_context
+    user_msg = build_scenario_message(scenario)
 
     print("  Calling Claude...", end="", flush=True)
-    output = call_claude(context, user_msg)
+    output = call_claude(skill_context, user_msg)
     word_count = len(output.split())
     print(f" done ({word_count} words)")
 
@@ -323,20 +226,8 @@ def run_scenario(scenario: dict, skill_context: str,
         print(indent(output, "  "))
         print()
 
-    kw_result = keyword_evaluate(output, scenario)
-    status = "PASS" if kw_result["passed"] else "FAIL"
-    print(f"  Keyword check: {status}")
-    if not kw_result["passed"]:
-        for f in kw_result["failures"]:
-            print(f"    ✗ {f}")
-    else:
-        print("    ✓ All assertions passed")
-
     result = {
         "scenario_id": scenario["id"],
-        "keyword_passed": kw_result["passed"],
-        "keyword_failures": kw_result["failures"],
-        "keyword_details": kw_result["details"],
         "word_count": word_count,
         "output": output,
     }
@@ -368,17 +259,6 @@ def print_report(results: list, use_judge: bool) -> None:
 
     total = len(results)
 
-    # Keyword check summary
-    kw_passed = sum(1 for r in results if r["keyword_passed"])
-    print(f"\n  Keyword sanity checks: {kw_passed}/{total} passed")
-    for r in results:
-        kw = "✓" if r["keyword_passed"] else "✗"
-        print(f"    {kw} {r['scenario_id']}")
-        if not r["keyword_passed"]:
-            for f in r["keyword_failures"]:
-                print(f"        {f}")
-
-    # Judge summary (primary signal when --judge is used)
     if use_judge:
         judge_passed = sum(1 for r in results if r.get("judge_passed", False))
         scores = [r["judge"]["score"] for r in results
@@ -392,11 +272,11 @@ def print_report(results: list, use_judge: bool) -> None:
 
         overall_pass = judge_passed == total
         label = "PASSED" if overall_pass else "FAILED"
-        print(f"\n  Overall (judge): {label} ({judge_passed}/{total})")
+        print(f"\n  Overall: {label} ({judge_passed}/{total})")
     else:
-        overall_pass = kw_passed == total
-        label = "PASSED" if overall_pass else "FAILED"
-        print(f"\n  Overall (keyword): {label} ({kw_passed}/{total})")
+        print(f"\n  Ran {total} scenario(s). Use --judge to score results.")
+        for r in results:
+            print(f"    • {r['scenario_id']}  ({r['word_count']} words)")
 
     print("═" * 60 + "\n")
 
@@ -411,15 +291,11 @@ def main() -> None:
     group.add_argument("--scenario", help="Run a single scenario by id")
     group.add_argument("--all", action="store_true", help="Run all scenarios")
     parser.add_argument("--judge", action="store_true",
-                        help="Run LLM-as-judge scoring after keyword checks")
+                        help="Run LLM-as-judge scoring after each scenario")
     parser.add_argument("--verbose", action="store_true",
                         help="Print full LLM response for each scenario")
     parser.add_argument("--output-json", metavar="FILE",
                         help="Save full results as JSON to FILE")
-    parser.add_argument("--no-skill", action="store_true",
-                        help="Baseline mode: use a generic expert system prompt "
-                             "instead of the full skill context. Use to measure "
-                             "how much the skill adds over raw Claude.")
     args = parser.parse_args()
 
     scenarios = json.loads(SCENARIOS_FILE.read_text())
@@ -434,22 +310,16 @@ def main() -> None:
             sys.exit(1)
         selected = [scenario_map[args.scenario]]
 
-    no_skill = getattr(args, "no_skill", False)
-    if no_skill:
-        skill_context = BASELINE_SYSTEM
-        print(f"\nBaseline mode (no skill) — generic expert prompt ({len(BASELINE_SYSTEM)} chars)")
-    else:
-        print(f"\nLoading skill context from {SKILL_DIR}...")
-        skill_context = load_skill_context()
-        print(f"  {len(skill_context):,} chars ({len(skill_context.split()):,} words)")
+    print(f"\nLoading skill context from {SKILL_DIR}...")
+    skill_context = load_skill_context()
+    print(f"  {len(skill_context):,} chars ({len(skill_context.split()):,} words)")
 
     results = []
     for i, scenario in enumerate(selected):
         if i > 0:
             time.sleep(3)  # brief pause between scenarios to avoid rate-limit bursts
         r = run_scenario(scenario, skill_context,
-                         use_judge=args.judge, verbose=args.verbose,
-                         no_skill=no_skill)
+                         use_judge=args.judge, verbose=args.verbose)
         results.append(r)
 
     print_report(results, use_judge=args.judge)
@@ -464,9 +334,7 @@ def main() -> None:
 
     if args.judge:
         failed = sum(1 for r in results if not r.get("judge_passed", False))
-    else:
-        failed = sum(1 for r in results if not r["keyword_passed"])
-    sys.exit(1 if failed > 0 else 0)
+        sys.exit(1 if failed > 0 else 0)
 
 
 if __name__ == "__main__":

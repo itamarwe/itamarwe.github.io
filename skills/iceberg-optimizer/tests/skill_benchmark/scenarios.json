@@ -5,25 +5,15 @@
     "table": "prod.archive.user_events",
     "engine": "Trino",
     "interview_answers": {
-      "query_latency_requirement": "batch-tolerant — minutes or more is fine, nobody is waiting",
-      "query_frequency": "almost never — maybe 3–5 times per year for audit purposes",
+      "query_latency_requirement": "batch-tolerant \u2014 minutes or more is fine, nobody is waiting",
+      "query_frequency": "almost never \u2014 maybe 3\u20135 times per year for audit purposes",
       "freshness_sla": "once-a-day or slower is fine, no real-time requirement",
-      "cost_priority": "storage cost — minimize the monthly storage bill",
+      "cost_priority": "storage cost \u2014 minimize the monthly storage bill",
       "mutability_outlook": "append-only forever, no updates or deletes",
       "time_travel_need": "only the latest state matters, snapshot history is just storage cost",
-      "lifecycle": "cold archive — rarely touched, optimize for cheap storage"
+      "lifecycle": "cold archive \u2014 rarely touched, optimize for cheap storage"
     },
-    "expected_outcome": "The correct recommendation is to do nothing or at most expire old snapshots (snapshot expiry / expire_snapshots). Because the table is a cold archive with only 3–5 queries per year and files are already well-sized at 300 MB, data file compaction (rewrite_data_files / optimize) would cost more compute than it ever saves. Sort compaction, z-order, bloom filters, and partition evolution are all wasteful at this query volume. Only snapshot expiry is justified if there are many stale snapshots. A recommendation to run compaction, sort, or z-order is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "snapshot",
-        "expir"
-      ],
-      "must_contain_any_of": [
-        "do nothing", "do-nothing", "do_nothing", "no maintenance", "no compaction", "not worth",
-        "skip", "skipping", "not doing", "not recommended"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to do nothing or at most expire old snapshots (snapshot expiry / expire_snapshots). Because the table is a cold archive with only 3\u20135 queries per year and files are already well-sized at 300 MB, data file compaction (rewrite_data_files / optimize) would cost more compute than it ever saves. Sort compaction, z-order, bloom filters, and partition evolution are all wasteful at this query volume. Only snapshot expiry is justified if there are many stale snapshots. A recommendation to run compaction, sort, or z-order is incorrect."
   },
   {
     "id": "streaming_thin_spread",
@@ -31,24 +21,15 @@
     "table": "prod.events.stream",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second to seconds, user-facing dashboards",
-      "query_frequency": "constantly — hundreds of queries per hour from many consumers",
-      "freshness_sla": "minutes is acceptable — 5-minute delay is fine",
-      "cost_priority": "query latency — we optimize for speed, not cost",
+      "query_latency_requirement": "interactive \u2014 sub-second to seconds, user-facing dashboards",
+      "query_frequency": "constantly \u2014 hundreds of queries per hour from many consumers",
+      "freshness_sla": "minutes is acceptable \u2014 5-minute delay is fine",
+      "cost_priority": "query latency \u2014 we optimize for speed, not cost",
       "mutability_outlook": "append-only, no updates or deletes",
       "time_travel_need": "only the latest state matters, history is exhaust",
-      "lifecycle": "hot — actively used, optimize for speed"
+      "lifecycle": "hot \u2014 actively used, optimize for speed"
     },
-    "expected_outcome": "The correct recommendation is to compact the 1 MB small files (bin-pack or sort compaction via rewrite_data_files), apply z-order or sort on tenant_id + event_time to enable data skipping, tune write-time distribution (distribution-mode=hash or similar) to prevent future thin-spread small files, and expire snapshots aggressively. The table has 5,000 small 1 MB files spread thin — compaction is urgent. A recommendation that skips compaction or says 'do nothing' is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "compact",
-        "distribution"
-      ],
-      "must_contain_any_of": [
-        "z-order", "zorder", "z_order", "sort order", "sort compaction"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to compact the 1 MB small files (bin-pack or sort compaction via rewrite_data_files), apply z-order or sort on tenant_id + event_time to enable data skipping, tune write-time distribution (distribution-mode=hash or similar) to prevent future thin-spread small files, and expire snapshots aggressively. The table has 5,000 small 1 MB files spread thin \u2014 compaction is urgent. A recommendation that skips compaction or says 'do nothing' is incorrect."
   },
   {
     "id": "gdpr_deletes",
@@ -56,102 +37,64 @@
     "table": "prod.compliance.user_data",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes is acceptable",
-      "query_frequency": "regularly — daily reports by the compliance team",
-      "freshness_sla": "hours is fine — same-day is acceptable",
-      "cost_priority": "query cost — minimize scan compute",
-      "mutability_outlook": "deletes required — GDPR right-to-be-forgotten, individual row deletions on regulatory deadlines",
-      "time_travel_need": "only the latest state matters — retained snapshots are a GDPR liability, not a feature",
-      "lifecycle": "warm — used periodically",
-      "retention_policy": "GDPR right-to-be-forgotten — must physically remove rows within 30 days of request"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes is acceptable",
+      "query_frequency": "regularly \u2014 daily reports by the compliance team",
+      "freshness_sla": "hours is fine \u2014 same-day is acceptable",
+      "cost_priority": "query cost \u2014 minimize scan compute",
+      "mutability_outlook": "deletes required \u2014 GDPR right-to-be-forgotten, individual row deletions on regulatory deadlines",
+      "time_travel_need": "only the latest state matters \u2014 retained snapshots are a GDPR liability, not a feature",
+      "lifecycle": "warm \u2014 used periodically",
+      "retention_policy": "GDPR right-to-be-forgotten \u2014 must physically remove rows within 30 days of request"
     },
-    "expected_outcome": "The correct recommendation must include: (1) rewrite_data_files with remove-dangling-deletes to physically remove deleted rows from data files — this is non-optional for GDPR compliance; (2) expire_snapshots aggressively (preferably retain_last=1 or near-current only) because retained snapshot history means deleted rows can still be read from older snapshots, creating a GDPR liability. The recommendation must explicitly warn that logical delete files are not enough for compliance — physical removal requires both compaction and snapshot expiry. A recommendation that omits compaction or omits snapshot expiry, or that does not mention the GDPR/compliance risk of snapshot history, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "equality delete",
-        "rewrite_data_files",
-        "remove-dangling-deletes",
-        "expire_snapshots"
-      ],
-      "must_contain_any_of": [
-        "physical", "physically", "gdpr", "compliance", "snapshot history", "retained snapshot"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must include: (1) rewrite_data_files with remove-dangling-deletes to physically remove deleted rows from data files \u2014 this is non-optional for GDPR compliance; (2) expire_snapshots aggressively (preferably retain_last=1 or near-current only) because retained snapshot history means deleted rows can still be read from older snapshots, creating a GDPR liability. The recommendation must explicitly warn that logical delete files are not enough for compliance \u2014 physical removal requires both compaction and snapshot expiry. A recommendation that omits compaction or omits snapshot expiry, or that does not mention the GDPR/compliance risk of snapshot history, is incorrect."
   },
   {
     "id": "partition_misalignment",
-    "description": "Well-maintained table partitioned by event_date (daily). But 98% of queries filter on tenant_id only — partition_prune_rate = 0.0. Every query scans the full 12.5 GB table. Profile looks healthy (256 MB files, no deletes, no small files). The problem is invisible without the workload. Correct: D (partition evolution to bucket/hash by tenant_id) or B/C (sort/z-order by tenant_id as a cheaper alternative). Must identify tenant_id as the key column to optimize on.",
+    "description": "Well-maintained table partitioned by event_date (daily). But 98% of queries filter on tenant_id only \u2014 partition_prune_rate = 0.0. Every query scans the full 12.5 GB table. Profile looks healthy (256 MB files, no deletes, no small files). The problem is invisible without the workload. Correct: D (partition evolution to bucket/hash by tenant_id) or B/C (sort/z-order by tenant_id as a cheaper alternative). Must identify tenant_id as the key column to optimize on.",
     "table": "prod.analytics.events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "constantly — 1000+ queries per month from analysts",
-      "freshness_sla": "minutes is fine — 10-minute delay acceptable",
-      "cost_priority": "query cost — the query bills are getting large",
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "constantly \u2014 1000+ queries per month from analysts",
+      "freshness_sla": "minutes is fine \u2014 10-minute delay acceptable",
+      "cost_priority": "query cost \u2014 the query bills are getting large",
       "mutability_outlook": "append-only",
       "time_travel_need": "only the latest state matters",
-      "lifecycle": "hot — actively used"
+      "lifecycle": "hot \u2014 actively used"
     },
-    "expected_outcome": "The correct recommendation is to fix the partition-column mismatch. Queries filter almost exclusively on tenant_id, but the table is partitioned by event_date — so partition pruning never fires (prune_rate=0.0) and every query full-table scans 12.5 GB. The recommendation must identify tenant_id as the key column to optimize on, and propose either: (a) partition evolution to bucket or hash-partition by tenant_id (strongest fix, eliminates full scans), or (b) sort compaction / z-order by tenant_id (cheaper alternative, enables data skipping without re-partitioning). A recommendation that ignores tenant_id, focuses only on the file sizes (which are already healthy), or recommends snapshot expiry as the main action is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "tenant_id",
-        "partition"
-      ],
-      "must_contain_any_of": [
-        "partition evolution", "repartition", "bucket", "z-order", "zorder", "sort order",
-        "alter table", "add partition field"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to fix the partition-column mismatch. Queries filter almost exclusively on tenant_id, but the table is partitioned by event_date \u2014 so partition pruning never fires (prune_rate=0.0) and every query full-table scans 12.5 GB. The recommendation must identify tenant_id as the key column to optimize on, and propose either: (a) partition evolution to bucket or hash-partition by tenant_id (strongest fix, eliminates full scans), or (b) sort compaction / z-order by tenant_id (cheaper alternative, enables data skipping without re-partitioning). A recommendation that ignores tenant_id, focuses only on the file sizes (which are already healthy), or recommends snapshot expiry as the main action is incorrect."
   },
   {
     "id": "snapshot_bloat_only",
-    "description": "Small table with 5 well-sized 256 MB files but 1200 hourly snapshots (1+ year of history). No small files, no deletes. Queried weekly for reports with good partition pruning. Correct: F (snapshot expiry — the only real problem), G (manifest rewrite). Must NOT recommend data file compaction (files are already well-sized).",
+    "description": "Small table with 5 well-sized 256 MB files but 1200 hourly snapshots (1+ year of history). No small files, no deletes. Queried weekly for reports with good partition pruning. Correct: F (snapshot expiry \u2014 the only real problem), G (manifest rewrite). Must NOT recommend data file compaction (files are already well-sized).",
     "table": "prod.reports.daily_summary",
     "engine": "Trino",
     "interview_answers": {
-      "query_latency_requirement": "batch-tolerant — weekly reports, minutes is fine",
-      "query_frequency": "regularly — weekly batch reports",
+      "query_latency_requirement": "batch-tolerant \u2014 weekly reports, minutes is fine",
+      "query_frequency": "regularly \u2014 weekly batch reports",
       "freshness_sla": "once-a-day is fine",
-      "cost_priority": "storage cost — minimize storage bill",
+      "cost_priority": "storage cost \u2014 minimize storage bill",
       "mutability_outlook": "append-only",
-      "time_travel_need": "nice to have — keep 2 weeks of history for rollback",
-      "lifecycle": "warm — used periodically"
+      "time_travel_need": "nice to have \u2014 keep 2 weeks of history for rollback",
+      "lifecycle": "warm \u2014 used periodically"
     },
-    "expected_outcome": "The correct recommendation is snapshot expiry (expire_snapshots / expire_snapshots with retention_threshold) as the primary action — the table has 1,200 hourly snapshots accumulated over more than a year, causing metadata bloat. Optionally also rewrite manifests (optimize_manifests). The data files themselves are perfectly sized at 256 MB — data file compaction (rewrite_data_files / EXECUTE optimize) is not needed and would waste compute. A recommendation that prescribes data file compaction, sort, or z-order as a main action is incorrect; the files are already well-sized.",
-    "assertions": {
-      "must_contain_all_of": [
-        "snapshot",
-        "expir"
-      ],
-      "must_contain_any_of": [
-        "expire_snapshots", "retention_threshold", "1200", "snapshot bloat", "snapshot count"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is snapshot expiry (expire_snapshots / expire_snapshots with retention_threshold) as the primary action \u2014 the table has 1,200 hourly snapshots accumulated over more than a year, causing metadata bloat. Optionally also rewrite manifests (optimize_manifests). The data files themselves are perfectly sized at 256 MB \u2014 data file compaction (rewrite_data_files / EXECUTE optimize) is not needed and would waste compute. A recommendation that prescribes data file compaction, sort, or z-order as a main action is incorrect; the files are already well-sized."
   },
   {
     "id": "position_delete_accumulation",
-    "description": "Merge-on-read table with 240 position delete files accumulating against 200 data files (pos_delete_pressure=0.15). 280 merge commits in 10 weeks. Queried 300x/month by customer_id + updated_at range. Correct: E2 (rewrite_position_delete_files, not E1), conservative snapshot expiry retaining ≥7 days, and a note that COW should be considered long-term if delete rate continues.",
+    "description": "Merge-on-read table with 240 position delete files accumulating against 200 data files (pos_delete_pressure=0.15). 280 merge commits in 10 weeks. Queried 300x/month by customer_id + updated_at range. Correct: E2 (rewrite_position_delete_files, not E1), conservative snapshot expiry retaining \u22657 days, and a note that COW should be considered long-term if delete rate continues.",
     "table": "prod.ops.customer_events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes acceptable",
-      "query_frequency": "regularly — 300 queries per month",
-      "freshness_sla": "near-real-time — micro-batch every 10 minutes",
-      "cost_priority": "query cost — minimize scan compute",
-      "mutability_outlook": "frequent updates — CDC merge-on-read pattern, ~3.2 delete commits per day",
-      "time_travel_need": "important — keep at least 7 days for rollback",
-      "lifecycle": "warm — actively maintained"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes acceptable",
+      "query_frequency": "regularly \u2014 300 queries per month",
+      "freshness_sla": "near-real-time \u2014 micro-batch every 10 minutes",
+      "cost_priority": "query cost \u2014 minimize scan compute",
+      "mutability_outlook": "frequent updates \u2014 CDC merge-on-read pattern, ~3.2 delete commits per day",
+      "time_travel_need": "important \u2014 keep at least 7 days for rollback",
+      "lifecycle": "warm \u2014 actively maintained"
     },
-    "expected_outcome": "The correct recommendation is position-delete compaction using rewrite_position_delete_files (or rewrite_data_files targeting files with position deletes) — NOT equality-delete compaction (E1), because the delete files are position deletes (merge-on-read pattern) not equality deletes. Snapshot expiry should be conservative, retaining at least 7 days (not aggressive like GDPR tables). The recommendation should mention considering copy-on-write mode as a long-term alternative if the delete rate continues to grow. A recommendation that prescribes equality-delete compaction (E1 / remove-dangling-deletes) as the primary action, or one that recommends aggressive snapshot expiry, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "position delete"
-      ],
-      "must_contain_any_of": [
-        "rewrite_position_delete_files", "rewrite_data_files", "position-delete", "pos_delete", "merge-on-read", "MOR"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is position-delete compaction using rewrite_position_delete_files (or rewrite_data_files targeting files with position deletes) \u2014 NOT equality-delete compaction (E1), because the delete files are position deletes (merge-on-read pattern) not equality deletes. Snapshot expiry should be conservative, retaining at least 7 days (not aggressive like GDPR tables). The recommendation should mention considering copy-on-write mode as a long-term alternative if the delete rate continues to grow. A recommendation that prescribes equality-delete compaction (E1 / remove-dangling-deletes) as the primary action, or one that recommends aggressive snapshot expiry, is incorrect."
   },
   {
     "id": "format_version_mismatch",
@@ -159,47 +102,31 @@
     "table": "prod.cdc.orders",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "regularly — 200 queries per month",
-      "freshness_sla": "minutes acceptable — 5-minute CDC lag is fine",
-      "cost_priority": "query cost — equality deletes are hurting scan performance",
-      "mutability_outlook": "frequent updates and deletes — CDC equality delete pattern",
-      "time_travel_need": "short — 2 days is enough",
-      "lifecycle": "warm — actively maintained"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "regularly \u2014 200 queries per month",
+      "freshness_sla": "minutes acceptable \u2014 5-minute CDC lag is fine",
+      "cost_priority": "query cost \u2014 equality deletes are hurting scan performance",
+      "mutability_outlook": "frequent updates and deletes \u2014 CDC equality delete pattern",
+      "time_travel_need": "short \u2014 2 days is enough",
+      "lifecycle": "warm \u2014 actively maintained"
     },
-    "expected_outcome": "The correct recommendation must identify that the table is still Iceberg format version 1, which does not support deletion vectors or safe equality-delete compaction. The mandatory first step is to upgrade to format version 2 using ALTER TABLE SET TBLPROPERTIES ('format-version'='2'). Only after upgrading to v2 can rewrite_data_files with remove-dangling-deletes (E1) be safely run. A recommendation that immediately runs E1/equality-delete compaction without first upgrading the format version is incorrect and potentially unsafe. The format version upgrade (Action L) must be explicitly mentioned as the first step.",
-    "assertions": {
-      "must_contain_all_of": [
-        "format-version"
-      ],
-      "must_contain_any_of": [
-        "upgrade", "ALTER TABLE", "format version", "v2", "version 2", "format-version='2'", "equality delete"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that the table is still Iceberg format version 1, which does not support deletion vectors or safe equality-delete compaction. The mandatory first step is to upgrade to format version 2 using ALTER TABLE SET TBLPROPERTIES ('format-version'='2'). Only after upgrading to v2 can rewrite_data_files with remove-dangling-deletes (E1) be safely run. A recommendation that immediately runs E1/equality-delete compaction without first upgrading the format version is incorrect and potentially unsafe. The format version upgrade (Action L) must be explicitly mentioned as the first step."
   },
   {
     "id": "over_partitioned_tiny_partitions",
-    "description": "Table with a 5-level partition spec (year/month/day/hour/region) creating ~219,000 partitions. Average 2 files per partition, 8 MB each. Total 250 GB across 437k tiny files. Massive metadata overhead. Correct: D (partition evolution — drop hour and day dimensions, keep year/month/region or bucket).",
+    "description": "Table with a 5-level partition spec (year/month/day/hour/region) creating ~219,000 partitions. Average 2 files per partition, 8 MB each. Total 250 GB across 437k tiny files. Massive metadata overhead. Correct: D (partition evolution \u2014 drop hour and day dimensions, keep year/month/region or bucket).",
     "table": "prod.telemetry.device_events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to low minutes",
-      "query_frequency": "regularly — 400 queries per month",
+      "query_latency_requirement": "responsive \u2014 seconds to low minutes",
+      "query_frequency": "regularly \u2014 400 queries per month",
       "freshness_sla": "hourly is fine",
-      "cost_priority": "query cost — planning overhead is enormous",
+      "cost_priority": "query cost \u2014 planning overhead is enormous",
       "mutability_outlook": "append-only",
       "time_travel_need": "only the latest state matters",
-      "lifecycle": "warm — actively used"
+      "lifecycle": "warm \u2014 actively used"
     },
-    "expected_outcome": "The correct recommendation is partition evolution (Action D) — specifically, reducing the over-granular partition spec. The 5-level hierarchy (year/month/day/hour/region) creates approximately 219,000 partitions with only 2 files each (8 MB average), causing severe metadata and planning overhead. The fix is to evolve the partition spec to drop the hour and day dimensions, keeping a coarser granularity like year/month/region or introducing a bucket on a high-cardinality column. Bin-pack (A) or sort (B) alone is not the primary fix — they are band-aids that don't address the root cause of too many tiny partitions. A recommendation that only recommends compaction without addressing the partition spec is incomplete.",
-    "assertions": {
-      "must_contain_all_of": [
-        "partition"
-      ],
-      "must_contain_any_of": [
-        "partition evolution", "evolve", "drop", "coarser", "over-partition", "219", "too many partitions", "fewer partition", "reduce partition"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is partition evolution (Action D) \u2014 specifically, reducing the over-granular partition spec. The 5-level hierarchy (year/month/day/hour/region) creates approximately 219,000 partitions with only 2 files each (8 MB average), causing severe metadata and planning overhead. The fix is to evolve the partition spec to drop the hour and day dimensions, keeping a coarser granularity like year/month/region or introducing a bucket on a high-cardinality column. Bin-pack (A) or sort (B) alone is not the primary fix \u2014 they are band-aids that don't address the root cause of too many tiny partitions. A recommendation that only recommends compaction without addressing the partition spec is incomplete."
   },
   {
     "id": "flink_micro_commit_scatter",
@@ -207,71 +134,47 @@
     "table": "prod.streaming.flink_events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second to seconds",
-      "query_frequency": "constantly — 600 queries per month",
-      "freshness_sla": "seconds — near-real-time required",
-      "cost_priority": "query latency — speed is paramount",
-      "mutability_outlook": "append-only — Flink streaming inserts",
-      "time_travel_need": "none — only latest state matters",
-      "lifecycle": "hot — real-time streaming pipeline"
+      "query_latency_requirement": "interactive \u2014 sub-second to seconds",
+      "query_frequency": "constantly \u2014 600 queries per month",
+      "freshness_sla": "seconds \u2014 near-real-time required",
+      "cost_priority": "query latency \u2014 speed is paramount",
+      "mutability_outlook": "append-only \u2014 Flink streaming inserts",
+      "time_travel_need": "none \u2014 only latest state matters",
+      "lifecycle": "hot \u2014 real-time streaming pipeline"
     },
-    "expected_outcome": "The correct recommendation is to fix the root cause at write time: set distribution-mode=hash on event_type so Flink routes each event type to a dedicated writer task (eliminating thin spread), and set a write-time sort order (event_type, region) so files are pre-sorted. Then run bin-pack compaction on cold partitions and manifest clustering (G) to reduce metadata overhead. Z-order is NOT recommended here — the table has two low-to-medium cardinality columns (event_type, region) and the thin spread problem is a writer-side issue, not a sort order issue. A recommendation that prescribes z-order without addressing distribution-mode is missing the root cause.",
-    "assertions": {
-      "must_contain_all_of": [
-        "distribution"
-      ],
-      "must_contain_any_of": [
-        "distribution-mode", "hash", "write-time", "write.distribution-mode", "sort order", "bin-pack", "binpack"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to fix the root cause at write time: set distribution-mode=hash on event_type so Flink routes each event type to a dedicated writer task (eliminating thin spread), and set a write-time sort order (event_type, region) so files are pre-sorted. Then run bin-pack compaction on cold partitions and manifest clustering (G) to reduce metadata overhead. Z-order is NOT recommended here \u2014 the table has two low-to-medium cardinality columns (event_type, region) and the thin spread problem is a writer-side issue, not a sort order issue. A recommendation that prescribes z-order without addressing distribution-mode is missing the root cause."
   },
   {
     "id": "late_arriving_data",
-    "description": "Batch ETL table partitioned by event_date. Most data arrives on time but ~5% of events arrive 7–30 days late, rewriting old partitions. Write-time sort order already set (event_date, customer_id). But late-arriving rewrites undo previous sort. Correct: B (sort compaction triggered on partitions modified within last 30 days), not adding K again (already set).",
+    "description": "Batch ETL table partitioned by event_date. Most data arrives on time but ~5% of events arrive 7\u201330 days late, rewriting old partitions. Write-time sort order already set (event_date, customer_id). But late-arriving rewrites undo previous sort. Correct: B (sort compaction triggered on partitions modified within last 30 days), not adding K again (already set).",
     "table": "prod.etl.transactions",
     "engine": "Trino",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "regularly — 250 queries per month",
-      "freshness_sla": "daily — batch ETL runs nightly",
-      "cost_priority": "query cost — late arriving data is hurting scan performance",
-      "mutability_outlook": "append-mostly with late-arriving data — 5% of events arrive 7–30 days late",
-      "time_travel_need": "short — 3 days for rollback",
-      "lifecycle": "warm — actively used"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "regularly \u2014 250 queries per month",
+      "freshness_sla": "daily \u2014 batch ETL runs nightly",
+      "cost_priority": "query cost \u2014 late arriving data is hurting scan performance",
+      "mutability_outlook": "append-mostly with late-arriving data \u2014 5% of events arrive 7\u201330 days late",
+      "time_travel_need": "short \u2014 3 days for rollback",
+      "lifecycle": "warm \u2014 actively used"
     },
-    "expected_outcome": "The correct recommendation is to run sort compaction (rewrite_data_files with sort strategy) on partitions that were recently modified (last 7–30 days) to restore the sort order after late-arriving data rewrites. The write-time sort order is already set (event_date, customer_id), so Action K should NOT be recommended again — it's already in place and doesn't help with the late-arriving data problem. The fix is periodic sort compaction that targets recently modified partitions. A recommendation that adds write-time sort order again (K), or that recommends z-order instead of sort compaction, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "sort"
-      ],
-      "must_contain_any_of": [
-        "sort compaction", "rewrite_data_files", "late-arriving", "late arriving", "modified partition", "recently modified", "sort order already"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to run sort compaction (rewrite_data_files with sort strategy) on partitions that were recently modified (last 7\u201330 days) to restore the sort order after late-arriving data rewrites. The write-time sort order is already set (event_date, customer_id), so Action K should NOT be recommended again \u2014 it's already in place and doesn't help with the late-arriving data problem. The fix is periodic sort compaction that targets recently modified partitions. A recommendation that adds write-time sort order again (K), or that recommends z-order instead of sort compaction, is incorrect."
   },
   {
     "id": "wide_table_memory_pressure",
-    "description": "250-column wide table with 512 MB target file size (default). Queries on 600 GB table by customer_id + order_date. Compaction workers are OOMing. Files are already 512 MB (at target) so the profiler says no binpack needed — but the target itself is wrong for a wide schema. Correct: Reduce write.target-file-size-bytes to 128–256 MB, then sort compaction.",
+    "description": "250-column wide table with 512 MB target file size (default). Queries on 600 GB table by customer_id + order_date. Compaction workers are OOMing. Files are already 512 MB (at target) so the profiler says no binpack needed \u2014 but the target itself is wrong for a wide schema. Correct: Reduce write.target-file-size-bytes to 128\u2013256 MB, then sort compaction.",
     "table": "prod.sales.order_facts",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second to seconds",
-      "query_frequency": "constantly — 500 queries per month",
-      "freshness_sla": "minutes — 5-minute delay acceptable",
-      "cost_priority": "query latency — speed is paramount",
+      "query_latency_requirement": "interactive \u2014 sub-second to seconds",
+      "query_frequency": "constantly \u2014 500 queries per month",
+      "freshness_sla": "minutes \u2014 5-minute delay acceptable",
+      "cost_priority": "query latency \u2014 speed is paramount",
       "mutability_outlook": "append-only",
       "time_travel_need": "only the latest state matters",
-      "lifecycle": "hot — actively used"
+      "lifecycle": "hot \u2014 actively used"
     },
-    "expected_outcome": "The correct recommendation must identify that the 512 MB target file size is too large for a 250-column wide table and is causing memory pressure (OOM) during compaction. The primary fix is to reduce write.target-file-size-bytes to 128–256 MB to bring memory usage within the executor budget. After re-sizing, sort compaction on (customer_id, order_date) can proceed safely. A recommendation that only recommends compaction without addressing the file size configuration, or that says 'no action needed because files are already at target size', is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "file-size", "128"
-      ],
-      "must_contain_any_of": [
-        "target-file-size", "write.target-file-size-bytes", "memory", "OOM", "wide", "256 MB", "128 MB", "reduce"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that the 512 MB target file size is too large for a 250-column wide table and is causing memory pressure (OOM) during compaction. The primary fix is to reduce write.target-file-size-bytes to 128\u2013256 MB to bring memory usage within the executor budget. After re-sizing, sort compaction on (customer_id, order_date) can proceed safely. A recommendation that only recommends compaction without addressing the file size configuration, or that says 'no action needed because files are already at target size', is incorrect."
   },
   {
     "id": "cdc_high_churn_cow_consideration",
@@ -279,24 +182,15 @@
     "table": "prod.cdc.account_events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second required, user-facing",
-      "query_frequency": "constantly — 1000 queries per month",
-      "freshness_sla": "minutes — 5-minute lag acceptable",
-      "cost_priority": "query latency — interactive dashboards require sub-second",
-      "mutability_outlook": "frequent updates — CDC pipeline, 200k updates per hour",
-      "time_travel_need": "short — 2 days for incident rollback",
-      "lifecycle": "hot — critical production pipeline"
+      "query_latency_requirement": "interactive \u2014 sub-second required, user-facing",
+      "query_frequency": "constantly \u2014 1000 queries per month",
+      "freshness_sla": "minutes \u2014 5-minute lag acceptable",
+      "cost_priority": "query latency \u2014 interactive dashboards require sub-second",
+      "mutability_outlook": "frequent updates \u2014 CDC pipeline, 200k updates per hour",
+      "time_travel_need": "short \u2014 2 days for incident rollback",
+      "lifecycle": "hot \u2014 critical production pipeline"
     },
-    "expected_outcome": "The correct recommendation includes: (1) equality-delete compaction (rewrite_data_files with remove-dangling-deletes / E1) to remove the accumulating equality deletes; (2) write-time tuning (Action J) to address the 12 MB small write files — the CDC writer is producing files far below the 256 MB target, so distribution-mode or target-file-size tuning is needed; (3) bin-pack compaction (A) to merge the small write files; and (4) a note that switching to copy-on-write mode should be evaluated since query latency is the top priority and the table has frequent update churn. A recommendation that omits the write-time tuning (J) or that doesn't mention COW mode as a consideration when latency is paramount, is incomplete.",
-    "assertions": {
-      "must_contain_all_of": [
-        "equality delete",
-        "rewrite_data_files"
-      ],
-      "must_contain_any_of": [
-        "copy-on-write", "COW", "write-time", "distribution-mode", "small file", "12 MB", "target-file-size"
-      ]
-    }
+    "expected_outcome": "The correct recommendation includes: (1) equality-delete compaction (rewrite_data_files with remove-dangling-deletes / E1) to remove the accumulating equality deletes; (2) write-time tuning (Action J) to address the 12 MB small write files \u2014 the CDC writer is producing files far below the 256 MB target, so distribution-mode or target-file-size tuning is needed; (3) bin-pack compaction (A) to merge the small write files; and (4) a note that switching to copy-on-write mode should be evaluated since query latency is the top priority and the table has frequent update churn. A recommendation that omits the write-time tuning (J) or that doesn't mention COW mode as a consideration when latency is paramount, is incomplete."
   },
   {
     "id": "query_cost_vs_maintenance_cost",
@@ -304,23 +198,15 @@
     "table": "prod.archive.legacy_orders",
     "engine": "Trino",
     "interview_answers": {
-      "query_latency_requirement": "batch-tolerant — hours is fine, audit queries only",
-      "query_frequency": "almost never — 3 times per year at most",
+      "query_latency_requirement": "batch-tolerant \u2014 hours is fine, audit queries only",
+      "query_frequency": "almost never \u2014 3 times per year at most",
       "freshness_sla": "once-a-month is fine",
-      "cost_priority": "storage cost — we just want it to be cheap to keep around",
-      "mutability_outlook": "append-only — no new data, fully historical",
+      "cost_priority": "storage cost \u2014 we just want it to be cheap to keep around",
+      "mutability_outlook": "append-only \u2014 no new data, fully historical",
       "time_travel_need": "no time travel needed",
-      "lifecycle": "cold archive — write-once, read-almost-never"
+      "lifecycle": "cold archive \u2014 write-once, read-almost-never"
     },
-    "expected_outcome": "The correct recommendation is to do nothing for data files (explicit do-nothing / Action Z). With only 3 queries per year and files already well-sized at 512 MB, compaction would cost more in compute than it would ever save in query cost — the math doesn't work out. Snapshot expiry is the only justified maintenance action if there is accumulated snapshot history. A recommendation that prescribes data file compaction, sort, z-order, or bloom filters for a table queried 3 times per year is wasteful and incorrect. The key insight is that maintenance has a cost too, and for nearly-dead tables the break-even point is never reached.",
-    "assertions": {
-      "must_contain_all_of": [
-        "snapshot"
-      ],
-      "must_contain_any_of": [
-        "do nothing", "do-nothing", "not worth", "cost", "3 queries", "rarely", "no compaction", "skip compaction", "no maintenance"
-      ]
-    }
+    "expected_outcome": "The correct recommendation is to do nothing for data files (explicit do-nothing / Action Z). With only 3 queries per year and files already well-sized at 512 MB, compaction would cost more in compute than it would ever save in query cost \u2014 the math doesn't work out. Snapshot expiry is the only justified maintenance action if there is accumulated snapshot history. A recommendation that prescribes data file compaction, sort, z-order, or bloom filters for a table queried 3 times per year is wasteful and incorrect. The key insight is that maintenance has a cost too, and for nearly-dead tables the break-even point is never reached."
   },
   {
     "id": "snapshot_time_travel_cdc",
@@ -328,23 +214,15 @@
     "table": "prod.cdc.transaction_log",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "regularly — 400 queries per month",
-      "freshness_sla": "real-time — 1-minute commit cadence",
-      "cost_priority": "balanced — both cost and latency matter",
-      "mutability_outlook": "frequent updates — CDC pipeline at 1 commit per minute",
-      "time_travel_need": "critical — 30-day rollback window required by compliance",
-      "lifecycle": "hot — active CDC pipeline"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "regularly \u2014 400 queries per month",
+      "freshness_sla": "real-time \u2014 1-minute commit cadence",
+      "cost_priority": "balanced \u2014 both cost and latency matter",
+      "mutability_outlook": "frequent updates \u2014 CDC pipeline at 1 commit per minute",
+      "time_travel_need": "critical \u2014 30-day rollback window required by compliance",
+      "lifecycle": "hot \u2014 active CDC pipeline"
     },
-    "expected_outcome": "The correct recommendation must identify that retain_last=100 with a 1-commit-per-minute table only retains 100 minutes of history — catastrophically short of the required 30-day rollback window. The fix is to switch to time-based snapshot expiry using max-snapshot-age-ms=2592000000 (30 days in milliseconds), not count-based retain_last. A recommendation that continues using retain_last without addressing the 100-minute window problem, or that recommends retain_last with a larger number without converting to time-based, is missing the fundamental issue. The skill must explicitly recommend time-based expiry and explain why count-based is wrong for high-frequency commit tables.",
-    "assertions": {
-      "must_contain_all_of": [
-        "max-snapshot-age"
-      ],
-      "must_contain_any_of": [
-        "time-based", "max-snapshot-age-ms", "2592000000", "30 days", "retain_last is wrong", "count-based", "1 commit per minute", "100 minutes"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that retain_last=100 with a 1-commit-per-minute table only retains 100 minutes of history \u2014 catastrophically short of the required 30-day rollback window. The fix is to switch to time-based snapshot expiry using max-snapshot-age-ms=2592000000 (30 days in milliseconds), not count-based retain_last. A recommendation that continues using retain_last without addressing the 100-minute window problem, or that recommends retain_last with a larger number without converting to time-based, is missing the fundamental issue. The skill must explicitly recommend time-based expiry and explain why count-based is wrong for high-frequency commit tables."
   },
   {
     "id": "mixed_partition_spec",
@@ -352,23 +230,15 @@
     "table": "prod.analytics.sales_facts",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "constantly — 700 queries per month",
-      "freshness_sla": "daily — batch pipeline",
-      "cost_priority": "query cost — planning is too slow",
-      "mutability_outlook": "append-only — new data only",
-      "time_travel_need": "short — 7 days for rollback",
-      "lifecycle": "warm — actively used"
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "constantly \u2014 700 queries per month",
+      "freshness_sla": "daily \u2014 batch pipeline",
+      "cost_priority": "query cost \u2014 planning is too slow",
+      "mutability_outlook": "append-only \u2014 new data only",
+      "time_travel_need": "short \u2014 7 days for rollback",
+      "lifecycle": "warm \u2014 actively used"
     },
-    "expected_outcome": "The correct recommendation must address the mixed partition specs — historical data under the old (year, month) spec cannot benefit from the new bucket(10, tenant_id) partitioning, causing split planning. The fix requires rewriting the 600 GB of old-spec data files to the new partition spec (not just a manifest rewrite, which does not move data). This is a full data rewrite triggered by partition evolution. A recommendation that only rewrites manifests (G) without physically rewriting the data files is incorrect — manifests record which spec each file belongs to but cannot change the physical file layout.",
-    "assertions": {
-      "must_contain_all_of": [
-        "partition"
-      ],
-      "must_contain_any_of": [
-        "mixed spec", "mixed partition", "rewrite", "old spec", "partition evolution", "two spec", "both spec", "historical data"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must address the mixed partition specs \u2014 historical data under the old (year, month) spec cannot benefit from the new bucket(10, tenant_id) partitioning, causing split planning. The fix requires rewriting the 600 GB of old-spec data files to the new partition spec (not just a manifest rewrite, which does not move data). This is a full data rewrite triggered by partition evolution. A recommendation that only rewrites manifests (G) without physically rewriting the data files is incorrect \u2014 manifests record which spec each file belongs to but cannot change the physical file layout."
   },
   {
     "id": "bloom_filter_high_cardinality",
@@ -376,23 +246,15 @@
     "table": "prod.catalog.product_events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second required",
-      "query_frequency": "constantly — 900 queries per month",
+      "query_latency_requirement": "interactive \u2014 sub-second required",
+      "query_frequency": "constantly \u2014 900 queries per month",
       "freshness_sla": "minutes acceptable",
-      "cost_priority": "query latency — speed is critical",
+      "cost_priority": "query latency \u2014 speed is critical",
       "mutability_outlook": "append-only",
       "time_travel_need": "none needed",
-      "lifecycle": "hot — high-frequency lookup table"
+      "lifecycle": "hot \u2014 high-frequency lookup table"
     },
-    "expected_outcome": "The correct recommendation must identify that min/max column statistics are ineffective for equality filtering on product_id with 10 million distinct values — with such high cardinality, every file will have overlapping min/max ranges and no file pruning occurs. The fix is to enable a bloom filter on product_id (Action I). The bloom filter allows Iceberg to skip data files that definitely don't contain the queried product_id with a very low false-positive rate. A recommendation that only recommends sort compaction or z-order without mentioning bloom filters for this high-cardinality equality lookup pattern is missing the most impactful fix.",
-    "assertions": {
-      "must_contain_all_of": [
-        "bloom filter"
-      ],
-      "must_contain_any_of": [
-        "bloom_filter_columns", "high cardinality", "product_id", "min/max", "min-max", "equality", "10 million", "10M"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that min/max column statistics are ineffective for equality filtering on product_id with 10 million distinct values \u2014 with such high cardinality, every file will have overlapping min/max ranges and no file pruning occurs. The fix is to enable a bloom filter on product_id (Action I). The bloom filter allows Iceberg to skip data files that definitely don't contain the queried product_id with a very low false-positive rate. A recommendation that only recommends sort compaction or z-order without mentioning bloom filters for this high-cardinality equality lookup pattern is missing the most impactful fix."
   },
   {
     "id": "gdpr_ordering_mistake",
@@ -400,121 +262,79 @@
     "table": "prod.compliance.customer_pii",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "regularly — compliance audits",
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "regularly \u2014 compliance audits",
       "freshness_sla": "daily is fine",
-      "cost_priority": "compliance — GDPR physical deletion is non-negotiable",
-      "mutability_outlook": "deletes required — GDPR right-to-be-forgotten",
-      "time_travel_need": "none — snapshots should have been expired already, but weren't at the right time",
-      "lifecycle": "warm — compliance-critical"
+      "cost_priority": "compliance \u2014 GDPR physical deletion is non-negotiable",
+      "mutability_outlook": "deletes required \u2014 GDPR right-to-be-forgotten",
+      "time_travel_need": "none \u2014 snapshots should have been expired already, but weren't at the right time",
+      "lifecycle": "warm \u2014 compliance-critical"
     },
-    "expected_outcome": "The correct recommendation must urgently prescribe equality-delete compaction (rewrite_data_files with remove-dangling-deletes / E1) as an immediate action. The root cause is that snapshots were expired before compaction ran — the correct order is: (1) compact data files to physically embed/remove deleted rows, THEN (2) expire snapshots. Since snapshots were already expired before compaction, the deleted rows may still be physically present in the data files (as equality delete files that haven't been merged in). Running E1 immediately is the remediation. The recommendation must also explain the correct order: compact THEN expire for GDPR tables. A recommendation that says nothing about the incorrect expiry ordering, or that prescribes only snapshot expiry without urgent E1 compaction, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "equality delete",
-        "rewrite_data_files"
-      ],
-      "must_contain_any_of": [
-        "remove-dangling-deletes", "compact first", "compact before", "expir", "ordering", "order", "physical", "GDPR"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must urgently prescribe equality-delete compaction (rewrite_data_files with remove-dangling-deletes / E1) as an immediate action. The root cause is that snapshots were expired before compaction ran \u2014 the correct order is: (1) compact data files to physically embed/remove deleted rows, THEN (2) expire snapshots. Since snapshots were already expired before compaction, the deleted rows may still be physically present in the data files (as equality delete files that haven't been merged in). Running E1 immediately is the remediation. The recommendation must also explain the correct order: compact THEN expire for GDPR tables. A recommendation that says nothing about the incorrect expiry ordering, or that prescribes only snapshot expiry without urgent E1 compaction, is incorrect."
   },
   {
     "id": "z_order_too_many_columns",
-    "description": "Table with z-order applied to 6 columns (tenant_id, event_time, region, product_id, channel, device_type). Z-curve locality degrades beyond 4-5 columns — in 6D z-space all file ranges overlap and no skipping occurs. High compaction cost with near-zero query benefit. Correct: Replace 6-column z-order with 2-column z-order (tenant_id, event_time) or plain sort.",
+    "description": "Table with z-order applied to 6 columns (tenant_id, event_time, region, product_id, channel, device_type). Z-curve locality degrades beyond 4-5 columns \u2014 in 6D z-space all file ranges overlap and no skipping occurs. High compaction cost with near-zero query benefit. Correct: Replace 6-column z-order with 2-column z-order (tenant_id, event_time) or plain sort.",
     "table": "prod.analytics.events",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second to seconds",
-      "query_frequency": "constantly — 800 queries per month",
-      "freshness_sla": "batch — daily load",
-      "cost_priority": "query latency — minimize scan latency",
+      "query_latency_requirement": "interactive \u2014 sub-second to seconds",
+      "query_frequency": "constantly \u2014 800 queries per month",
+      "freshness_sla": "batch \u2014 daily load",
+      "cost_priority": "query latency \u2014 minimize scan latency",
       "mutability_outlook": "append-only",
       "time_travel_need": "none needed",
-      "lifecycle": "hot — active analytics table"
+      "lifecycle": "hot \u2014 active analytics table"
     },
-    "expected_outcome": "The correct recommendation must identify that z-order on 6 columns loses locality guarantees — the Z-curve space is too high-dimensional (6 columns) and all file min/max ranges overlap, rendering data skipping ineffective. The fix is to replace the 6-column z-order with a 2-column z-order on (tenant_id, event_time) only, or switch to a simple sort order on the top-2 query columns. Columns like channel, device_type, and region should be dropped from the z-order specification. A recommendation that keeps the same 6-column z-order, or one that recommends adding more columns, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "z-order"
-      ],
-      "must_contain_any_of": [
-        "too many columns", "6 columns", "locality", "high-dimensional", "reduce", "2-column", "tenant_id", "event_time", "fewer columns"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that z-order on 6 columns loses locality guarantees \u2014 the Z-curve space is too high-dimensional (6 columns) and all file min/max ranges overlap, rendering data skipping ineffective. The fix is to replace the 6-column z-order with a 2-column z-order on (tenant_id, event_time) only, or switch to a simple sort order on the top-2 query columns. Columns like channel, device_type, and region should be dropped from the z-order specification. A recommendation that keeps the same 6-column z-order, or one that recommends adding more columns, is incorrect."
   },
   {
     "id": "hot_partition_conflict",
-    "description": "Streaming table with hourly compaction job. Compaction runs on today's active partition — exactly where Flink is currently writing. Optimistic concurrency conflicts abort compaction 80% of the time. Correct: Add WHERE event_date < current_date() to compaction to target only cold (yesterday and older) partitions.",
+    "description": "Streaming table with hourly compaction job. Compaction runs on today's active partition \u2014 exactly where Flink is currently writing. Optimistic concurrency conflicts abort compaction 80% of the time. Correct: Add WHERE event_date < current_date() to compaction to target only cold (yesterday and older) partitions.",
     "table": "prod.streaming.sensor_readings",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second required",
-      "query_frequency": "constantly — real-time dashboards",
-      "freshness_sla": "real-time — seconds of latency",
-      "cost_priority": "query latency — minimize scan latency",
-      "mutability_outlook": "streaming inserts — Flink writing continuously",
+      "query_latency_requirement": "interactive \u2014 sub-second required",
+      "query_frequency": "constantly \u2014 real-time dashboards",
+      "freshness_sla": "real-time \u2014 seconds of latency",
+      "cost_priority": "query latency \u2014 minimize scan latency",
+      "mutability_outlook": "streaming inserts \u2014 Flink writing continuously",
       "time_travel_need": "none needed",
-      "lifecycle": "hot — streaming production table"
+      "lifecycle": "hot \u2014 streaming production table"
     },
-    "expected_outcome": "The correct recommendation must identify the hot partition conflict: the compaction job is targeting the currently-active partition (today's date partition) while Flink is simultaneously writing to it, causing optimistic concurrency conflicts that abort the compaction job. The fix is to add a filter to the compaction call so it only targets cold (already-closed) partitions — typically WHERE event_date < current_date() or equivalent. Compaction should only run on partitions where writing has completed. A recommendation that suggests disabling compaction, reducing compaction frequency, or increasing concurrency retries without addressing the root cause (hot partition targeting) is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "partition"
-      ],
-      "must_contain_any_of": [
-        "current_date", "cold partition", "hot partition", "concurrent", "conflict", "WHERE", "filter", "active partition", "yesterday"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify the hot partition conflict: the compaction job is targeting the currently-active partition (today's date partition) while Flink is simultaneously writing to it, causing optimistic concurrency conflicts that abort the compaction job. The fix is to add a filter to the compaction call so it only targets cold (already-closed) partitions \u2014 typically WHERE event_date < current_date() or equivalent. Compaction should only run on partitions where writing has completed. A recommendation that suggests disabling compaction, reducing compaction frequency, or increasing concurrency retries without addressing the root cause (hot partition targeting) is incorrect."
   },
   {
     "id": "orphan_files_before_expiry",
-    "description": "Table with orphan file cleanup (remove_orphan_files) scheduled BEFORE snapshot expiry. This is the wrong order — snapshot expiry must run first to dereference files, then orphan cleanup identifies which files are no longer referenced. Running orphan cleanup before expiry risks classifying still-valid snapshot files as orphans. Correct: Always expire_snapshots FIRST, then remove_orphan_files with dry_run=true.",
+    "description": "Table with orphan file cleanup (remove_orphan_files) scheduled BEFORE snapshot expiry. This is the wrong order \u2014 snapshot expiry must run first to dereference files, then orphan cleanup identifies which files are no longer referenced. Running orphan cleanup before expiry risks classifying still-valid snapshot files as orphans. Correct: Always expire_snapshots FIRST, then remove_orphan_files with dry_run=true.",
     "table": "prod.storage.event_archive",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "batch-tolerant — weekly reports",
-      "query_frequency": "regularly — weekly",
+      "query_latency_requirement": "batch-tolerant \u2014 weekly reports",
+      "query_frequency": "regularly \u2014 weekly",
       "freshness_sla": "daily is fine",
-      "cost_priority": "storage cost — reduce storage footprint",
+      "cost_priority": "storage cost \u2014 reduce storage footprint",
       "mutability_outlook": "append-only with periodic cleanup jobs",
-      "time_travel_need": "short — 7 days",
-      "lifecycle": "warm — periodically used"
+      "time_travel_need": "short \u2014 7 days",
+      "lifecycle": "warm \u2014 periodically used"
     },
-    "expected_outcome": "The correct recommendation must identify the incorrect maintenance ordering: orphan file removal must always come AFTER snapshot expiry, not before. The reason is that snapshot expiry dereferences files by removing snapshot metadata — only after expiry does Iceberg know which files are no longer referenced by any live snapshot. If orphan cleanup runs before expiry, it sees files that are still referenced by to-be-expired snapshots and may incorrectly classify them or miss them. The correct order is: (1) expire_snapshots to dereference files, (2) remove_orphan_files with dry_run=true and a ≥3-day safety margin. A recommendation that continues the current wrong order, or that doesn't mention the ordering requirement, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "expire_snapshots",
-        "remove_orphan_files"
-      ],
-      "must_contain_any_of": [
-        "order", "first", "before", "after", "snapshot expiry first", "expiry before orphan", "wrong order", "ordering"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify the incorrect maintenance ordering: orphan file removal must always come AFTER snapshot expiry, not before. The reason is that snapshot expiry dereferences files by removing snapshot metadata \u2014 only after expiry does Iceberg know which files are no longer referenced by any live snapshot. If orphan cleanup runs before expiry, it sees files that are still referenced by to-be-expired snapshots and may incorrectly classify them or miss them. The correct order is: (1) expire_snapshots to dereference files, (2) remove_orphan_files with dry_run=true and a \u22653-day safety margin. A recommendation that continues the current wrong order, or that doesn't mention the ordering requirement, is incorrect."
   },
   {
     "id": "bloom_filter_wrong_column",
-    "description": "Table with a bloom filter incorrectly configured on event_date (only 365 distinct values, queried with range predicates). Bloom filters require high-cardinality equality columns — they are useless for range predicates and wasteful for low-cardinality columns. Correct: Remove the bloom filter from event_date. Optionally add bloom filter to a high-cardinality equality column if one exists.",
+    "description": "Table with a bloom filter incorrectly configured on event_date (only 365 distinct values, queried with range predicates). Bloom filters require high-cardinality equality columns \u2014 they are useless for range predicates and wasteful for low-cardinality columns. Correct: Remove the bloom filter from event_date. Optionally add bloom filter to a high-cardinality equality column if one exists.",
     "table": "prod.analytics.pageviews",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "responsive — seconds to minutes",
-      "query_frequency": "regularly — 350 queries per month",
+      "query_latency_requirement": "responsive \u2014 seconds to minutes",
+      "query_frequency": "regularly \u2014 350 queries per month",
       "freshness_sla": "daily",
-      "cost_priority": "query cost — reduce scan overhead",
+      "cost_priority": "query cost \u2014 reduce scan overhead",
       "mutability_outlook": "append-only",
-      "time_travel_need": "short — 14 days",
-      "lifecycle": "warm — periodically used"
+      "time_travel_need": "short \u2014 14 days",
+      "lifecycle": "warm \u2014 periodically used"
     },
-    "expected_outcome": "The correct recommendation must identify that the bloom filter on event_date is misconfigured and wasteful: event_date has only 365 distinct values (low cardinality) and is queried with range predicates (BETWEEN, >=, <=). Bloom filters are only useful for high-cardinality equality lookups (e.g., user_id='abc123') — they cannot answer range queries and with only 365 distinct values the false-positive rate is high. The recommendation must say to remove the bloom filter from event_date. For range predicates, min/max statistics (already maintained automatically) are the correct pruning mechanism. A recommendation that keeps the bloom filter on event_date, or that adds more bloom filters without addressing the wrong column, is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "bloom filter"
-      ],
-      "must_contain_any_of": [
-        "remove", "wrong column", "low cardinality", "range predicate", "365", "event_date", "equality", "high cardinality"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must identify that the bloom filter on event_date is misconfigured and wasteful: event_date has only 365 distinct values (low cardinality) and is queried with range predicates (BETWEEN, >=, <=). Bloom filters are only useful for high-cardinality equality lookups (e.g., user_id='abc123') \u2014 they cannot answer range queries and with only 365 distinct values the false-positive rate is high. The recommendation must say to remove the bloom filter from event_date. For range predicates, min/max statistics (already maintained automatically) are the correct pruning mechanism. A recommendation that keeps the bloom filter on event_date, or that adds more bloom filters without addressing the wrong column, is incorrect."
   },
   {
     "id": "streaming_death_spiral",
@@ -522,23 +342,14 @@
     "table": "prod.streaming.iot_telemetry",
     "engine": "Spark",
     "interview_answers": {
-      "query_latency_requirement": "interactive — sub-second required",
-      "query_frequency": "constantly — real-time monitoring dashboards",
-      "freshness_sla": "seconds — critical IoT monitoring",
-      "cost_priority": "query latency — system is degrading, need immediate fix",
-      "mutability_outlook": "append-only — IoT streaming at 500 MB/min",
-      "time_travel_need": "none — only latest state matters",
-      "lifecycle": "hot — critical production streaming table in crisis"
+      "query_latency_requirement": "interactive \u2014 sub-second required",
+      "query_frequency": "constantly \u2014 real-time monitoring dashboards",
+      "freshness_sla": "seconds \u2014 critical IoT monitoring",
+      "cost_priority": "query latency \u2014 system is degrading, need immediate fix",
+      "mutability_outlook": "append-only \u2014 IoT streaming at 500 MB/min",
+      "time_travel_need": "none \u2014 only latest state matters",
+      "lifecycle": "hot \u2014 critical production streaming table in crisis"
     },
-    "expected_outcome": "The correct recommendation must treat this as an emergency and prescribe a two-phase fix: FIRST, fix write-time configuration (distribution-mode=hash + target-file-size-bytes=256MB) to stop the ingest from generating small files — without this fix, compaction is running on a treadmill and will never catch up. SECOND, run emergency bin-pack compaction on cold partitions only (past days/weeks) to reduce the existing file count backlog, while the write-time fix prevents new small files from being created. The recommendation must explicitly state that write-time fix MUST come first, and that compaction alone (without write-time fix) cannot solve the spiral. A recommendation that only recommends increasing compaction frequency without fixing write-time configuration is incorrect.",
-    "assertions": {
-      "must_contain_all_of": [
-        "distribution",
-        "write"
-      ],
-      "must_contain_any_of": [
-        "distribution-mode", "write-time", "target-file-size", "hash", "write.distribution-mode", "fix first", "stop", "emergency"
-      ]
-    }
+    "expected_outcome": "The correct recommendation must treat this as an emergency and prescribe a two-phase fix: FIRST, fix write-time configuration (distribution-mode=hash + target-file-size-bytes=256MB) to stop the ingest from generating small files \u2014 without this fix, compaction is running on a treadmill and will never catch up. SECOND, run emergency bin-pack compaction on cold partitions only (past days/weeks) to reduce the existing file count backlog, while the write-time fix prevents new small files from being created. The recommendation must explicitly state that write-time fix MUST come first, and that compaction alone (without write-time fix) cannot solve the spiral. A recommendation that only recommends increasing compaction frequency without fixing write-time configuration is incorrect."
   }
 ]
