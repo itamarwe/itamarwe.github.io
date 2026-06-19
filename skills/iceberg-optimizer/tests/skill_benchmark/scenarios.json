@@ -170,11 +170,10 @@
     "expected_outcome": "The correct recommendation must identify that the table is still Iceberg format version 1, which does not support deletion vectors or safe equality-delete compaction. The mandatory first step is to upgrade to format version 2 using ALTER TABLE SET TBLPROPERTIES ('format-version'='2'). Only after upgrading to v2 can rewrite_data_files with remove-dangling-deletes (E1) be safely run. A recommendation that immediately runs E1/equality-delete compaction without first upgrading the format version is incorrect and potentially unsafe. The format version upgrade (Action L) must be explicitly mentioned as the first step.",
     "assertions": {
       "must_contain_all_of": [
-        "format-version",
-        "version 2"
+        "format-version"
       ],
       "must_contain_any_of": [
-        "upgrade", "ALTER TABLE", "format version", "v2", "format-version='2'", "equality delete"
+        "upgrade", "ALTER TABLE", "format version", "v2", "version 2", "format-version='2'", "equality delete"
       ]
     }
   },

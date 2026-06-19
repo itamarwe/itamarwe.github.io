@@ -1,45 +1,53 @@
 {
   "files": {
     "data_files": 200,
-    "delete_files": 420,
-    "position_delete_files": 420,
-    "equality_delete_files": 0,
+    "delete_files": 35,
+    "position_delete_files": 0,
+    "equality_delete_files": 35,
     "data_records": 50000000,
-    "position_delete_records": 10000000,
-    "equality_delete_records": 0,
-    "delete_file_pct": 0.677,
-    "eq_delete_pressure": 0.0,
-    "pos_delete_pressure": 0.20,
-    "avg_mb": 64.0,
-    "median_mb": 64.0,
+    "position_delete_records": 0,
+    "equality_delete_records": 4000000,
+    "delete_file_pct": 0.149,
+    "eq_delete_pressure": 0.08,
+    "pos_delete_pressure": 0.0,
+    "avg_mb": 12.0,
+    "median_mb": 12.0,
     "files_under_64mb": 160,
     "files_under_64mb_pct": 0.8,
-    "total_gb": 12.5,
+    "total_gb": 2.34,
     "target_mb": 256,
     "needs_binpack": true
   },
   "snapshots": {
     "snapshot_count": 870,
-    "operation_mix": {"append": 435, "merge": 435},
+    "operation_mix": {"append": 435, "delete": 435},
     "append_only_observed": false,
     "write_cadence": {"median_gap_sec": 300.0, "class": "micro_batch"},
     "write_file_size": {"avg_added_file_mb": 12.0, "median_files_per_commit": 3.0, "buffers_to_target": false},
-    "partition_fanout": {"median_partitions_per_commit": 5.0, "thin_spread": true},
-    "delete_pattern": {"delete_commits": 435, "added_delete_files_total": 420, "added_equality_delete_records_total": 0, "added_position_delete_records_total": 10000000, "delete_rate_per_day": 15.0, "total_equality_deletes_latest": null, "total_position_deletes_latest": 10000000},
+    "partition_fanout": {"median_partitions_per_commit": 5.0, "thin_spread": false},
+    "delete_pattern": {
+      "delete_commits": 435,
+      "added_delete_files_total": 35,
+      "added_equality_delete_records_total": 4000000,
+      "added_position_delete_records_total": 0,
+      "delete_rate_per_day": 15.0,
+      "total_equality_deletes_latest": 4000000,
+      "total_position_deletes_latest": null
+    },
     "first_commit": "2024-01-01T00:00:00+00:00",
     "last_commit": "2024-03-04T00:00:00+00:00"
   },
   "flags": {
     "needs_binpack": true,
     "delete_pressure": true,
-    "equality_delete_pressure": false,
+    "equality_delete_pressure": true,
     "delete_accumulating": true,
-    "thin_spread": true,
+    "thin_spread": false,
     "structural_small_files": true,
     "mutated": true,
     "manifest_bloat": false,
     "mixed_specs": false,
-    "snapshot_bloat": true
+    "snapshot_bloat": false
   },
   "format_version": 2,
   "has_sort_order": false,
@@ -47,6 +55,8 @@
   "partition_spec": ["event_date"],
   "table_properties": {
     "write.merge.mode": "merge-on-read",
-    "write.target-file-size-bytes": "67108864"
+    "write.delete.mode": "merge-on-read",
+    "write.target-file-size-bytes": "12582912",
+    "note": "CDC pipeline producing equality deletes (row-level MOR). 200k updates/hour. 8% equality-delete pressure. Files written at 12 MB (well below 256 MB target)."
   }
 }
