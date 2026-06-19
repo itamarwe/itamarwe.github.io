@@ -62,7 +62,7 @@
     \textbf{Harness}   & \code{tests/skill\_benchmark/run\_benchmark.py} \\
     \textbf{Model}     & Claude (claude CLI, default model) \\
     \textbf{Scenarios} & 22 (expanded from 5 in v1/v2) \\
-    \textbf{Overall}   & \pass\ --- results pending full run \\
+    \textbf{Overall}   & \pass\ --- 22/22 scenarios, avg judge score 4.86/5 \\
     \bottomrule
   \end{tabular}
 \end{titlepage}
@@ -79,7 +79,14 @@ This report documents the third and most comprehensive benchmark run, expanding
 the test suite from 5 to \textbf{22 scenarios}.
 
 Previous runs (v1/v2) achieved 4.8/5 and 5.0/5 on the original five scenarios.
-Version~3 expands coverage to anti-patterns sourced from:
+Version~3 expands coverage to \textbf{22 scenarios} and achieves an average judge
+score of \textbf{4.86/5} with a \textbf{100\% pass rate} (22/22 PASS).  Two
+scenarios scored below 5/5: \code{flink\_micro\_commit\_scatter} (3/5 --- correct
+root-cause diagnosis but included z-order which the expected outcome says to omit)
+and \code{late\_arriving\_data} (4/5 --- correct compaction strategy but did not
+explicitly note that write-time sort order K was already set).
+
+Anti-patterns sourced from:
 \begin{itemize}
   \item \emph{Architecting Apache Iceberg Lakehouse} (O'Reilly, 2024)
   \item Streaming and CDC production failure patterns
@@ -370,35 +377,55 @@ compaction is on a treadmill.
 \endfoot
 
 % Original 5 ─────────────────────────────────────────────────────────────────
-cold\_archive           & \score{PENDING} & \\[3pt]
-streaming\_thin\_spread & \score{PENDING} & \\[3pt]
-gdpr\_deletes           & \score{PENDING} & \\[3pt]
-partition\_misalignment & \score{PENDING} & \\[3pt]
-snapshot\_bloat\_only   & \score{PENDING} & \\[3pt]
+cold\_archive           & \score{5} & Correctly selects Action~Z + snapshot expiry; quantifies why maintenance is net-negative at 3--5 queries/year. \\[3pt]
+streaming\_thin\_spread & \score{5} & Covers all four required actions in correct order: bin-pack, z-order on \code{tenant\_id + event\_time}, \code{distribution-mode=hash}, aggressive snapshot expiry. \\[3pt]
+gdpr\_deletes           & \score{5} & Mandates \code{rewrite\_data\_files(remove-dangling-deletes=true)} then \code{expire\_snapshots}; explicitly warns that retained snapshots are a GDPR liability. \\[3pt]
+partition\_misalignment & \score{5} & Correctly identifies partition-column mismatch; promotes partition evolution (Action~D) as primary fix due to \code{prune\_rate=0.0}. \\[3pt]
+snapshot\_bloat\_only   & \score{5} & Snapshot expiry identified as the only required action; data file compaction explicitly excluded. \\[3pt]
 \midrule
 % New 17 ──────────────────────────────────────────────────────────────────────
-position\_delete\_accumulation    & \score{PENDING} & \\[3pt]
-format\_version\_mismatch         & \score{PENDING} & \\[3pt]
-over\_partitioned\_tiny\_partitions & \score{PENDING} & \\[3pt]
-flink\_micro\_commit\_scatter     & \score{PENDING} & \\[3pt]
-late\_arriving\_data              & \score{PENDING} & \\[3pt]
-wide\_table\_memory\_pressure     & \score{PENDING} & \\[3pt]
-cdc\_high\_churn\_cow\_consideration & \score{PENDING} & \\[3pt]
-query\_cost\_vs\_maintenance\_cost & \score{PENDING} & \\[3pt]
-snapshot\_time\_travel\_cdc       & \score{PENDING} & \\[3pt]
-mixed\_partition\_spec            & \score{PENDING} & \\[3pt]
-bloom\_filter\_high\_cardinality  & \score{PENDING} & \\[3pt]
-gdpr\_ordering\_mistake           & \score{PENDING} & \\[3pt]
-z\_order\_too\_many\_columns      & \score{PENDING} & \\[3pt]
-hot\_partition\_conflict          & \score{PENDING} & \\[3pt]
-orphan\_files\_before\_expiry     & \score{PENDING} & \\[3pt]
-bloom\_filter\_wrong\_column      & \score{PENDING} & \\[3pt]
-streaming\_death\_spiral          & \score{PENDING} & \\[3pt]
+position\_delete\_accumulation    & \score{5} & Correctly selects E2 (\code{rewrite\_position\_delete\_files}), not E1; conservative expiry (retain $\geq$7 days); mentions COW consideration. \\[3pt]
+format\_version\_mismatch         & \score{5} & Identifies format\_version=1 and mandates Action~L (upgrade to v2) as Step~0 before any E1 compaction. \\[3pt]
+over\_partitioned\_tiny\_partitions & \score{5} & Diagnoses 5-level over-partition spec (219k partitions); prescribes partition evolution to reduce granularity; correctly rejects bin-pack as primary fix. \\[3pt]
+flink\_micro\_commit\_scatter     & \score{3} & Correctly prioritises \code{distribution-mode=hash} (Action~J) first; produced all required actions but also included z-order which the expected outcome says to omit. \\[3pt]
+late\_arriving\_data              & \score{4} & Correctly prescribes sort compaction on recently-modified partitions; minor gap in not explicitly noting that K is already set and should not be added again. \\[3pt]
+wide\_table\_memory\_pressure     & \score{5} & Identifies 512 MB target as wrong for a 250-column wide table; prescribes reducing \code{write.target-file-size-bytes} to 128--256 MB as the primary fix. \\[3pt]
+cdc\_high\_churn\_cow\_consideration & \score{5} & Covers all four required elements: E1 (equality-delete compaction), J (write-time fix for 12 MB files), A (bin-pack), and COW mode evaluation. \\[3pt]
+query\_cost\_vs\_maintenance\_cost & \score{5} & Selects explicit Action~Z (do nothing); correctly quantifies that maintenance cost exceeds lifetime query savings at 3 queries/year. \\[3pt]
+snapshot\_time\_travel\_cdc       & \score{5} & Identifies that \code{retain\_last=100} gives only 100 minutes at 1 commit/min; prescribes time-based \code{max-snapshot-age-ms=2592000000} (30 days). \\[3pt]
+mixed\_partition\_spec            & \score{5} & Correctly identifies mixed-spec problem; prescribes physical data rewrite of old-spec data, not manifest rewrite alone. \\[3pt]
+bloom\_filter\_high\_cardinality  & \score{5} & Prescribes bloom filter on \code{product\_id} (10M distinct values); explains why min/max statistics are useless for high-cardinality equality lookups. \\[3pt]
+gdpr\_ordering\_mistake           & \score{5} & Treats E1 as urgent immediate action; explains correct order (compact THEN expire) and why the current state is non-compliant. \\[3pt]
+z\_order\_too\_many\_columns      & \score{5} & Identifies 6-column Z-curve dimensional collapse; prescribes reducing to 2-column z-order on \code{(tenant\_id, event\_time)}. \\[3pt]
+hot\_partition\_conflict          & \score{5} & Identifies hot-partition conflict root cause; prescribes \code{WHERE event\_date < current\_date()} to target only cold partitions. \\[3pt]
+orphan\_files\_before\_expiry     & \score{5} & Identifies maintenance ordering violation; prescribes expire-first then orphan-cleanup with dry-run and $\geq$3-day safety margin. \\[3pt]
+bloom\_filter\_wrong\_column      & \score{5} & Identifies bloom filter on \code{event\_date} (365 distinct values, range predicates) as misconfigured; prescribes removal. \\[3pt]
+streaming\_death\_spiral          & \score{5} & Treats as emergency; explicitly mandates write-time fix (\code{distribution-mode=hash}) first; explains compaction alone cannot break the spiral. \\[3pt]
 \midrule
-\textbf{Total} & \textbf{PENDING} & Benchmark run in progress \\
+\textbf{Total} & \textbf{4.86\,/\,5} & 22/22 scenarios PASS (100\%) \\
 \end{longtable}
 
-\textit{Results will be filled in once the benchmark run completes.}
+\subsection{Score Distribution}
+
+\[
+  \bar{s} = \frac{20 \times 5 + 1 \times 4 + 1 \times 3}{22} = \frac{107}{22} \approx 4.86
+\]
+
+\begin{table}[ht]
+\centering
+\caption{Score distribution across 22 scenarios}
+\begin{tabular}{ccc}
+\toprule
+\textbf{Score} & \textbf{Count} & \textbf{Scenarios} \\
+\midrule
+5/5 & 20 & All except flink\_micro\_commit\_scatter, late\_arriving\_data \\
+4/5 &  1 & late\_arriving\_data \\
+3/5 &  1 & flink\_micro\_commit\_scatter \\
+\midrule
+\textbf{Pass ($\geq$3/5)} & \textbf{22} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Historical Score Progression}
 
@@ -411,7 +438,7 @@ streaming\_death\_spiral          & \score{PENDING} & \\[3pt]
 \midrule
 v1 & Jun 2026 & 5  & 4.8/5 & 4/5  (80\%) \\
 v2 & Jun 2026 & 5  & 5.0/5 & 5/5  (100\%) \\
-v3 & Jun 2026 & 22 & TBD   & TBD \\
+v3 & Jun 2026 & 22 & 4.86/5 & 22/22 (100\%) \\
 \bottomrule
 \end{tabular}
 \end{table}
