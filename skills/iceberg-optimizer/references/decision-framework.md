@@ -70,16 +70,15 @@ current_sort_order, current_partition_spec
   single dominant column) AND at least one column is used in **range** predicates.
 - **Gate:** same as Sort, plus columns are high-cardinality (>1000 distinct
   values). Cap at 3–4 columns; locality degrades past that.
-- **Sort vs Z-order:** one dominant filter column → Sort (B). Several co-equal
-  high-cardinality filters → Z-order (C). **Predicate type rule:** if ALL filter
-  columns use equality predicates (no range column), Z-order provides no benefit
-  over Sort — a simple sort on the highest-cardinality equality column gives
-  equivalent skipping at lower compaction cost. Z-order specifically helps when
-  you need to skip on an equality column AND a range column simultaneously (e.g.
-  `WHERE tenant_id = X AND event_time BETWEEN a AND b`). For all-equality or
-  all-range patterns, prefer B (sort). For low-to-medium cardinality equality
-  columns (e.g. `region` with 5–20 values, `event_type` with 10–50 values),
-  bloom filters (I) or bucket partitioning (D) are more effective than z-order.
+- **Sort vs Z-order — predicate type rule:** Z-order specifically helps when you
+  need to skip on an **equality AND a range** column simultaneously (e.g.
+  `WHERE tenant_id = X AND event_time BETWEEN a AND b`). **If ALL filter columns
+  use equality predicates only (no range column), do NOT recommend Z-order —
+  choose Sort (B) or write-time sort order (K) instead.** A sort by the top
+  equality column groups all matching rows into contiguous file ranges and
+  achieves equivalent skipping at lower compaction cost. Z-order's extra cost is
+  only justified when range predicates must be combined with equality filters across
+  different dimensions.
 
 ### D. Partition evolution / repartition
 - **Trigger:** `partition_prune_rate < 0.5` (queries scan most partitions) OR
@@ -198,9 +197,14 @@ Position deletes are a row-level seek per file and are far cheaper.
   recommend adding or changing the sort order. When late data scrambles the sort
   on old partitions (`late_data = true`), the remedy is B (sort compaction on
   affected partitions), not K.
-- **Trigger:** `has_sort_order = false` AND top filter column is used in range
-  predicates AND `avg_added_file_mb` is near-target (writer already buffers — so
-  adding a sort order will produce well-sized, sorted files at zero extra cost).
+- **Trigger:** `has_sort_order = false` AND `avg_added_file_mb` is near-target
+  (writer already buffers — so adding a sort order will produce well-sized, sorted
+  files at zero extra cost). Applies to **both range and equality filter columns**:
+  a sort on a range column enables min/max skipping; a sort on an equality column
+  groups matching rows into contiguous file ranges, enabling file-level skipping
+  even for point lookups. Low-cardinality equality columns (5–50 distinct values
+  like `event_type`, `region`) still benefit: a sort reduces the scan to files
+  covering only that value's contiguous range.
 - **Gate:** `write_cadence ∈ {batch, micro_batch}` — writers must buffer enough
   rows to sort meaningfully. Streaming writers with tiny micro-batches benefit
   less (sort within a 1 MB file has limited skip value).
@@ -292,10 +296,18 @@ proposes; the simulation decides.
 ## Worked mini-examples
 
 - **Streaming events, interactive dashboards, queried constantly, filter by
-  `tenant_id` + `event_time`, no replay need:** E (if deletes) → C z-order
-  `(tenant_id, event_time)` → A on cold partitions every 1–4 h → F aggressive
-  expiry (retain ~10) → J `distribution-mode=hash` → G manifest clustering
-  (`sort_by tenant_id`) if manifest scatter is high.
+  `tenant_id` + `event_time` (equality + range), no replay need:** E (if deletes)
+  → C z-order `(tenant_id, event_time)` → A on cold partitions every 1–4 h → F
+  aggressive expiry (retain ~10) → J `distribution-mode=hash` → G manifest
+  clustering (`sort_by tenant_id`) if manifest scatter is high.
+- **Streaming micro-commit scatter, all-equality filters (e.g. `event_type` +
+  `region`), thin_spread=true, distribution-mode=none:** J `distribution-mode=hash`
+  (root-cause fix) → K write-time sort by `(event_type, region)` (free clustering,
+  groups matching rows into contiguous files) → A bin-pack on cold partitions → G
+  manifest rewrite. **Do NOT recommend Z-order** — all filters are equality-only,
+  and z-order adds overhead without improving over a simple sort. Do NOT recommend
+  partition evolution unless `partition_prune_rate < 0.2`; fixing the writer is
+  sufficient.
 - **Daily batch fact table, BI queries by `date`, append-only, monthly reports:**
   K write-time sort order by `date` (free, applies to all new loads) → B sort
   compaction once on existing backlog → F daily expiry (retain to reporting window)
