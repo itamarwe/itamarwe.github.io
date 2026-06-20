@@ -87,6 +87,20 @@ facts without re-checking the primary source (many came from search snippets aft
 
 → Noted in [`../SOURCES.md`](../SOURCES.md).
 
+### Verification replay (what was re-checked with real reads)
+
+A follow-up pass attempted to re-fetch the flagged sources in full. The session's
+environment only reaches an **allowlisted set of domains** — GitHub works; arXiv,
+AWS, Snowflake/Databricks docs, VLDB, RisingWave, HN, and `api.firecrawl.dev` all
+return HTTP 403 — so only the **GitHub-sourced** claims could be verified by direct
+read. All four checked out exactly as cited (#8729 512 MB→~100 MB; #10892 Flink
+savepoint silent data loss; #13674 `rewrite_data_files` OOM + partial-progress/
+max-concurrent=1 mitigation; trinodb/trino #26563 planning 7 ms→~3 min with stats
+on). The vendor **cost/benchmark figures remain snippet-only** and unverifiable
+from here; closing that gap requires broadening the session's network policy or
+fetching from a less restricted environment. Firecrawl is not an option in this
+environment (no tool/key, and its API endpoint is blocked by the same allowlist).
+
 ## Confidence / reliability assessment
 
 - **High confidence:** the *method* (analysis-first), and the validated levers

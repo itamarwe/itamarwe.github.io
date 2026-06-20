@@ -12,14 +12,36 @@ Historian, Academic — ~60 distinct URLs incl. SIGMOD/VLDB/CIDR papers, the Ice
 spec, vendor docs, GitHub issues, and critical/contrarian writing) live in
 [`storm/01-perspectives.md`](storm/01-perspectives.md).
 
-**Verification caveat (important):** the research environment blocked direct fetch
-(HTTP 403) of many primary pages, so some **specific figures** were drawn from
-search-result snippets, not full-page reads. Do **not** republish these as hard
-facts without re-checking the source: Amazon S3 Tables "up to 90%"; serverless DBU
-rates; GET "$0.0004/1k"; the "$4,500–7,000/mo" example; the "$1–2B" Tabular price;
-Snowflake "99.4% pruned". Procedure defaults (512 MB target, 3-day orphan window,
-`min-input-files=5`, etc.) are corroborated across sources and match the Apache
-docs but are worth a final docs check. See
+**Verification caveat (important).** This session's environment can only reach an
+**allowlisted set of domains** through its egress proxy — GitHub resolves (HTTP
+200), but essentially everything else (arXiv, AWS, Snowflake/Databricks docs,
+VLDB, RisingWave, Hacker News — and `api.firecrawl.dev` itself) returns **HTTP
+403**. So full-text reads of non-GitHub sources weren't possible; those claims rest
+on `WebSearch` snippets. (Firecrawl can't work around this: there's no Firecrawl
+tool or key here, and its API endpoint is itself blocked by the allowlist. A true
+full-sourcing replay would need the **network policy broadened** for this session —
+see https://code.claude.com/docs/en/claude-code-on-the-web — or the sources fetched
+from a less restricted environment.)
+
+**Verified by direct read (GitHub, allowlisted):**
+- [#8729](https://github.com/apache/iceberg/issues/8729) — `write.target-file-size-bytes`
+  set to 512 MB but output files were ~100 MB. ✅ (drives the §2.3 "verify output,
+  the knob isn't always honored" caveat)
+- [#10892](https://github.com/apache/iceberg/issues/10892) — restoring a Flink job
+  from an older savepoint can silently skip Iceberg commits while Kafka offsets
+  advance → silent data loss. ✅ (drives the §4.2 Flink warning)
+- [#13674](https://github.com/apache/iceberg/issues/13674) — `rewrite_data_files`
+  OOM during equality-delete filtering; mitigated with `partial-progress.enabled`
+  and `max-concurrent-file-group-rewrites=1`. ✅ (drives the §4.2 options rows)
+- [trinodb/trino #26563](https://github.com/trinodb/trino/issues/26563) — Iceberg
+  planning 7 ms → ~3 min with statistics on; 5–10% of queries 1–10 min on
+  2,000+-partition tables. ✅
+
+**Still snippet-only — do NOT republish as hard facts without re-checking:** Amazon
+S3 Tables "up to 90%"; serverless DBU rates; GET "$0.0004/1k"; the "$4,500–7,000/mo"
+example; the "$1–2B" Tabular price; Snowflake "99.4% pruned". Procedure defaults
+(512 MB target, 3-day orphan window, `min-input-files=5`, etc.) are corroborated
+across sources and match the Apache docs but warrant a final docs check. See
 [`storm/04-peer-review.md`](storm/04-peer-review.md).
 
 ## Supplied source
