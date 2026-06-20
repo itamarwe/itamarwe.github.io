@@ -53,6 +53,15 @@ properties**, **ingestion**, **maintenance** — and then mapped onto each platf
 - [06 · Decision matrices](06-decision-matrices.md) — workload → settings,
   platform × category cheat sheet, and an anti-pattern catalog.
 
+**Research provenance — the STORM layer**
+
+- [`storm/`](storm/00-method.md) — the research record behind the playbook,
+  produced with the **Stanford STORM method** (multi-perspective scan →
+  contradiction map → synthesis → peer review) run as a five-agent workflow
+  (Practitioner · Skeptic · Economist · Historian · Academic). It stress-tests the
+  playbook's claims from five angles; the peer-review corrections are folded back
+  into the chapters above. Start at [`storm/00-method.md`](storm/00-method.md).
+
 ## Scope & honesty notes
 
 - This is a **methodology framework**, not a report on a specific dataset. Where

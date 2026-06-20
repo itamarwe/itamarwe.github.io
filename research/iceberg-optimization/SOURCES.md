@@ -5,6 +5,23 @@ documentation, vendor/platform docs, practitioner writing, and one long-form
 source supplied for this research. Numeric rules of thumb are community/vendor
 defaults current as of mid-2026; validate against your own optimization profile.
 
+## STORM research layer
+
+The full, per-perspective source lists (Practitioner, Skeptic, Economist,
+Historian, Academic — ~60 distinct URLs incl. SIGMOD/VLDB/CIDR papers, the Iceberg
+spec, vendor docs, GitHub issues, and critical/contrarian writing) live in
+[`storm/01-perspectives.md`](storm/01-perspectives.md).
+
+**Verification caveat (important):** the research environment blocked direct fetch
+(HTTP 403) of many primary pages, so some **specific figures** were drawn from
+search-result snippets, not full-page reads. Do **not** republish these as hard
+facts without re-checking the source: Amazon S3 Tables "up to 90%"; serverless DBU
+rates; GET "$0.0004/1k"; the "$4,500–7,000/mo" example; the "$1–2B" Tabular price;
+Snowflake "99.4% pruned". Procedure defaults (512 MB target, 3-day orphan window,
+`min-input-files=5`, etc.) are corroborated across sources and match the Apache
+docs but are worth a final docs check. See
+[`storm/04-peer-review.md`](storm/04-peer-review.md).
+
 ## Supplied source
 
 - *Architecting an Apache Iceberg Lakehouse* (manuscript, dated 2026-06-18) —

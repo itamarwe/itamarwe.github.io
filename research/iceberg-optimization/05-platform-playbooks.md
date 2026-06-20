@@ -44,7 +44,7 @@ read/write + lifecycle) and **externally-managed/external-catalog** Iceberg
 |---|---|
 | **Table properties** | On managed tables, set a **`CLUSTERING KEY`** (drives Automatic Clustering) from Stage 1 filters; choose `EXTERNAL_VOLUME` and `BASE_LOCATION`. **v3** (preview early 2026) adds row-level deletes, managed clustering, `variant`. |
 | **Ingestion** | Snowpipe/`COPY`/Snowpipe Streaming, or `INSERT`/`MERGE`. Mine `COPY_HISTORY` for cadence (Stage 3). Streaming ingestion's small files are absorbed by automatic compaction (below). |
-| **Maintenance** | The **Table Optimization Service** bundles **automatic compaction + Automatic Clustering** as a background process for **managed** tables; **manifest compaction** is automatic and can't be disabled. You largely **don't** run manual maintenance on managed tables. |
+| **Maintenance** | The **Table Optimization Service** bundles **automatic compaction + Automatic Clustering** as a background process for **managed** tables; **manifest compaction** is automatic and can't be disabled. You largely **don't** run manual maintenance on managed tables — but Automatic Clustering bills as **continuous serverless credits**, so apply a `CLUSTERING KEY` only to **frequently-queried** tables (on cold/high-churn tables it can cost more than it saves; see the [cost/scale gate](04-recommendations-maintenance.md)). |
 
 **Watch:** for **externally-managed** Iceberg, **Snowflake performs no
 maintenance** — compaction/expiration/cleanup must come from the owning engine

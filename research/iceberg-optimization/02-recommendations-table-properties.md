@@ -77,7 +77,11 @@ that are *not* partition columns; Stage 2 "poorly colocated data" signal.
   pruning is excellent on the leading column, weaker on later ones.
 - **Z-order** (multi-dimensional) when several columns are filtered with similar
   frequency and no single one dominates. Z-order trades a little single-column
-  pruning for balanced multi-column pruning. Apply it at compaction time:
+  pruning for balanced multi-column pruning. **But its locality decays with each
+  column you add, and it only helps queries that filter the clustered columns** —
+  don't Z-order "to be safe." For 2+ dimensions a **Hilbert** curve preserves
+  locality better than Z-order (the reason Databricks Liquid Clustering uses
+  Hilbert). Apply it at compaction time:
   ```sql
   CALL system.rewrite_data_files(
     table => 'db.events',
@@ -125,7 +129,10 @@ ALTER TABLE db.events SET TBLPROPERTIES (
 );
 ```
 
-> The target *guides* but doesn't strictly enforce output size — record
+> The target *guides* but doesn't strictly enforce output size — and writers
+> don't always honor it well (you can set 512 MB and still get ~100 MB files,
+> e.g. apache/iceberg #8729). **Verify actual output file sizes from the Stage 2
+> distribution after writing/compacting — don't assume the knob worked.** Record
 > boundaries, compression, and partition fan-out cause variation. Validate
 > against the Stage 2 distribution after a compaction cycle.
 

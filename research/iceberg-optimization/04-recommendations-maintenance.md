@@ -11,6 +11,16 @@ The mantra: **measure from metadata → act with the right procedure → scope i
 schedule it in read troughs → re-measure.** Maintenance is itself a workload; it
 costs compute and can contend with writers, so scope and timing matter.
 
+> **When *not* to optimize (the cost/scale gate).** Maintenance shifts a recurring
+> *read* cost into a recurring *write/compute* cost — it only pays off when reads
+> are frequent enough to recoup it. Before scheduling work, check the profile:
+> a **cold table** (rarely queried) or a **sub-scale table** (small enough that
+> planning/scan cost is already negligible) may not be worth compacting/clustering
+> at all, and **managed auto-clustering on a high-churn or cold table can cost more
+> than the reads it accelerates.** Optimize where reads are hot; leave cold/tiny
+> tables mostly alone. This gate is the maintenance-side complement to the
+> analysis-first method — derive it from Stage 0 scale + Stage 1 read frequency.
+
 ---
 
 ## 4.1 The four operations at a glance
@@ -64,7 +74,8 @@ CALL system.rewrite_data_files(
 | `where` | **scope to a partition/filter** — the key to cheap incremental compaction. |
 | `rewrite-job-order` | order file groups (smallest-first to cut file count fast, etc.). |
 | `remove-dangling-deletes` | drop delete files no longer matching live data. |
-| `max-concurrent-file-group-rewrites` | parallelism / resource ceiling. |
+| `max-concurrent-file-group-rewrites` | parallelism / resource ceiling (cap it — `rewrite_data_files` is the procedure most prone to OOM). |
+| `partial-progress.enabled` | commit file groups incrementally so a long compaction survives failure or a lost race with a concurrent writer. |
 
 ### Scoping & cadence
 
@@ -78,6 +89,13 @@ CALL system.rewrite_data_files(
   - Daily batch: **right after each load completes.**
 - **Incremental, narrow-threshold jobs run often** beat occasional full rewrites —
   they keep the table converged without long, contention-heavy jobs.
+- **"Compact aggressively" is not free under heavy streaming.** High-frequency
+  streaming commits (especially delete files) can *conflict* with an in-flight
+  compaction's commit, causing retries/churn. Mitigate: scope compaction to
+  partitions the live writer isn't touching, enable `partial-progress`, and raise
+  the writer's `commit.retry.num-retries`. On Flink, ensure expiration/orphan
+  cleanup preserves the job's last snapshot — removing it can cause silent data
+  loss on restart from an older savepoint (apache/iceberg #10892).
 - **MOR health is a sawtooth:** delete-file count should rise (ingest) and fall
   (compaction) repeatedly. **Monotonic growth = compaction isn't keeping up** →
   raise frequency or widen scope. For position-delete buildup specifically, use
