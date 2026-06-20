@@ -199,16 +199,17 @@ Apply `references/decision-framework.md`: it combines profile + workload signals
 into a ranked set of actions across **three groups**. A complete plan typically
 draws from more than one group.
 
-**Group 1 — Table Layout:** compaction strategy (bin-pack / sort / z-order),
-partition evolution, equality/position-delete compaction, format upgrade. Run
-these *after* fixing the writer.
+**Group 1 — Table Layout:** partition spec, write-time sort order (table property),
+bloom filters, format version. Metadata changes — run before compaction, since there
+is no point compacting into a layout you are about to change.
 
 **Group 2 — Ingestion:** write-time distribution mode, file-size buffering,
-write-time sort order, CDC write-mode (MOR→COW). Run these *first* — fixing the
-writer before compacting its output prevents the problem from recurring.
+CDC write-mode (MOR→COW). Run these *first* — fixing the writer before compacting
+its output prevents the problem from recurring.
 
-**Group 3 — Maintenance:** snapshot expiry, manifest rewrite, orphan file
-removal, bloom filters, scheduling. These are ongoing.
+**Group 3 — Maintenance:** all compaction (bin-pack, sort, z-order, delete-file),
+snapshot expiry, manifest rewrite, orphan file removal. These are ongoing operations
+on data already on disk; run *after* Groups 1 and 2.
 
 Key gates that prevent over-engineering:
 - **Low query frequency + cold table → do little or nothing.** Maintenance compute

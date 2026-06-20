@@ -85,9 +85,9 @@ see `public/pnp/` and `public/mic-array-viz/`:
 ## Generated figures & animations
 
 - Work in a Python venv (`numpy scipy matplotlib manim`). Match the dark palette
-  used across the visuals: background `#0e1116` (or `#000`), text `#ededed`,
-  accents cyan `#3fc1ff`, gold `#ffd166`, green `#7CFC8A`, red `#ff5a5a`. Save PNGs
-  under `public/img/<post>/`.
+  used across the visuals: background **pure black `#000000`** (always — never `#0e1116`
+  or any grey), text `#ededed`, accents cyan `#3fc1ff`, gold `#ffd166`, green `#7CFC8A`,
+  red `#ff5a5a`. Save PNGs under `public/img/<post>/`.
 - **Manim**: no LaTeX is installed, so use `Text(...)`, never `Tex`/`MathTex`.
   Render with `manim -qm --format=mp4` and embed the result as a `<video>` (above).
 

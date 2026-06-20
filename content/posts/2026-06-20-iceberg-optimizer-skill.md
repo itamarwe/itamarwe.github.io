@@ -59,11 +59,11 @@ A **CDC or compliance table** (equality deletes accumulating from an upstream wr
 
 The skill organizes everything into three groups, and a complete plan typically draws from more than one.
 
-**Group 1 — Table Layout:** compaction strategy (bin-pack, sort, z-order), partition evolution, delete-file compaction, format version upgrade. These run on the data that's already on disk.
+**Group 1 — Table Layout:** partition spec, sort order (a table-level property that all future writers inherit automatically), and bloom filters. These are configuration changes — mostly metadata-only and instant. They take effect immediately for new data but don't rewrite what's already on disk.
 
-**Group 2 — Ingestion:** write-time distribution mode, file-size buffering, write-time sort order, CDC write-mode switch (merge-on-read → copy-on-write). These fix the writer so the problem doesn't recur. Group 2 always runs before Group 1 — there's no point optimizing the output of a broken writer.
+**Group 2 — Ingestion:** write-time distribution mode and file sizing on the connector, CDC write-mode switch (merge-on-read → copy-on-write). These fix the writer so the problem doesn't recur. Group 2 always comes before Groups 1 and 3 — there's no point optimizing the output of a broken writer.
 
-**Group 3 — Maintenance:** snapshot expiry, manifest rewrite, orphan file removal, bloom filters, scheduling. These are ongoing and run in a specific order (compact → expire → orphan cleanup — never orphan cleanup before expire).
+**Group 3 — Maintenance:** all compaction (bin-pack, sort, z-order, delete-file), snapshot expiry, orphan file removal, manifest rewrite. These are operations on data already on disk and run in a fixed order: compact → expire snapshots → remove orphans → rewrite manifests. Orphan cleanup before snapshot expiry can silently miss files it should have caught.
 
 ## How to use it
 
