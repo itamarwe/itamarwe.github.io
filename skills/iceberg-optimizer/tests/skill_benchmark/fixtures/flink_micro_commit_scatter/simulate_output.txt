@@ -1,0 +1,17 @@
+queries/month = 500   priority = query_latency
+
+SCENARIO COMPARISON (directional estimates, not a benchmark):
+
+scenario        scan GB/q     latency s    query $/mo    maint $/mo      storage $/mo  total $/mo
+--------------  ------------  -----------  ------------  --------------  ------------  ------------
+do_nothing      100.0         50.0         244.14        0.0             3.00          247.14
+light           80.0          40.0         195.31        1.20            2.85          199.36
+targeted_sort   20.0          10.0         48.83         3.50            2.70          55.03
+aggressive      8.0           4.0          19.53         8.00            2.60          30.13
+storage_min     90.0          45.0         219.73        0.0             2.75          222.48
+
+NOTE: Flink 60-second checkpoints producing 8 MB files. write.distribution-mode=none causes scatter.
+      Fix write-time distribution first (distribution-mode=hash), then compact cold partitions.
+      Manifest clustering (rewrite_manifests) required to reduce planning overhead.
+
+>>> Optimizing for 'query_latency': recommend write-time fix (J) + bin-pack (A) + manifest rewrite (G).

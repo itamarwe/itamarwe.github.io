@@ -1,0 +1,9 @@
+# LaTeX build artifacts
+benchmark_report.aux
+benchmark_report.log
+benchmark_report.out
+benchmark_report.toc
+
+# Benchmark run output
+results.json
+/tmp/

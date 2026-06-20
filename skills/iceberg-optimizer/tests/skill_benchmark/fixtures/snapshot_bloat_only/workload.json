@@ -1,0 +1,18 @@
+{
+  "table": "prod.reports.daily_summary",
+  "matched_query_count": 20,
+  "filter_columns": [
+    {
+      "column": "report_date",
+      "count": 20,
+      "dominant": "range"
+    }
+  ],
+  "range_cols": [
+    "report_date"
+  ],
+  "equality_cols": [],
+  "partition_prune_rate": 0.9,
+  "selectivity": null,
+  "parser": "sqlglot"
+}

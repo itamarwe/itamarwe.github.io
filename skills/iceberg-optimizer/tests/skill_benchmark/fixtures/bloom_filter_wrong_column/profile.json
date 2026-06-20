@@ -1,0 +1,52 @@
+{
+  "files": {
+    "data_files": 365,
+    "delete_files": 0,
+    "position_delete_files": 0,
+    "equality_delete_files": 0,
+    "data_records": 500000000,
+    "position_delete_records": 0,
+    "equality_delete_records": 0,
+    "delete_file_pct": 0.0,
+    "eq_delete_pressure": 0.0,
+    "pos_delete_pressure": 0.0,
+    "avg_mb": 256.0,
+    "median_mb": 256.0,
+    "files_under_64mb": 0,
+    "files_under_64mb_pct": 0.0,
+    "total_gb": 91.25,
+    "target_mb": 256,
+    "needs_binpack": false
+  },
+  "snapshots": {
+    "snapshot_count": 200,
+    "operation_mix": {"append": 200},
+    "append_only_observed": true,
+    "write_cadence": {"median_gap_sec": 86400.0, "class": "batch"},
+    "write_file_size": {"avg_added_file_mb": 256.0, "median_files_per_commit": 1.0, "buffers_to_target": true},
+    "partition_fanout": {"median_partitions_per_commit": 1.0, "thin_spread": false},
+    "delete_pattern": {"delete_commits": 0, "added_delete_files_total": 0, "added_equality_delete_records_total": 0, "added_position_delete_records_total": 0, "delete_rate_per_day": 0.0, "total_equality_deletes_latest": null, "total_position_deletes_latest": null},
+    "first_commit": "2023-06-01T00:00:00+00:00",
+    "last_commit": "2024-03-01T00:00:00+00:00"
+  },
+  "flags": {
+    "needs_binpack": false,
+    "delete_pressure": false,
+    "equality_delete_pressure": false,
+    "delete_accumulating": false,
+    "thin_spread": false,
+    "structural_small_files": false,
+    "mutated": false,
+    "manifest_bloat": false,
+    "mixed_specs": false,
+    "snapshot_bloat": false
+  },
+  "format_version": 2,
+  "has_sort_order": true,
+  "sort_order": ["event_date"],
+  "partition_spec": ["event_date"],
+  "column_cardinality": {"event_date": 365, "user_id": 5000000},
+  "table_properties": {
+    "write.parquet.bloom-filter-enabled.column.event_date": "true"
+  }
+}

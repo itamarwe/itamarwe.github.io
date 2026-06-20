@@ -1,0 +1,65 @@
+{
+  "files": {
+    "data_files": 100,
+    "delete_files": 20,
+    "position_delete_files": 0,
+    "equality_delete_files": 20,
+    "data_records": 200000000,
+    "position_delete_records": 0,
+    "equality_delete_records": 20000000,
+    "delete_file_pct": 0.1667,
+    "eq_delete_pressure": 0.1,
+    "pos_delete_pressure": 0.0,
+    "avg_mb": 200.0,
+    "median_mb": 200.0,
+    "files_under_64mb": 0,
+    "files_under_64mb_pct": 0.0,
+    "total_gb": 19.531,
+    "target_mb": 256,
+    "needs_binpack": false
+  },
+  "snapshots": {
+    "snapshot_count": 30,
+    "operation_mix": {
+      "append": 15,
+      "delete": 15
+    },
+    "append_only_observed": false,
+    "write_cadence": {
+      "median_gap_sec": 86400.0,
+      "class": "batch"
+    },
+    "write_file_size": {
+      "avg_added_file_mb": 200.0,
+      "median_files_per_commit": 5.0,
+      "buffers_to_target": true
+    },
+    "partition_fanout": {
+      "median_partitions_per_commit": 1.0,
+      "thin_spread": false
+    },
+    "delete_pattern": {
+      "delete_commits": 15,
+      "added_delete_files_total": 15,
+      "added_equality_delete_records_total": 15000000,
+      "added_position_delete_records_total": 0,
+      "delete_rate_per_day": 0.52,
+      "total_equality_deletes_latest": 15000000,
+      "total_position_deletes_latest": null
+    },
+    "first_commit": "2024-01-01T00:00:00+00:00",
+    "last_commit": "2024-01-30T00:00:00+00:00"
+  },
+  "flags": {
+    "needs_binpack": false,
+    "delete_pressure": true,
+    "equality_delete_pressure": true,
+    "delete_accumulating": true,
+    "thin_spread": false,
+    "structural_small_files": false,
+    "mutated": true,
+    "manifest_bloat": false,
+    "mixed_specs": false,
+    "snapshot_bloat": false
+  }
+}

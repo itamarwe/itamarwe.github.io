@@ -1,0 +1,16 @@
+queries/month = 200   priority = query_cost
+
+SCENARIO COMPARISON (directional estimates, not a benchmark):
+
+scenario        scan GB/q     latency s    query $/mo    maint $/mo      storage $/mo  total $/mo
+--------------  ------------  -----------  ------------  --------------  ------------  ------------
+do_nothing      25.0          12.0         24.41         0.0             0.75          25.16
+light           22.0          10.5         21.48         0.10            0.70          22.28
+targeted_sort   8.0           4.0          7.81          0.75            0.65          9.21
+aggressive      5.0           2.5          4.88          2.50            0.68          8.06
+storage_min     23.0          11.0         22.46         0.0             0.62          23.08
+
+NOTE: format_version=1 detected. Equality delete compaction requires format_version >= 2.
+      Run ALTER TABLE SET TBLPROPERTIES('format-version'='2') before rewrite_data_files.
+
+>>> Optimizing for 'query_cost': recommend 'aggressive' (query_cost_month_usd = 4.88) — but requires format upgrade first.

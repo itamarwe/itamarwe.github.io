@@ -1,0 +1,13 @@
+queries/month = 700   priority = query_latency
+
+SCENARIO COMPARISON (directional estimates, not a benchmark):
+
+scenario        scan GB/q     latency s    query $/mo    maint $/mo      storage $/mo  total $/mo
+--------------  ------------  -----------  ------------  --------------  ------------  ------------
+do_nothing      500.0         250.0        1707.50       0.0             30.00         1737.50
+light           400.0         200.0        1366.00       3.00            29.50         1398.50
+targeted_sort   100.0         50.0         341.50        7.50            28.80         377.80
+aggressive      50.0          25.0         170.75        22.50           28.20         221.45
+storage_min     450.0         225.0        1537.50       0.0             29.20         1566.70
+
+>>> Optimizing for 'query_latency': recommend 'aggressive' (latency_s = 25.0).
