@@ -96,7 +96,7 @@ and the recovered geometry is good only up to a global scale and rotation — a 
 
 First, because it's already in the public domain. Hezbollah publishes these clips itself, as propaganda — they're scattered across channels and feeds, surfacing and disappearing. I see real value in pulling them into one comprehensive, labelled, durable collection that doesn't vanish when a channel goes down.
 
-And then there's what you can do with it. Defense against these drones is a data problem before it's a hardware problem. Every clip is a labelled example of how the threat actually behaves — and that's exactly what you need to train a detector, validate a sensor placement, or stress-test a counter-UAS system against real attack geometry rather than a tidy simulation. It's the same reason I went down the rabbit hole of
+And then there's what you can do with it. There's a lot we can learn from footage that's already in the public domain — the paths these drones fly, the methods, the targets — and a real collection like this gives us a better way to evaluate defense techniques and systems against how the threat actually behaves, rather than against a tidy simulation. It's the same reason I went down the rabbit hole of
 [designing a microphone array to detect FPV drones](/blog/designing-a-mic-array-for-acoustic-drone-detection/): the physics and the algorithms only get you so far without representative data to point them at.
 
 So the dataset stays public and stays current. If you're researching the threat, building a defense, or just want to understand what's happening on the border with your own eyes:
