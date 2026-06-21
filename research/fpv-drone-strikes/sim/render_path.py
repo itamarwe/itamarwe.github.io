@@ -35,8 +35,12 @@ def load():
     return pts, cols, path
 
 def to_view(P):
-    """Map world (x,y,z) -> plot coords so that -y is up (camera above terrain)."""
-    return np.stack([P[:, 0], P[:, 2], -P[:, 1]], axis=-1)
+    """Map world (x,y,z) -> plot coords so that +y is up (sky).
+
+    VGGT's recovered gravity for this clip is -y: the cameras sit above the terrain
+    cloud along +y, and the terminal poses pitch toward -y (the drone diving to the
+    ground). So world +y is up; we keep it as the vertical plot axis."""
+    return np.stack([P[:, 0], P[:, 2], P[:, 1]], axis=-1)
 
 def find_outliers(path):
     """Flag interior poses that sit far from the midpoint of their neighbours."""
