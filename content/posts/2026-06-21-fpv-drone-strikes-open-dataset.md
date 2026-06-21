@@ -1,13 +1,13 @@
 ---
 layout: post
-title: "An Open Dataset of Hezobllah FPV Drone Strikes on IDF in Lebanon"
+title: "An Open Dataset of Hezbollah FPV Drone Strikes on the IDF in Lebanon"
 comments: true
 date: 2026-06-21
 categories: drones
 image: /img/fpv-drone-strikes/social.png
 ---
 
-![An Open Dataset of Hezobllah FPV Drone Strikes on IDF in Lebanon](/img/fpv-drone-strikes/social.png)
+![An Open Dataset of Hezbollah FPV Drone Strikes on the IDF in Lebanon](/img/fpv-drone-strikes/social.png)
 
 The cheapest, fastest-evolving threat on Israel's northern border right now is a $500 quadcopter with a warhead zip-tied to it. Hezbollah has been flying FPV (first-person-view) drones across the frontier and posting the strike videos as propaganda — and every one of those clips is also, whether they like it or not, a piece of intelligence. The camera *is* the weapon's eye. If you watch enough of them, patterns fall out: what gets targeted, from what direction, with what approach profile.
 
