@@ -1,0 +1,96 @@
+current_stem	target_stem	date	slug	confidence	notes
+2026-04-29_strike_on_merkava_tank	2026-04-29_strike_on_merkava_tank	2026-04-29	strike_on_merkava_tank	high	Arabic title visibly says Merkava tank targeted.
+2026-04-30_Pr_2	2026-04-30_strike_on_humvee_in_naqoura	2026-04-30	strike_on_humvee_in_naqoura	high	Visible title says Humvee vehicle targeted in Naqoura.
+2026-05-01_strike_on_humvee	2026-05-01_strike_on_humvee	2026-05-01	strike_on_humvee	high	Arabic title visibly says Humvee vehicle targeted.
+2026-05-01_strike_on_soldiers	2026-05-01_strike_on_soldiers	2026-05-01	strike_on_soldiers	high	Arabic title visibly says Israeli army soldiers targeted.
+2026-05-02_namer_apc_near_bint_jbeil	2026-05-02_strike_on_namer_apc_in_bint_jbeil	2026-05-02	strike_on_namer_apc_in_bint_jbeil	high	Visible title says Namer vehicle targeted in Bint Jbeil.
+2026-05-02_strike_on_drone_control_system	2026-05-02_strike_on_drone_control_system	2026-05-02	strike_on_drone_control_system	medium	Title references a system for enemy drones; exact wording is low resolution.
+2026-05-03_0_pol	2026-05-03_strike_on_company_commander_tank	2026-05-03	strike_on_company_commander_tank	medium	Arabic title appears to say company commander's tank targeted in Naqoura.
+2026-05-03_strike_on_surveillance_camera	2026-05-03_strike_on_surveillance_camera	2026-05-03	strike_on_surveillance_camera	high	Visible title says surveillance/monitoring camera targeted.
+2026-05-04_7_aii_gall	2026-05-04_strike_on_engineering_vehicle	2026-05-04	strike_on_engineering_vehicle	medium	Arabic title appears to say engineering vehicle targeted; exact subtitle unclear.
+2026-05-04_strike_on_soldiers	2026-05-04_strike_on_troop_transport_vehicle	2026-05-04	strike_on_troop_transport_vehicle	medium	Visible title appears to say vehicle transporting soldiers targeted.
+2026-05-05_strike_on_merkava_tank	2026-05-05_strike_on_merkava_tank	2026-05-05	strike_on_merkava_tank	high	Arabic title visibly says Merkava tank targeted.
+2026-05-06_namer_apc_near_bint_jbeil	2026-05-06_strike_on_namer_apc_in_bint_jbeil	2026-05-06	strike_on_namer_apc_in_bint_jbeil	high	Visible title says Namer vehicle targeted in Bint Jbeil.
+2026-05-06_namer_apc_near_deir_siryan	2026-05-06_strike_on_namer_apc_near_deir_siryan	2026-05-06	strike_on_namer_apc_near_deir_siryan	medium	Title says Namer vehicle; location inferred partly from filename.
+2026-05-06_namer_apc_near_qouzah	2026-05-06_strike_on_namer_apc_near_qouzah	2026-05-06	strike_on_namer_apc_near_qouzah	high	Visible title says Namer personnel carrier; subtitle indicates Qouzah.
+2026-05-06_strike_on_position	2026-05-06_strike_on_enemy_position	2026-05-06	strike_on_enemy_position	high	Visible title says enemy army position/area targeted.
+2026-05-06_strike_on_soldier_group	2026-05-06_strike_on_soldier_group	2026-05-06	strike_on_soldier_group	high	Visible title says group of enemy soldiers targeted.
+2026-05-07_Je_2	2026-05-07_strike_on_iron_dome_launcher_at_jal_al_alam	2026-05-07	strike_on_iron_dome_launcher_at_jal_al_alam	medium	Title appears to reference Iron Dome platform/launcher at Jal al-Alam; low resolution.
+2026-05-08_merkava_tank_near_namr_al_jamal	2026-05-08_strike_on_merkava_tank_near_namr_al_jamal	2026-05-08	strike_on_merkava_tank_near_namr_al_jamal	medium	Title says Merkava tank targeted; location inferred from filename/subtitle.
+2026-05-08_strike_on_humvee	2026-05-08_strike_on_humvee_in_naqoura	2026-05-08	strike_on_humvee_in_naqoura	high	Visible title says Humvee vehicle targeted in Naqoura.
+2026-05-08_strike_on_merkava_tank	2026-05-08_strike_on_merkava_tank	2026-05-08	strike_on_merkava_tank	high	Visible Arabic title reads targeting a Merkava tank; smaller location line appears to mention Naqoura/frontline area.
+2026-05-09_Gall_ail	2026-05-09_strike_on_israeli_military_vehicle	2026-05-09	strike_on_israeli_military_vehicle	medium	Visible title reads targeting an Israeli army military vehicle; smaller location text is hard to read, current stem appears corrupted.
+2026-05-09_soldiers_near_shlomi	2026-05-09_strike_on_soldiers_near_shlomi	2026-05-09	strike_on_soldiers_near_shlomi	high	Visible title reads targeting a gathering of Israeli army soldiers; location line mentions Shlomi.
+2026-05-09_strike_on_soldiers	2026-05-09_strike_on_soldiers	2026-05-09	strike_on_soldiers	medium	Visible title reads targeting a gathering of Israeli army soldiers; smaller location text not fully readable.
+2026-05-09_strike_on_soldiers_02	2026-05-09_strike_on_soldiers_near_deir_mimas	2026-05-09	strike_on_soldiers_near_deir_mimas	high	Visible title reads targeting soldiers from the enemy army; location line appears to mention the Deir Mimas area.
+2026-05-10_0	2026-05-10_strike_on_merkava_tank	2026-05-10	strike_on_merkava_tank	high	Visible Arabic title reads targeting a Merkava tank; location line appears to mention Naqoura/frontline area.
+2026-05-10_ry_22_1447	2026-05-10_strike_on_bulldozer_near_ramiya	2026-05-10	strike_on_bulldozer_near_ramiya	high	Visible Arabic title reads targeting a bulldozer; location line mentions Ramiya.
+2026-05-10_strike_near_deir_siryan	2026-05-10_strike_on_d9_engineering_vehicle_near_deir_siryan	2026-05-10	strike_on_d9_engineering_vehicle_near_deir_siryan	high	Visible title reads targeting a D9 engineering vehicle of the Israeli army; location line mentions Deir Siryan.
+2026-05-11_Saal_N	2026-05-11_strike_on_engineering_vehicle_near_khiam	2026-05-11	strike_on_engineering_vehicle_near_khiam	medium	Visible title reads targeting an Israeli army engineering vehicle; smaller location line appears to mention Khiam, but current stem is corrupted.
+2026-05-11_strike_near_naqoura	2026-05-11_strike_on_d9_engineering_vehicle_near_naqoura	2026-05-11	strike_on_d9_engineering_vehicle_near_naqoura	high	Visible title reads targeting a D9 engineering vehicle; location line mentions Ras Naqoura/Naqoura area.
+2026-05-11_strike_near_tayr_harfa	2026-05-11_strike_on_logistics_vehicle_near_tayr_harfa	2026-05-11	strike_on_logistics_vehicle_near_tayr_harfa	high	Visible Arabic title reads targeting a logistics vehicle; location line mentions Tayr Harfa.
+2026-05-11_strike_on_soldier	2026-05-11_strike_on_soldier_near_dhayra	2026-05-11	strike_on_soldier_near_dhayra	high	Visible title reads targeting a soldier from the enemy army; location line mentions Dhayra.
+2026-05-12_namer_apc_near_houla	2026-05-12_strike_on_namer_apc_near_houla	2026-05-12	strike_on_namer_apc_near_houla	high	Visible Arabic title reads targeting a Namer vehicle; location line mentions Houla.
+2026-05-12_strike_near_tayr_harfa	2026-05-12_strike_on_engineering_vehicle_near_tayr_harfa	2026-05-12	strike_on_engineering_vehicle_near_tayr_harfa	high	Visible Arabic title reads targeting an engineering vehicle; location line mentions Tayr Harfa.
+2026-05-12_strike_on_humvee	2026-05-12_strike_on_humvee	2026-05-12	strike_on_humvee	high	Visible Arabic title reads targeting a Humvee vehicle; smaller route/location line is partly unreadable.
+2026-05-12_strike_on_soldiers	2026-05-12_strike_on_soldiers_and_vehicles	2026-05-12	strike_on_soldiers_and_vehicles	medium	Visible title reads targeting soldiers and vehicles of the Israeli army; smaller location line is not fully readable.
+2026-05-13_i_25_Landes_1447	2026-05-13_strike_on_armored_personnel_carrier	2026-05-13	strike_on_armored_personnel_carrier	medium	Visible Arabic title reads targeting an armored personnel carrier; smaller settlement/location text is hard to read, current stem appears corrupted.
+2026-05-13_strike_on_merkava_tank	2026-05-13_strike_on_merkava_tank_near_aita_al_shaab	2026-05-13	strike_on_merkava_tank_near_aita_al_shaab	high	Visible Arabic title reads targeting a Merkava tank; location line appears to mention Aita al-Shaab.
+2026-05-14_military_tanker_near_bint_jbeil	2026-05-14_strike_on_military_tanker_near_bint_jbeil	2026-05-14	strike_on_military_tanker_near_bint_jbeil	high	Visible Arabic title reads targeting a military tanker; location line mentions Bint Jbeil.
+2026-05-14_strike_on_merkava_tank	2026-05-14_merkava_tank_aytaroun	2026-05-14	merkava_tank_aytaroun	high	title reads Merkava tank in Aytaroun
+2026-05-15_9_all_27_1447	2026-05-15_engineering_vehicle_khiam	2026-05-15	engineering_vehicle_khiam	high	title reads engineering vehicle in Khiam
+2026-05-16_strike_near_iskandarounah	2026-05-16_hummer_iskandarounah_naqoura	2026-05-16	hummer_iskandarounah_naqoura	high	title reads Hummer in Iskandarounah, Naqoura
+2026-05-17_strike_near_iskandarounah	2026-05-17_buggy_iskandarounah_naqoura	2026-05-17	buggy_iskandarounah_naqoura	high	title reads buggy vehicle in Iskandarounah, Naqoura
+2026-05-18_strike_on_launcher	2026-05-18_iron_dome_platform_shomera	2026-05-18	iron_dome_platform_shomera	high	title reads Iron Dome platform in Shomera
+2026-05-19_gol_2_Alf_Gall_fe	2026-05-19_military_vehicle_misgav_am	2026-05-19	military_vehicle_misgav_am	medium	title reads military vehicle; location appears Misgav Am
+2026-05-20_namer_apc_near_hadatha	2026-05-20_namer_apc_hadatha	2026-05-20	namer_apc_hadatha	high	title reads Namer vehicle in Hadatha
+2026-05-20_strike_near_debel	2026-05-20_armored_brigade_401_hq_debel	2026-05-20	armored_brigade_401_hq_debel	medium	title reads new HQ for 401 armored brigade; location line partially unclear, current filename says Debel
+2026-05-22_merkava_tank_near_markaba	2026-05-22_merkava_tank_markaba	2026-05-22	merkava_tank_markaba	high	title reads Merkava tank in Markaba
+2026-05-22_soldiers_near_manara	2026-05-22_soldier_manara	2026-05-22	soldier_manara	high	title reads one soldier in Manara site
+2026-05-23_strike_near_jardah	2026-05-23_anti_drone_system_jardah	2026-05-23	anti_drone_system_jardah	high	title reads anti-drone system at Jardah site
+2026-05-23_strike_near_ramim	2026-05-23_two_iron_dome_platforms_ramim	2026-05-23	two_iron_dome_platforms_ramim	high	title reads two Iron Dome platforms in Ramim
+2026-05-23_strike_on_soldiers	2026-05-23_soldiers_taybeh	2026-05-23	soldiers_taybeh	high	title reads gathering of soldiers in Taybeh
+2026-05-24_namer_apc_near_taybeh	2026-05-24_namer_apc_taybeh	2026-05-24	namer_apc_taybeh	high	title reads Namer vehicle in Taybeh
+2026-05-25_gall	2026-05-25_two_israeli_army_vehicles	2026-05-25	two_israeli_army_vehicles	low	title reads two Israeli army vehicles; location line not reliably readable and filename is not useful
+2026-05-25_soldiers_near_hadab_al_bustan	2026-05-25_soldiers_position_tent_hadab_al_bustan	2026-05-25	soldiers_position_tent_hadab_al_bustan	high	title reads soldiers position tent at Hadab al-Bustan site
+2026-05-25_strike_on_command_room	2026-05-25_command_room_tayr_harfa	2026-05-25	command_room_tayr_harfa	medium	title reads command room; location appears Tayr Harfa
+2026-05-26_aid_Adio	2026-05-26_anti_drone_platform_barashit	2026-05-26	anti_drone_platform_barashit	high	title reads anti-drone platform in Barashit
+2026-05-26_aid_Adio_02	2026-05-26_anti_drone_platform_barashit_02	2026-05-26	anti_drone_platform_barashit	high	same visible title/frame as previous image
+2026-05-26_aul	2026-05-26_humvee_vehicle_in_wadi_near_dibel	2026-05-26	humvee_vehicle_in_wadi_near_dibel	medium	title readable as enemy Hummer vehicle; location line partly unreadable
+2026-05-26_communications_equipment_near_al_assi	2026-05-26_communications_equipment_at_al_assi	2026-05-26	communications_equipment_at_al_assi	high	title/location readable
+2026-05-26_merkava_tank_near_rashaf	2026-05-26_merkava_tank_in_rashaf	2026-05-26	merkava_tank_in_rashaf	high	title/location readable
+2026-05-27_0_aul_5	2026-05-27_enemy_vehicle_in_northern_settlement	2026-05-27	enemy_vehicle_in_northern_settlement	low	title says enemy vehicle; settlement name unreadable
+2026-05-27_strike_near_jal_al_alam	2026-05-27_iron_technical_platform_at_jal_al_alam	2026-05-27	iron_technical_platform_at_jal_al_alam	medium	title readable; place inferred from filename/subtitle
+2026-05-27_strike_on_merkava_tank	2026-05-27_merkava_tank_on_military_route	2026-05-27	merkava_tank_on_military_route	medium	title readable; detailed location too small
+2026-05-28_strike_near_khiam	2026-05-28_iron_technical_platform_at_al_raheb	2026-05-28	iron_technical_platform_at_al_raheb	medium	title mostly readable; filename differs from visible place
+2026-05-29_namer_apc_ainata	2026-05-29_namer_apc_in_ainata	2026-05-29	namer_apc_in_ainata	high	title/location readable
+2026-05-29_soldier_misgav_am	2026-05-29_soldier_at_misgav_am	2026-05-29	soldier_at_misgav_am	high	title/location readable
+2026-05-30_strike_on_merkava_tank	2026-05-30_merkava_tank_in_border_area	2026-05-30	merkava_tank_in_border_area	low	title readable; location line unreadable
+2026-05-31_strike_on_humvee	2026-05-31_humvee_vehicle_at_al_assi	2026-05-31	humvee_vehicle_at_al_assi	medium	title readable; location appears al_assi but small
+2026-05-31_strike_on_namer_apc	2026-05-31_namer_vehicle_and_apc_in_dibel	2026-05-31	namer_vehicle_and_apc_in_dibel	high	title/location readable
+2026-05-31_strike_on_soldiers	2026-05-31_soldiers_gathering_near_border_site	2026-05-31	soldiers_gathering_near_border_site	low	title readable; location line unreadable
+2026-06-01_merkava_tank_near_yahmor_al_shqif	2026-06-01_merkava_tank_near_yahmor_al_shqif	2026-06-01	merkava_tank_near_yahmor_al_shqif	high	title/location readable
+2026-06-01_soldiers_near_yahmor	2026-06-01_soldiers_near_yahmor_al_shqif	2026-06-01	soldiers_near_yahmor_al_shqif	high	title/location readable
+2026-06-01_soldiers_near_yahmor_02	2026-06-01_soldiers_near_yahmor_al_shqif_02	2026-06-01	soldiers_near_yahmor_al_shqif_02	high	duplicate-looking title card; kept _02 for uniqueness
+2026-06-02_namer_apc_near_yahmor_al_shqif	2026-06-02_namer_vehicle_near_yahmor_al_shqif	2026-06-02	namer_vehicle_near_yahmor_al_shqif	high	title/location readable
+2026-06-02_strike_on_merkava_tank	2026-06-02_merkava_tank_near_yahmor_al_shqif	2026-06-02	merkava_tank_near_yahmor_al_shqif	high	title/location readable
+2026-06-02_strike_on_namer_apc	2026-06-02_soldiers_and_namer_vehicle_near_yahmor_al_shqif	2026-06-02	soldiers_and_namer_vehicle_near_yahmor_al_shqif	high	title/location readable
+2026-06-02_targeting_israeli_soldiers_eastern_outskirts_zawtar_al_sharqiyah	2026-06-02_targeting_israeli_soldiers_eastern_outskirts_zawtar_al_sharqiyah	2026-06-02	targeting_israeli_soldiers_eastern_outskirts_zawtar_al_sharqiyah	high	visible title/location matches current filename
+2026-06-03_humvee_zawtar_al_sharqiyah	2026-06-03_humvee_zawtar_al_sharqiyah	2026-06-03	humvee_zawtar_al_sharqiyah	high	visible title says military Humvee in Zawtar al-Sharqiyah
+2026-06-03_m113_apc_beaufort_castle	2026-06-03_m113_apc_beaufort_castle	2026-06-03	m113_apc_beaufort_castle	medium	visible title says troop carrier near Beaufort Castle; M113 inferred from filename/visual
+2026-06-03_merkava_tank_zawtar_al_sharqiyah	2026-06-03_merkava_tank_zawtar_al_sharqiyah	2026-06-03	merkava_tank_zawtar_al_sharqiyah	high	visible title says Merkava tank in Zawtar al-Sharqiyah
+2026-06-04_strike_on_merkava_tank	2026-06-04_merkava_tank_beaufort_castle	2026-06-04	merkava_tank_beaufort_castle	high	visible title says Merkava tank near Beaufort Castle
+2026-06-04_strike_on_merkava_tank_02	2026-06-04_merkava_tank_beaufort_castle_02	2026-06-04	merkava_tank_beaufort_castle_02	medium	visible title appears same as prior Merkava/Beaufort item; suffix kept to distinguish
+2026-06-05_humvee_near_khiam	2026-06-05_humvee_near_khiam	2026-06-05	humvee_near_khiam	medium	visible text indicates Humvee near/at Khiam, mentions guided missiles
+2026-06-06_merkava_tank_near_blat	2026-06-06_merkava_tank_blat_position	2026-06-06	merkava_tank_blat_position	high	visible title says Merkava tank at Blat position
+2026-06-06_sholef_howitzer_adaissah	2026-06-06_sholef_howitzer_adaissah	2026-06-06	sholef_howitzer_adaissah	medium	visible title says artillery vehicle in Adaissah; Sholef inferred from filename/visual
+2026-06-08_strike_near_yahmor_al_shqif	2026-06-08_strike_on_enemy_vehicles_near_yahmor_al_shqif	2026-06-08	strike_on_enemy_vehicles_near_yahmor_al_shqif	medium	visible title says enemy vehicles; location line partly hard to read, filename used for place
+2026-06-08_strike_on_command_and_control_vehicle	2026-06-08_command_and_control_vehicle_beaufort_castle	2026-06-08	command_and_control_vehicle_beaufort_castle	high	visible title says command/control vehicle near Beaufort Castle area
+2026-06-09_namer_apc_khiam	2026-06-09_namer_apc_metula_southern_outskirts_khiam	2026-06-09	namer_apc_metula_southern_outskirts_khiam	medium	visible title says Namer vehicle; location line appears Metula/southern Khiam area
+2026-06-10_humvee_yahmar_al_shaqif	2026-06-10_humvee_yahmar_al_shaqif	2026-06-10	humvee_yahmar_al_shaqif	medium	visible title says military Humvee; exact location line hard to read, filename used
+2026-06-10_merkava_tank_beaufort_castle	2026-06-10_merkava_tank_beaufort_castle	2026-06-10	merkava_tank_beaufort_castle	high	visible title says Merkava tank near Beaufort Castle
+2026-06-11_merkava_tank_tayr_harfa_ababil_drone	2026-06-11_merkava_tank_tayr_harfa_ababil_drone	2026-06-11	merkava_tank_tayr_harfa_ababil_drone	medium	visible title says Merkava tank in Tayr Harfa; Ababil inferred from filename
+2026-06-12_d9_armored_bulldozer_tayr_harfa_ababil_drone	2026-06-12_d9_armored_bulldozer_tayr_harfa_ababil_drone	2026-06-12	d9_armored_bulldozer_tayr_harfa_ababil_drone	medium	title card says D9 bulldozer near Tayr Harfa; Ababil inferred from filename
+2026-06-12_merkava_tank_yahmor_al_shqif	2026-06-12_merkava_tank_yahmor_al_shqif	2026-06-12	merkava_tank_yahmor_al_shqif	high	visible title says Merkava tank at outskirts of Yahmor al-Shqif
+2026-06-13_excavator_majdal_zoun	2026-06-13_excavator_majdal_zoun	2026-06-13	excavator_majdal_zoun	high	visible title says engineering machine/excavator near Majdal Zoun
+XXXX-XX-XX_1_goal_1_31310_gral	XXXX-XX-XX_resistance_strikes_enemy_forces_kfar_kila	XXXX-XX-XX	resistance_strikes_enemy_forces_kfar_kila	low	no readable date; visible title indicates series of strikes against enemy forces, location appears Kfar Kila; date unknown

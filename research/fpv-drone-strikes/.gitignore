@@ -1,0 +1,10 @@
+# virtualenv
+vggt/venv/
+
+# large source / intermediate artifacts (regenerable via the README steps)
+clips/
+vggt/vggt_scene.glb
+vggt/frames/
+vggt/point_cloud.npz
+
+# keep camera_path.npy (tiny) committed as the extracted flight path
