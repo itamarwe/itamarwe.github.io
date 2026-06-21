@@ -1,30 +1,19 @@
 ---
 layout: post
-title: "An Open Dataset of FPV Drone Strikes — and a 3-D Flight Path From One Clip"
+title: "An Open Dataset of Hezobllah FPV Drone Strikes on IDF in Lebanon"
 comments: true
 date: 2026-06-21
 categories: drones
 image: /img/fpv-drone-strikes/social.png
 ---
 
-![An open dataset of FPV drone strikes, and a real 3-D flight path reconstructed from one clip](/img/fpv-drone-strikes/social.png)
+![An Open Dataset of Hezobllah FPV Drone Strikes on IDF in Lebanon](/img/fpv-drone-strikes/social.png)
 
-The cheapest, fastest-evolving threat on Israel's northern border right now is a
-$500 quadcopter with a warhead zip-tied to it. Hezbollah has been flying FPV
-(first-person-view) drones across the frontier and posting the strike videos as
-propaganda — and every one of those clips is also, whether they like it or not, a
-piece of intelligence. The camera *is* the weapon's eye. If you watch enough of
-them, patterns fall out: what gets targeted, from what direction, with what
-approach profile.
+The cheapest, fastest-evolving threat on Israel's northern border right now is a $500 quadcopter with a warhead zip-tied to it. Hezbollah has been flying FPV (first-person-view) drones across the frontier and posting the strike videos as propaganda — and every one of those clips is also, whether they like it or not, a piece of intelligence. The camera *is* the weapon's eye. If you watch enough of them, patterns fall out: what gets targeted, from what direction, with what approach profile.
 
-So I started collecting them. The result is an open, constantly-updated dataset of
-Hezbollah FPV drone-strike videos:
+So I started collecting them from OSINT sources. All of them. The result is an open, constantly-updated dataset of Hezbollah FPV drone-strike videos:
 **[github.com/itamarwe/fpv-drone-strikes-lebanon-dataset](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)**.
-It's public on purpose. **I want anyone who is trying to understand how the enemy
-operates — or to build the sensors and algorithms that stop these drones — to be
-able to start from real data instead of a press release.** This post is what's in
-it, and a demo of the kind of thing you can pull out of a single clip: a real 3-D
-flight path, reconstructed straight from the footage.
+It's public on purpose. **I want anyone who is trying to understand how the enemy operates — or to build the sensors and algorithms that stop these drones — to be able to start from real data instead of a press release.** This post is what's in it, and a demo of the kind of thing you can pull out of a single clip: a real 3-D flight path, reconstructed straight from the footage.
 
 ## What's in the dataset
 
@@ -38,11 +27,6 @@ is just enough to be useful:
 - a short **description** of the target and location (e.g. *"Merkava tank, Beaufort
   Castle"*, *"Excavator, Majdal Zoun"*), and
 - a **download link** to the raw clip.
-
-A separate manifest also carries a **confidence** field and notes — because a lot of
-these are labelled from the Arabic title card burned into the video, and I'd rather
-be honest about which labels are certain and which are inferred. Of the 95, about
-two-thirds are high-confidence reads.
 
 A couple of representative entries:
 [Sholef howitzer, Adaissah (2026-06-06)](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)
@@ -81,79 +65,40 @@ that modern feed-forward 3-D reconstruction is built for. So I took **one** clip
 the 2026-06-06 Sholef-howitzer strike near Adaissah — and asked: can I recover the
 drone's actual 3-D attack path, with no telemetry, just from the pixels?
 
-Short answer: yes.
-
 The pipeline is short, and I kept all of it
 [in the repo](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)
 alongside the figure code for this post:
 
 ![Pipeline: strike video → isolate the FPV footage → VGGT → camera poses + point cloud → flight path](/img/fpv-drone-strikes/pipeline.png)
 
-The one non-obvious step is the first one. These clips are *edited propaganda*: they
-open with a title card and a logo sting, sometimes splice in a replay, and end on a
-branded outro. None of that is camera motion through a scene — feed it to a
-reconstructor and it pollutes everything. So before anything else I had to **isolate
-the segment that's genuinely FPV footage** (here, roughly seconds 8 through 46 of a
-53-second clip) and drop the rest.
+The one non-obvious step is the first one. These clips are *edited propaganda*: they open with a title card and a logo sting, sometimes splice in a replay, and end on a branded outro. None of that is camera motion through a scene — feed it to a reconstructor and it pollutes everything. So before anything else I had to **isolate the segment that's genuinely FPV footage** (here, roughly seconds 8 through 46 of a 53-second clip) and drop the rest.
 
-Then the real work is done by **[VGGT](https://arxiv.org/abs/2503.11651)** (Visual
-Geometry Grounded Transformer, Wang et al., CVPR 2025) — a network that takes a
-handful of frames and, in a single forward pass, predicts the camera pose for each
-frame plus a dense 3-D point cloud of the scene. No per-scene optimization, no
-COLMAP, no telemetry. I ran the real model through the public
-[facebook/vggt-omega](https://huggingface.co/spaces/facebook/vggt-omega) Space on 38
-sampled frames. **The camera centers it recovers, in order, *are* the drone's flight
-path.**
+Then the real work is done by **[VGGT](https://arxiv.org/abs/2503.11651)** (Visual Geometry Grounded Transformer, Wang et al., CVPR 2025) — a network that takes a handful of frames and, in a single forward pass, predicts the camera pose for each frame plus a dense 3-D point cloud of the scene. I ran the real model through the public [facebook/vggt-omega](https://huggingface.co/spaces/facebook/vggt-omega) Space on 38 sampled frames. **The camera centers it recovers, in order, *are* the drone's flight path.**
 
-Here's the extraction. On the left is the actual FPV feed — the drone's own view,
-sweeping over terrain, past buildings, onto the target. On the right is the VGGT
-reconstruction: the scene as a point cloud, and the flight path drawing itself in,
-one recovered pose per frame, as the view orbits so you can see it's genuinely 3-D.
+Here's the extraction. On the left is the actual FPV feed — the drone's own view, sweeping over terrain, past buildings, onto the target. On the right is the VGGT reconstruction: the scene as a point cloud, and the flight path drawing itself in, one recovered pose per frame, as the view orbits so you can see it's genuinely 3-D.
 
 <video src="/img/fpv-drone-strikes/path_extraction.mp4" autoplay loop muted playsinline style="width:100%; border-radius:8px; margin:1rem 0;"></video>
 
-And the reconstruction on its own — the terrain ahead fanning out from the dense
-depth estimate, with the approach traced from the launch view (green) down the
-cyan-to-gold line to the terminal pose over the target:
+And the reconstruction on its own — the terrain ahead fanning out from the dense depth estimate, with the approach traced from the launch view (green) down the cyan-to-gold line to the terminal pose over the target:
 
 ![VGGT reconstruction of the scene point cloud with the recovered FPV flight path](/img/fpv-drone-strikes/reconstruction_hero.png)
 
-To check the geometry is real and not flipped, you can re-project that point cloud
-back through each recovered camera pose and compare it to the frame it came from. The
-synthetic views line up with the real footage — sky stays up, the target grows as the
-drone closes in — which is the reconstruction confirming itself:
+To verify the reconstruction we can re-project that point cloud back through each recovered camera pose and compare it to the frame it came from. The
+synthetic views line up with the real footage — the target grows as the drone closes in:
 
 ![Re-projecting the point cloud through the recovered camera poses reproduces the real FPV frames, right-side up](/img/fpv-drone-strikes/camera_views.png)
 
 These clips are not survey data. The lenses are heavily distorted, the footage is
 compressed and motion-blurred, the sky gives the network almost nothing to hold onto,
-and the recovered geometry is good only up to a global scale and rotation — a couple
-of the 38 poses are even bad enough that I flag them as outliers (the red crosses) and
-interpolate across them. **And yet there's a lot to learn.** From a low-quality
-propaganda clip and a single forward pass you still get a faithful 3-D reconstruction
-of the approach. Do that across the whole dataset and the anecdotes turn into
-distributions: approach corridors, dive angles, standoff distances — the geometry of
-how these attacks actually unfold.
+and the recovered geometry is good only up to a global scale and rotation — a couple of the 38 poses are even bad enough that I flag them as outliers (the red crosses) and interpolate across them. **And yet there's a lot to learn.** From a low-quality propaganda clip and a single forward pass you still get a faithful 3-D reconstruction of the approach. Do that across the whole dataset and the anecdotes turn into distributions: approach corridors, dive angles, standoff distances — the geometry of how these attacks actually unfold.
 
 ## Why I'm opening it up
 
-First, because it's already in the public domain. Hezbollah publishes these clips
-itself, as propaganda — they're scattered across channels and feeds, surfacing and
-disappearing. I see real value in pulling them into one comprehensive, labelled,
-durable collection that doesn't vanish when a channel goes down.
+First, because it's already in the public domain. Hezbollah publishes these clips itself, as propaganda — they're scattered across channels and feeds, surfacing and disappearing. I see real value in pulling them into one comprehensive, labelled, durable collection that doesn't vanish when a channel goes down.
 
-And then there's what you can do with it. Defense against these drones is a data
-problem before it's a hardware problem. Every clip is a labelled example of how the
-threat actually behaves — and that's exactly what you need to train a detector,
-validate a sensor placement, or stress-test a counter-UAS system against real attack
-geometry rather than a tidy simulation. It's the same reason I went down the rabbit
-hole of
-[designing a microphone array to detect FPV drones](/blog/designing-a-mic-array-for-acoustic-drone-detection/):
-the physics and the algorithms only get you so far without representative data to
-point them at.
+And then there's what you can do with it. Defense against these drones is a data problem before it's a hardware problem. Every clip is a labelled example of how the threat actually behaves — and that's exactly what you need to train a detector, validate a sensor placement, or stress-test a counter-UAS system against real attack geometry rather than a tidy simulation. It's the same reason I went down the rabbit hole of
+[designing a microphone array to detect FPV drones](/blog/designing-a-mic-array-for-acoustic-drone-detection/): the physics and the algorithms only get you so far without representative data to point them at.
 
-So the dataset stays public and stays current. If you're researching the threat,
-building a defense, or just want to understand what's happening on the border with
-your own eyes:
+So the dataset stays public and stays current. If you're researching the threat, building a defense, or just want to understand what's happening on the border with your own eyes:
 **[github.com/itamarwe/fpv-drone-strikes-lebanon-dataset](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)**.
 Use it, learn from it, and if you have footage that belongs in it, send it my way.
