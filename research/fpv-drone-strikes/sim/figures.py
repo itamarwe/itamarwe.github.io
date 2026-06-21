@@ -160,22 +160,29 @@ def fig_pipeline():
     print("pipeline.png")
 
 def fig_social():
-    """1200x630 card built around the real reconstruction hero, if present."""
+    """1200x630 card built around a real FPV strike-video frame (it's about the
+    dataset, not the path extraction)."""
+    import glob
     from matplotlib.image import imread
     fig = plt.figure(figsize=(12, 6.3), facecolor=BG)
     ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off"); ax.set_facecolor(BG)
-    hero = os.path.join(OUT, "reconstruction_hero.png")
-    if os.path.exists(hero):
-        img = imread(hero)
-        iax = fig.add_axes([0.44, 0.05, 0.55, 0.9]); iax.axis("off")
+    # a representative frame from the dataset: the target in view, late approach
+    frames = sorted(glob.glob(os.path.join(HERE, "..", "vggt", "frames2", "*.jpg")))
+    if not frames:
+        frames = sorted(glob.glob(os.path.join(HERE, "..", "vggt", "frames", "*.jpg")))
+    if frames:
+        img = imread(frames[int(0.86 * (len(frames) - 1))])
+        iax = fig.add_axes([0.46, 0.08, 0.51, 0.84]); iax.axis("off")
         iax.imshow(img)
-    ax.text(0.05, 0.82, "FPV drone strikes,", color=TXT, fontsize=27,
+        for s in iax.spines.values():
+            s.set_visible(True); s.set_color("#333a45")
+    ax.text(0.05, 0.83, "FPV drone strikes", color=TXT, fontsize=26,
             fontweight="bold", transform=ax.transAxes)
-    ax.text(0.05, 0.71, "as an open dataset", color=CYAN, fontsize=27,
+    ax.text(0.05, 0.73, "on the IDF, as a dataset", color=CYAN, fontsize=20,
             fontweight="bold", transform=ax.transAxes)
-    ax.text(0.05, 0.57, "95+ documented Hezbollah\nstrike videos — and what\nyou can pull from one:\n"
-            "a real 3-D flight path,\nstraight from the footage.",
-            color=MUTED, fontsize=14, transform=ax.transAxes, va="top", linespacing=1.55)
+    ax.text(0.05, 0.58, "An open, constantly-updated\nOSINT collection of\nHezbollah FPV drone-strike\n"
+            "videos — targets, methods,\nand the paths they fly.",
+            color="#cdd3dc", fontsize=14, transform=ax.transAxes, va="top", linespacing=1.6)
     ax.text(0.05, 0.08, "itamar-weiss.com", color=GOLD, fontsize=13,
             transform=ax.transAxes)
     fig.savefig(os.path.join(OUT, "social.png"), dpi=100, facecolor=BG)

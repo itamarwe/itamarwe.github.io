@@ -80,19 +80,20 @@ def setup_3d(ax):
 
 def draw_scene(ax, vpts, cols, vpath, bad, upto=None, drone=None):
     setup_3d(ax)
-    ax.scatter(vpts[:, 0], vpts[:, 1], vpts[:, 2], c=cols, s=0.5, alpha=0.4,
+    ax.scatter(vpts[:, 0], vpts[:, 1], vpts[:, 2], c=cols, s=0.35, alpha=0.22,
                linewidths=0, depthshade=False)
     n = len(vpath) if upto is None else upto
     if n >= 2:
-        # path colored by time: cyan (early) -> gold (terminal)
         seg = vpath[:n]
+        # white underlay so the path lifts out of the surrounding point cloud
+        ax.plot(seg[:, 0], seg[:, 1], seg[:, 2], color="white", lw=4.2,
+                alpha=0.5, solid_capstyle="round", zorder=6)
+        # path colored by time: cyan (early) -> gold (terminal)
         for j in range(len(seg) - 1):
             f = j / max(len(vpath) - 1, 1)
             col = (0.25 + 0.75 * f, 0.76, 1.0 - 0.6 * f)  # cyan->gold-ish
             ax.plot(seg[j:j + 2, 0], seg[j:j + 2, 1], seg[j:j + 2, 2],
-                    color=col, lw=2.6, alpha=0.98, solid_capstyle="round")
-        ax.scatter(seg[:, 0], seg[:, 1], seg[:, 2], color=CYAN, s=12,
-                   edgecolors="white", linewidths=0.3, depthshade=False, zorder=8)
+                    color=col, lw=2.8, alpha=1.0, solid_capstyle="round", zorder=7)
     # rejected raw poses revealed so far
     rb = bad.copy()
     if upto is not None:
@@ -126,10 +127,10 @@ def still():
     ax.scatter([vcp[-1, 0]], [vcp[-1, 1]], [vcp[-1, 2]], color=GOLD, s=80,
                edgecolors="white", linewidths=0.8, depthshade=False, label="terminal")
     set_limits(ax, vpts, vcp)
-    ax.view_init(elev=14, azim=-155)
+    ax.view_init(elev=14, azim=-180)
     ax.set_title("VGGT reconstruction: scene point cloud + recovered FPV flight path",
                  color="#ededed", fontsize=13, pad=0)
-    fig.text(0.5, 0.04, "Real model output — facebook/vggt-omega, 38 frames of the "
+    fig.text(0.5, 0.04, f"Real model output — facebook/vggt-omega, {len(path)} frames of the "
              "2026-06-06 Sholef-howitzer strike", color=MUTED, ha="center", fontsize=9)
     fig.savefig(os.path.join(OUT, "reconstruction_hero.png"), dpi=150,
                 facecolor=BG, bbox_inches="tight")
@@ -143,11 +144,15 @@ def anim():
     cp = clean_path(path, bad)
     vpts, vpath, vcp = to_view(sp), to_view(path), to_view(cp)
 
-    frames_dir = os.path.join(VGGT, "frames")
-    fpv = [imread(os.path.join(frames_dir, f"f_{i+1:03d}.jpg")) for i in range(len(path))]
+    import glob
+    frames_dir = os.path.join(VGGT, "frames2")
+    if not os.path.isdir(frames_dir):
+        frames_dir = os.path.join(VGGT, "frames")
+    frame_files = sorted(glob.glob(os.path.join(frames_dir, "f_*.jpg")))
+    fpv = [imread(f) for f in frame_files[:len(path)]]
 
     N = len(path)
-    sub = 3                      # sub-frames per pose (for a slow orbit)
+    sub = max(1, round(150 / N))   # keep the clip ~150 render-frames regardless of N
     total = N * sub
     fig = plt.figure(figsize=(12, 5.2), facecolor=BG)
     axL = fig.add_subplot(1, 2, 1); axL.set_facecolor(BG); axL.axis("off")
@@ -161,8 +166,8 @@ def anim():
         axR.cla()
         draw_scene(axR, vpts, sc, vcp, bad, upto=i + 1, drone=vcp[i])
         set_limits(axR, vpts, vcp)
-        azim = -185 + 60 * (t / total)
-        axR.view_init(elev=15, azim=azim)
+        azim = -205 + 50 * (t / total)
+        axR.view_init(elev=14, azim=azim)
         axR.set_title("VGGT 3-D reconstruction + flight path", color="#ededed", fontsize=12)
         axR.text2D(0.02, 0.02, f"frame {i+1}/{N}", transform=axR.transAxes,
                    color=MUTED, fontsize=9)

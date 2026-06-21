@@ -64,13 +64,19 @@ def project(pts, cols, T, aspect=848 / 478):
     return u, v, c, aspect
 
 def main():
+    import glob
     pts, cols, poses = load_glb()
-    idxs = [3, 13, 25, 35]                     # spread across the flight
+    fdir = os.path.join(VGGT, "frames2")
+    if not os.path.isdir(fdir):
+        fdir = os.path.join(VGGT, "frames")
+    frame_files = sorted(glob.glob(os.path.join(fdir, "f_*.jpg")))
+    N = len(poses)
+    idxs = [int(f * (N - 1)) for f in (0.08, 0.4, 0.72, 0.96)]   # spread across the flight
     fig, axes = plt.subplots(2, len(idxs), figsize=(14, 4.6), facecolor=BG)
     for col, i in enumerate(idxs):
         # real frame
         axT = axes[0, col]; axT.set_facecolor(BG); axT.axis("off")
-        frame = imread(os.path.join(VGGT, "frames", f"f_{i+1:03d}.jpg"))
+        frame = imread(frame_files[i])
         axT.imshow(frame)
         if col == 0:
             axT.set_ylabel("")

@@ -71,9 +71,9 @@ alongside the figure code for this post:
 
 ![Pipeline: strike video → isolate the FPV footage → VGGT → camera poses + point cloud → flight path](/img/fpv-drone-strikes/pipeline.png)
 
-The one non-obvious step is the first one. These clips are *edited propaganda*: they open with a title card and a logo sting, sometimes splice in a replay, and end on a branded outro. None of that is camera motion through a scene — feed it to a reconstructor and it pollutes everything. So before anything else I had to **isolate the segment that's genuinely FPV footage** (here, roughly seconds 8 through 46 of a 53-second clip) and drop the rest.
+The one non-obvious step is the first one. These clips are *edited propaganda*: they open with title cards and a logo sting, freeze mid-clip to highlight the targets, and end on a replay and a branded outro. None of that is camera motion through a scene — feed it to a reconstructor and it pollutes everything. So before anything else I had to **keep only the stretches that are genuinely FPV flight** (here, roughly seconds 10–20 and 25–37 of a 53-second clip) and drop the title cards, the freeze, and the replay.
 
-Then the real work is done by **[VGGT](https://arxiv.org/abs/2503.11651)** (Visual Geometry Grounded Transformer, Wang et al., CVPR 2025) — a network that takes a handful of frames and, in a single forward pass, predicts the camera pose for each frame plus a dense 3-D point cloud of the scene. I ran the real model through the public [facebook/vggt-omega](https://huggingface.co/spaces/facebook/vggt-omega) Space on 38 sampled frames. **The camera centers it recovers, in order, *are* the drone's flight path.**
+Then the real work is done by **[VGGT](https://arxiv.org/abs/2503.11651)** (Visual Geometry Grounded Transformer, Wang et al., CVPR 2025) — a network that takes a set of frames and, in a single forward pass, predicts the camera pose for each frame plus a dense 3-D point cloud of the scene. I sampled the kept footage at 6 frames per second — 129 frames — and ran the real model through the public [facebook/vggt-omega](https://huggingface.co/spaces/facebook/vggt-omega) Space. **The camera centers it recovers, in order, *are* the drone's flight path.**
 
 Here's the extraction. On the left is the actual FPV feed — the drone's own view, sweeping over terrain, past buildings, onto the target. On the right is the VGGT reconstruction: the scene as a point cloud, and the flight path drawing itself in, one recovered pose per frame, as the view orbits so you can see it's genuinely 3-D.
 
@@ -90,7 +90,7 @@ synthetic views line up with the real footage — the target grows as the drone 
 
 These clips are not survey data. The lenses are heavily distorted, the footage is
 compressed and motion-blurred, the sky gives the network almost nothing to hold onto,
-and the recovered geometry is good only up to a global scale and rotation — a couple of the 38 poses are even bad enough that I flag them as outliers (the red crosses) and interpolate across them. **And yet there's a lot to learn.** From a low-quality propaganda clip and a single forward pass you still get a faithful 3-D reconstruction of the approach. Do that across the whole dataset and the anecdotes turn into distributions: approach corridors, dive angles, standoff distances — the geometry of how these attacks actually unfold.
+and the recovered geometry is good only up to a global scale and rotation — a few of the 129 poses are even bad enough that I flag them as outliers (the red crosses) and interpolate across them. **And yet there's a lot to learn.** From a low-quality propaganda clip and a single forward pass you still get a faithful 3-D reconstruction of the approach. Do that across the whole dataset and the anecdotes turn into distributions: approach corridors, dive angles, standoff distances — the geometry of how these attacks actually unfold.
 
 ## Why I'm opening it up
 
