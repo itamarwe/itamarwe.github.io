@@ -73,13 +73,13 @@ That's the case for keeping this open and current: a snapshot ages instantly; a
 living dataset lets a detection model — or a person — keep learning as the tactics
 shift.
 
-## The fun part: a 3-D flight path from one clip
+## Example — extracting FPV attack paths
 
-Here's what got me excited enough to write this up. A strike video is a monocular
-camera moving through a real scene. That's exactly the input that modern
-feed-forward 3-D reconstruction eats for breakfast. So I took **one** clip — the
-2026-06-06 Sholef-howitzer strike near Adaissah — and asked: can I recover the
-drone's actual 3-D flight path, with no telemetry, just from the pixels?
+To show the kind of analysis this dataset can serve, here's one example end to end.
+A strike video is a monocular camera moving through a real scene — exactly the input
+that modern feed-forward 3-D reconstruction is built for. So I took **one** clip —
+the 2026-06-06 Sholef-howitzer strike near Adaissah — and asked: can I recover the
+drone's actual 3-D attack path, with no telemetry, just from the pixels?
 
 Short answer: yes.
 
@@ -118,35 +118,36 @@ cyan-to-gold line to the terminal pose over the target:
 
 ![VGGT reconstruction of the scene point cloud with the recovered FPV flight path](/img/fpv-drone-strikes/reconstruction_hero.png)
 
-## Being honest about what this is
+To check the geometry is real and not flipped, you can re-project that point cloud
+back through each recovered camera pose and compare it to the frame it came from. The
+synthetic views line up with the real footage — sky stays up, the target grows as the
+drone closes in — which is the reconstruction confirming itself:
 
-This is the *real* model output, not an illustration — so let me be just as real
-about its limits:
+![Re-projecting the point cloud through the recovered camera poses reproduces the real FPV frames, right-side up](/img/fpv-drone-strikes/camera_views.png)
 
-- **Scale is relative.** VGGT recovers geometry up to an unknown global scale (and a
-  rotation). The *shape* of the trajectory and the scene are real; the absolute
-  meters and the true vertical are not pinned down without extra information.
-- **A couple of poses are wrong.** Of the 38 frames, VGGT mis-estimated **2** —
-  motion-blurred frames where it briefly snapped the camera back near the origin. I
-  flag those as outliers (the red crosses) and interpolate the drawn line across
-  them rather than pretending they're good. That's a normal failure mode on fast,
-  fisheye, compressed FPV video, and it's worth seeing.
-- **The depth is noisy.** FPV lenses are heavily distorted, the sky and motion blur
-  give the network little to grab onto, and the point cloud fans out accordingly.
-  It's a reconstruction, not a survey.
+These clips are not survey data. The lenses are heavily distorted, the footage is
+compressed and motion-blurred, the sky gives the network almost nothing to hold onto,
+and the recovered geometry is good only up to a global scale and rotation — a couple
+of the 38 poses are even bad enough that I flag them as outliers (the red crosses) and
+interpolate across them. **And yet there's a lot to learn.** From a low-quality
+propaganda clip and a single forward pass you still get a faithful 3-D reconstruction
+of the approach. Do that across the whole dataset and the anecdotes turn into
+distributions: approach corridors, dive angles, standoff distances — the geometry of
+how these attacks actually unfold.
 
-Even with those caveats, the payoff is striking: from a propaganda clip and a single
-forward pass, you get a geometric reconstruction of the approach. Do that across the
-whole dataset and you start to see **approach corridors, dive angles, and standoff
-distances** as distributions, not anecdotes.
+## Why I'm opening it up
 
-## Why I'm keeping it open
+First, because it's already in the public domain. Hezbollah publishes these clips
+itself, as propaganda — they're scattered across channels and feeds, surfacing and
+disappearing. I see real value in pulling them into one comprehensive, labelled,
+durable collection that doesn't vanish when a channel goes down.
 
-Defense against these drones is a data problem before it's a hardware problem. Every
-clip is a labelled example of how the threat actually behaves — and that's exactly
-what you need to train a detector, validate a sensor placement, or stress-test a
-counter-UAS system against real attack geometry rather than a tidy simulation. It's
-the same reason I went down the rabbit hole of
+And then there's what you can do with it. Defense against these drones is a data
+problem before it's a hardware problem. Every clip is a labelled example of how the
+threat actually behaves — and that's exactly what you need to train a detector,
+validate a sensor placement, or stress-test a counter-UAS system against real attack
+geometry rather than a tidy simulation. It's the same reason I went down the rabbit
+hole of
 [designing a microphone array to detect FPV drones](/blog/designing-a-mic-array-for-acoustic-drone-detection/):
 the physics and the algorithms only get you so far without representative data to
 point them at.

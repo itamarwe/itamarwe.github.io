@@ -112,14 +112,14 @@ def fig_timeline(rows):
         labels.append(cur.strftime("%b %-d"))
         cur = (cur.replace(day=28) + dt.timedelta(days=7)).replace(day=1)
     ax.set_xticks(ticks); ax.set_xticklabels(labels)
-    ax.set_xlim(-1, span + 1); ax.set_ylim(0, len(ds) + 4)
+    ax.set_xlim(-1, span + 1); ax.set_ylim(0, len(ds) + 14)
     ax.set_ylabel("cumulative videos")
     ax.set_title("A constantly-growing log of documented strikes", color=TXT,
                  fontsize=13, loc="left")
-    ax.annotate(f"{len(ds)} videos\nin {span} days", xy=(days[-1], cum[-1]),
-                xytext=(days[-1] - span * 0.28, cum[-1] - 22),
-                color=GOLD, fontsize=11,
-                arrowprops=dict(arrowstyle="->", color=GOLD))
+    # label sits in the empty upper-left region, clear of the climbing curve
+    ax.text(span * 0.03, len(ds) + 6,
+            f"{d0.strftime('%b %-d')} → {d1.strftime('%b %-d')}, {d1.year}\nand still climbing",
+            color=GOLD, fontsize=11, va="top", linespacing=1.4)
     for sp in ["top", "right"]:
         ax.spines[sp].set_visible(False)
     fig.tight_layout()
