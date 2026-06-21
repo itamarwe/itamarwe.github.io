@@ -4,7 +4,10 @@ title: "How I Built a 3D Simulation to Teach My Kids About Day, Night, and Seaso
 comments: true
 date: 2025-03-07
 categories: ai
+image: /img/solar-system/social.png
 ---
+
+![A glowing Sun lighting a tilted Earth with a day/night terminator — "Day, Night & Seasons: a 3D simulation to explain the sky to my kids"](/img/solar-system/social.png)
 
 Usually when my kids ask why it gets dark at night, or why summer days are longer, I reach for a piece of paper and start drawing. Diagrams of the Earth tilted on its axis, arrows marking the Sun's rays. It works — but it has obvious limits. The concepts I'm trying to explain are three-dimensional and dynamic, and my drawings are neither.
 

@@ -9,6 +9,7 @@
 /research/*/out/
 /research/**/media/
 /research/.venv/
+/research/**/.venv/
 __pycache__/
 *.pyc
 
