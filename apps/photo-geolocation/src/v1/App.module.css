@@ -57,6 +57,42 @@
   font-weight: 700;
 }
 
+/* Mobile pane switcher. Hidden on desktop (side-by-side layout); shown as a
+   segmented control on narrow screens — see the media query at the bottom. */
+.tabs {
+  display: none;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  gap: 6px;
+}
+
+.tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.tabActive {
+  color: #fff;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.tabActive:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+.tabIcon { font-size: 15px; line-height: 1; }
+
 .body {
   display: flex;
   flex: 1;
@@ -90,4 +126,33 @@
 
 .footer {
   flex-shrink: 0;
+}
+
+/* ---- Mobile: one pane at a time, chosen by the tab bar ------------------- */
+@media (max-width: 768px) {
+  .tabs { display: flex; }
+
+  /* Keep the header tight — drop the wordy subtitle, the tab bar already
+     labels each view. */
+  .subtitle { display: none; }
+
+  /* Stack vertically and let the active pane fill the remaining height. All
+     three panes are always mounted; the data-mobile-view selectors below pick
+     exactly one to display. */
+  .body { flex-direction: column; }
+
+  .photoPane,
+  .mapPane,
+  .sidebar {
+    display: none;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    border-left: none;
+  }
+
+  .shell[data-mobile-view='photo'] .photoPane { display: block; }
+  .shell[data-mobile-view='map'] .mapPane { display: block; }
+  .shell[data-mobile-view='anchors'] .sidebar { display: flex; }
 }
