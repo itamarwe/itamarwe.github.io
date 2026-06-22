@@ -1,6 +1,7 @@
 # dependencies
 /node_modules
 /apps/*/node_modules
+/research/*/node_modules
 
 # embedded apps' build output (apps/*/) emitted into public/ at build time
 /public/photo-geolocation/
