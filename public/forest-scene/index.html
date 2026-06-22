@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Forest Scene — USAF Target</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: monospace; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; top: 12px; left: 12px; color: #cde; font-size: 11px;
+    background: rgba(0,0,0,.55); padding: 8px 12px; border-radius: 6px;
+    line-height: 1.85; pointer-events: none;
+  }
+  #ui.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <b>USAF 1951 Target Benchmark</b><br>
+  Drag: orbit &nbsp;|&nbsp; Scroll: zoom<br>
+  <b>V</b>: toggle straw roof &nbsp;|&nbsp; <b>H</b>: hide UI<br>
+  <span id="cov-label" style="color:#ffd166"></span>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "../pnp/vendor/three.module.js",
+    "three/addons/": "../pnp/vendor/addons/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── URL params ────────────────────────────────────────────────────────────────
+const P = new URLSearchParams(location.search);
+const CAM_AZ    = parseFloat(P.get('az')  ?? 20)  * Math.PI / 180;
+const CAM_EL    = parseFloat(P.get('el')  ?? 68)  * Math.PI / 180;
+const CAM_DIST  = parseFloat(P.get('d')   ?? 16);
+const SHOW_VEG  = (P.get('veg') ?? '1') !== '0';
+const COV       = parseFloat(P.get('cov') ?? 0.50);
+const INTERACTIVE = P.get('interactive') !== '0';
+if (P.get('ui') === '0') document.getElementById('ui').classList.add('hidden');
+document.getElementById('cov-label').textContent = `straw coverage: ${Math.round(COV*100)}%`;
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Scene ─────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8aabcc);
+scene.fog = new THREE.FogExp2(0x8aabcc, 0.012);
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(
+  CAM_DIST * Math.cos(CAM_EL) * Math.sin(CAM_AZ),
+  CAM_DIST * Math.sin(CAM_EL),
+  CAM_DIST * Math.cos(CAM_EL) * Math.cos(CAM_AZ));
+camera.lookAt(0, 0, 0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3;
+controls.maxDistance = 50;
+if (!INTERACTIVE) controls.enabled = false;
+
+// ── Lighting ──────────────────────────────────────────────────────────────────
+// Bright ambient so target is readable even in shadow
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
+const sun = new THREE.DirectionalLight(0xfff8e8, 1.8);
+sun.position.set(10, 22, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.setScalar(4096);  // high-res → fine stick shadows on target
+const sc = sun.shadow.camera;
+sc.left = sc.bottom = -20; sc.right = sc.top = 20;
+sc.near = 0.5; sc.far = 60;
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0.01;
+scene.add(sun);
+
+// ── Deterministic RNG ─────────────────────────────────────────────────────────
+function makeRng(seed) {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ── Ground ────────────────────────────────────────────────────────────────────
+{
+  const g = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.MeshStandardMaterial({ color: 0x556644, roughness: 0.96 })
+  );
+  g.rotation.x = -Math.PI / 2;
+  g.receiveShadow = true;
+  scene.add(g);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  USAF 1951 RESOLUTION TARGET
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+//  Physical dimensions:  TARGET_SIZE × TARGET_SIZE metres on the ground.
+//  Texture:              1024 × 1024 px.
+//  Physical resolution:  1 px ≈ TARGET_SIZE/1024 m
+//
+//  Layout (4 groups, G1 coarsest → G4 finest):
+//
+//    +──────────+──────────+
+//    │          │  G2      │
+//    │   G1     ├────+─────+
+//    │          │ G3 │ G4  │
+//    +──────────+────+─────+
+//
+//  Each group: 6 elements (E1 coarsest → E6 finest, ratio 2^(1/6) per step)
+//  Each element: [3 vertical bars] | [3 horizontal bars]
+//  Bar width d, gap d, bar length 5d → element box ≈ 11d × 5d
+// ─────────────────────────────────────────────────────────────────────────────
+const TARGET_SIZE = 5.0;   // metres (physical side length)
+
+function makeUSAFTexture() {
+  const N = 1024;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const ctx = cv.getContext('2d');
+
+  // Calibration-target grey background
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, N, N);
+
+  // Outer border
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, N - 4, N - 4);
+
+  // Draw 3 parallel bars (black)
+  // x,y = top-left, d = bar width, vertical = orientation
+  function bars(x, y, d, vertical) {
+    d = Math.max(1, Math.round(d));
+    ctx.fillStyle = '#0a0a0a';
+    for (let i = 0; i < 3; i++) {
+      if (vertical) ctx.fillRect(Math.round(x + i*2*d), Math.round(y),     d, 5*d);
+      else          ctx.fillRect(Math.round(x),          Math.round(y+i*2*d), 5*d, d);
+    }
+  }
+
+  // One USAF element = vertical bars left + horizontal bars right
+  function element(x, y, d) {
+    d = Math.max(1, Math.round(d));
+    bars(x,         y, d, true);   // vertical bars:   5d wide × 5d tall
+    bars(x + 6*d,   y, d, false);  // horizontal bars: 5d wide × 5d tall (offset 6d)
+    // Total element footprint: 11d × 5d
+  }
+
+  // Draw a full group (6 elements stacked vertically) in a bounding box
+  function group(bx, by, bw, bh, d0, label) {
+    // Group number label
+    const fs = Math.min(22, Math.max(7, Math.round(d0 * 1.1)));
+    ctx.font = `bold ${fs}px sans-serif`;
+    ctx.fillStyle = '#111';
+    ctx.fillText(`G${label}`, bx + 4, by + fs + 2);
+
+    let cy = by + fs + 6;
+    for (let e = 1; e <= 6; e++) {
+      const d  = Math.max(1, Math.round(d0 * Math.pow(2, -(e-1)/6)));
+      const eh = 5 * d;                          // element height
+      if (cy + eh > by + bh - 2) break;          // won't fit — skip
+
+      element(bx + 4, cy, d);
+
+      // Element number label to the right
+      const efs = Math.min(11, Math.max(5, Math.round(d * 0.85)));
+      ctx.font = `${efs}px sans-serif`;
+      ctx.fillStyle = '#333';
+      ctx.fillText(`${e}`, bx + 11*d + 10, cy + eh * 0.65);
+
+      cy += eh + Math.max(2, Math.round(d * 0.4));
+    }
+  }
+
+  // ── Group placement ──────────────────────────────────────────────────────
+  // Each group's d0 halves → each occupies half the area of the previous.
+  // G1: left half full height, d0=32
+  // G2: right-upper quadrant,  d0=16
+  // G3: right-mid octant,      d0=8
+  // G4: right-lower 16th,      d0=4
+  group(  0,   0, 512, 1024, 32, 1);  // G1
+  group(512,   0, 512,  512, 16, 2);  // G2
+  group(512, 512, 256,  256,  8, 3);  // G3
+  group(768, 512, 256,  256,  4, 4);  // G4  (right of G3)
+
+  // ── Dividers ─────────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  // Vertical centre line
+  ctx.moveTo(512, 0);   ctx.lineTo(512, N);
+  // Horizontal line between G2 and G3/G4
+  ctx.moveTo(512, 512); ctx.lineTo(N, 512);
+  // Vertical line between G3 and G4
+  ctx.moveTo(768, 512); ctx.lineTo(768, N);
+  ctx.stroke();
+
+  // ── Scale legend ──────────────────────────────────────────────────────────
+  const mmPerPx = (TARGET_SIZE * 1000) / N;  // mm per texture pixel
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#555';
+  ctx.fillText(`1 px = ${mmPerPx.toFixed(1)} mm  |  target ${TARGET_SIZE}m × ${TARGET_SIZE}m`, 6, N - 6);
+
+  return new THREE.CanvasTexture(cv);
+}
+
+// Place USAF target flat on the ground
+const usafTex = makeUSAFTexture();
+usafTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const usafMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(TARGET_SIZE, TARGET_SIZE),
+  new THREE.MeshStandardMaterial({ map: usafTex, roughness: 0.7, metalness: 0.0 })
+);
+usafMesh.rotation.x = -Math.PI / 2;
+usafMesh.position.y = 0.005;   // just above ground
+usafMesh.receiveShadow = true;
+scene.add(usafMesh);
+
+// ── Bullseye / crosshair  (localisation target alongside USAF) ────────────────
+function makeBullseyeTexture() {
+  const N = 512;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const ctx = cv.getContext('2d');
+  const cx = N / 2, cy = N / 2;
+
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, N, N);
+
+  // Border
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, N - 4, N - 4);
+
+  // Alternating black/white concentric rings (5 pairs)
+  const nRings = 5;
+  for (let i = nRings; i >= 1; i--) {
+    const r = (i / nRings) * (N * 0.46);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = (i % 2 === 0) ? '#0a0a0a' : '#d4d4d4';
+    ctx.fill();
+  }
+
+  // Centre dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, N * 0.030, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fill();
+
+  // Crosshair lines (full span, thin)
+  ctx.strokeStyle = '#0a0a0a'; ctx.lineWidth = Math.max(1, N * 0.006);
+  ctx.beginPath();
+  ctx.moveTo(4, cy);     ctx.lineTo(N - 4, cy);
+  ctx.moveTo(cx, 4);     ctx.lineTo(cx, N - 4);
+  ctx.stroke();
+
+  // Tick marks at 45° diagonals (easier to detect in oblique views)
+  ctx.lineWidth = Math.max(1, N * 0.004);
+  for (const a of [45, 135, 225, 315]) {
+    const rad = a * Math.PI / 180;
+    const r0 = N * 0.50, r1 = N * 0.30;
+    ctx.beginPath();
+    ctx.moveTo(cx + r0 * Math.cos(rad), cy + r0 * Math.sin(rad));
+    ctx.lineTo(cx + r1 * Math.cos(rad), cy + r1 * Math.sin(rad));
+    ctx.stroke();
+  }
+
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'center';
+  ctx.fillText('BULLSEYE', cx, N - 8);
+  ctx.textAlign = 'left';
+
+  return new THREE.CanvasTexture(cv);
+}
+
+const BULLSEYE_SIZE = 2.2;
+const bullseyeMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(BULLSEYE_SIZE, BULLSEYE_SIZE),
+  new THREE.MeshStandardMaterial({ map: makeBullseyeTexture(), roughness: 0.7 })
+);
+bullseyeMesh.rotation.x = -Math.PI / 2;
+// Place adjacent to USAF chart (to the right)
+bullseyeMesh.position.set(TARGET_SIZE / 2 + BULLSEYE_SIZE / 2 + 0.3, 0.005, 0);
+bullseyeMesh.receiveShadow = true;
+scene.add(bullseyeMesh);
+
+// ── Target outlines (white border strip on ground for visibility) ──────────────
+{
+  const borderMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
+  const pad = 0.18;
+  const bw = TARGET_SIZE + 2 * pad;
+  const bh = (TARGET_SIZE + 2 * pad) * 0.06;
+  // Top & bottom strips
+  for (const z of [-(TARGET_SIZE / 2 + pad / 2), (TARGET_SIZE / 2 + pad / 2)]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(bw, pad), borderMat);
+    s.rotation.x = -Math.PI / 2; s.position.set(0, 0.003, z); s.receiveShadow = true;
+    scene.add(s);
+  }
+  // Left & right strips
+  for (const x of [-(TARGET_SIZE / 2 + pad / 2), (TARGET_SIZE / 2 + pad / 2)]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(pad, TARGET_SIZE + 2*pad), borderMat);
+    s.rotation.x = -Math.PI / 2; s.position.set(x, 0.003, 0); s.receiveShadow = true;
+    scene.add(s);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  STRAW / THATCH ROOF
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Flat horizontal InstancedMesh of thin sticks at ROOF_H metres above ground.
+//  Coverage fraction COV ∈ [0,1] — exact, computed geometrically.
+//  Each stick: STICK_W × STICK_T × STICK_L (width, thickness, length)
+//  Random azimuth in [0, π] (sticks are symmetric so π suffices).
+// ─────────────────────────────────────────────────────────────────────────────
+const ROOF_H  = 5.5;     // metres above ground
+const STICK_W = 0.055;   // stick width (m)
+const STICK_T = 0.018;   // stick thickness (m)
+const STICK_L = 1.8;     // stick length (m)
+const ROOF_R  = 11.0;    // radius of covered area (m)
+
+function buildStrawRoof(coverage) {
+  const area    = Math.PI * ROOF_R * ROOF_R;
+  const stickA  = STICK_W * STICK_L;
+  // Poisson model: coverage = 1 - exp(-N * stickA / area)
+  // → N = -area * ln(1 - coverage) / stickA
+  const N = Math.round(-area * Math.log(1 - Math.min(coverage, 0.99)) / stickA);
+
+  const geo = new THREE.BoxGeometry(STICK_W, STICK_T, STICK_L);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xc8a84a, roughness: 0.95, metalness: 0.0 });
+  const mesh = new THREE.InstancedMesh(geo, mat, N);
+  mesh.castShadow = true;
+  mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+    depthPacking: THREE.RGBADepthPacking,
+  });
+
+  const dummy = new THREE.Object3D();
+  const rng   = makeRng(42);
+  for (let i = 0; i < N; i++) {
+    // Uniform point in disk
+    const ang = rng() * Math.PI * 2;
+    const r   = ROOF_R * Math.sqrt(rng());
+    dummy.position.set(Math.cos(ang) * r, ROOF_H, Math.sin(ang) * r);
+    dummy.rotation.set(0, rng() * Math.PI, 0);
+    dummy.scale.setScalar(1);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  return mesh;
+}
+
+const straw = buildStrawRoof(COV);
+const vegGroup = new THREE.Group();
+vegGroup.add(straw);
+vegGroup.visible = SHOW_VEG;
+scene.add(vegGroup);
+
+// ── Public API ────────────────────────────────────────────────────────────────
+window.__setVeg = v => { vegGroup.visible = v; };
+window.__setCamera = (az, el, dist) => {
+  camera.position.set(
+    dist * Math.cos(el*Math.PI/180) * Math.sin(az*Math.PI/180),
+    dist * Math.sin(el*Math.PI/180),
+    dist * Math.cos(el*Math.PI/180) * Math.cos(az*Math.PI/180));
+  controls.target.set(0, 0, 0);
+  controls.update();
+};
+
+// ── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'v') vegGroup.visible = !vegGroup.visible;
+  if (k === 'h') document.getElementById('ui').classList.toggle('hidden');
+});
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  if (INTERACTIVE) controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+window.__sceneReady = true;
+document.title = 'READY';
+</script>
+</body>
+</html>

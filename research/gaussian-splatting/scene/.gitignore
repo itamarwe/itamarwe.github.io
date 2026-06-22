@@ -1,0 +1,4 @@
+# Generated 3DGS benchmark artifacts — regenerate with capture_views.py +
+# make_opensplat_project.py + opensplat (see README).
+training_*/
+*.ply
