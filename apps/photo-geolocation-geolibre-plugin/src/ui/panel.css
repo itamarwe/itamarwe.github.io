@@ -1,0 +1,142 @@
+.gp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #ededed;
+}
+
+/* upload dropzone */
+.gp-drop {
+  border: 1.5px dashed #3a3f4a;
+  border-radius: 10px;
+  padding: 28px 16px;
+  text-align: center;
+  color: #8b95a5;
+}
+.gp-drop--over {
+  border-color: #3fc1ff;
+  background: rgba(63, 193, 255, 0.06);
+}
+
+/* photo */
+.gp-photo__wrap {
+  position: relative;
+  line-height: 0;
+}
+.gp-photo__img {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+.gp-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px #000;
+  pointer-events: none;
+}
+.gp-dot--inline {
+  position: static;
+  display: inline-block;
+  transform: none;
+  width: 10px;
+  height: 10px;
+}
+
+/* anchors */
+.gp-anchors__head,
+.gp-pose__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.gp-anchors__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gp-anchor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #15181d;
+}
+.gp-anchor--active {
+  outline: 1px solid #3fc1ff;
+}
+.gp-anchor__id {
+  font-variant-numeric: tabular-nums;
+  color: #8b95a5;
+}
+.gp-tag {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #23262d;
+  color: #6b7280;
+}
+.gp-tag--on {
+  background: rgba(124, 252, 138, 0.15);
+  color: #7cfc8a;
+}
+.gp-hint,
+.gp-count {
+  color: #8b95a5;
+  font-size: 12px;
+}
+
+/* pose */
+.gp-pose__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.gp-pose__name {
+  flex: 0 0 auto;
+}
+.gp-pose__val {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: #cdd3dc;
+  font-size: 12px;
+}
+
+/* buttons */
+.gp-btn {
+  border: 1px solid #3a3f4a;
+  background: #1b1e24;
+  color: #ededed;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.gp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gp-btn--sm {
+  padding: 2px 7px;
+  font-size: 12px;
+}
+.gp-btn--ghost {
+  background: transparent;
+}
+.gp-btn--armed {
+  border-color: #ffd166;
+  color: #ffd166;
+}

@@ -1,0 +1,28 @@
+{
+  "name": "geolibre-plugin-photo-geolocation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GeoLibre plugin: geolocate a photo from a single image via Perspective-n-Point.",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "maplibre-gl": ">=4",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "maplibre-gl": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.1.0"
+  }
+}

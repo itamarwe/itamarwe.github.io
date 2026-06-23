@@ -1,0 +1,9 @@
+{
+  "id": "photo-geolocation",
+  "name": "Photo Geolocation",
+  "version": "0.1.0",
+  "description": "Geolocate a photo from a single image by matching points between the photo and the map, then solving for the camera pose (Perspective-n-Point). Uses GeoLibre's loaded DSM for anchor heights.",
+  "author": "Itamar Weiss",
+  "entry": "dist/plugin.js",
+  "minGeoLibreVersion": "0.0.0"
+}
