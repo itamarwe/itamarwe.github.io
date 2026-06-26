@@ -4,7 +4,10 @@ title: "Codifying a Year of Apache Iceberg Pain into a Claude Code Skill"
 comments: true
 date: 2026-06-26
 categories: data, ai
+image: /img/iceberg-optimizer/social.png
 ---
+
+![Claude Code and Apache Iceberg icons — the iceberg optimization skill codifies deployment patterns from large-scale real-world usage.](/img/iceberg-optimizer/social.png)
 
 I spent the last year working closely with one of the most data-intensive organizations in Israel, deploying Apache Iceberg at scale. Petabytes of data, multiple ingestion pipelines, constant schema evolution, several query engines reading the same tables. Exactly the kind of environment that stress-tests every assumption you had about the format.
 
@@ -26,32 +29,40 @@ This is specialized knowledge. It took time to build, and it isn't well-document
 
 ## The skill
 
-I codified everything I kept doing into a **Claude Code skill** — a reusable, promptable assistant that knows the bits and bytes of Iceberg and guides you through the decisions that actually matter for your workload.
+I codified everything I kept doing into a **[Claude Code skill](https://github.com/itamarwe/iceberg-optimizer-skill)** — a reusable, promptable assistant that knows the bits and bytes of Iceberg and guides you through the decisions that actually matter for your workload.
 
-Point it at your table setup and it asks the right questions: What's your write pattern? What engines are reading this? Does your partition strategy match your query access patterns? What's your snapshot retention and compaction cadence? It then gives you concrete, specific recommendations — not "consider tuning your file sizes" but which target file size fits this write volume, whether you should be using V2 with merge-on-read or copy-on-write, and at what commit frequency you should be running compaction.
+The design philosophy is deliberate: *observe before you ask, ask before you decide, simulate before you recommend*. Rather than firing off generic best-practice advice, the skill runs through a structured five-phase flow:
 
-The goal isn't to replace a data engineer who knows Iceberg well. It's to make sure every team — including those without one — doesn't have to rediscover the same hard lessons from scratch.
+1. **Profile** — extract the physical state from your metadata tables: file-size health, snapshot bloat, delete-file pressure, manifest count.
+2. **Reconstruct** — derive your ingestion patterns and access profile from the metadata, then fill in whatever's missing with targeted questions about your write cadence, latency requirements, and cost priorities.
+3. **Decide** — apply a decision framework that combines the profile and workload data to rank actions across table layout, ingestion tuning, and maintenance scheduling.
+4. **Simulate** — model candidate scenarios across latency, query cost, maintenance cost, and storage — so you can pick the tradeoff that actually fits your priorities, not just the one that sounds right in a doc.
+5. **Plan** — generate engine-specific commands with exact parameters, implementation schedules, and monitoring thresholds.
+
+The output isn't "consider tuning your file sizes." It's which target file size fits this write volume, whether you should be using V2 merge-on-read or copy-on-write for your CDC pattern, and at what commit frequency to run compaction — with the actual SQL or Spark calls to make it happen.
+
+The skill works with **Spark, Trino, AWS Glue/EMR, Snowflake, and Flink/Kafka Connect**, and it operates on exported metadata tables and query logs — it never connects directly to your warehouse.
 
 ## This is v0.1
 
-I want to be direct about what this version is and isn't. It covers the most common failure modes I've encountered: partition strategy, compaction, file layout, snapshot management, and schema evolution edge cases. It works with Spark and AWS Glue, and handles direct table manipulation via the REST catalog.
+I want to be direct about what this version is and isn't. It covers the most common failure modes I've encountered: partition strategy, compaction, file layout, snapshot management, and schema evolution edge cases. The five platforms listed above are supported with engine-specific syntax. The benchmark suite runs 22 scenarios and passes cleanly.
 
-There's a lot it doesn't yet know: Flink-specific ingestion patterns, Trino and Athena query optimization, large-scale Hudi-to-Iceberg migration, multi-engine write coordination, Z-ordering tradeoffs at different scales, and more. **This is a starting point**, deliberately scoped to avoid the trap of being "comprehensive" at the cost of being wrong.
+There's still a lot of room to grow: more ingestion edge cases, deeper multi-engine write coordination, large-scale migration scenarios, Z-ordering tradeoffs at higher cardinalities, and more efficient token usage as the prompts mature. **This is a starting point**, not a complete reference.
 
-As it gets used on more real deployments, the patterns will sharpen, the token usage will get leaner, and the coverage will expand to more platforms and more edge cases.
+As it gets used on more real deployments, the patterns will sharpen and the coverage will expand.
 
 ## A call to the community
 
 If you've been in the trenches with Iceberg — if you've hit the manifest bloat, the equality delete performance cliff, the partition evolution footguns — your hard-won knowledge is exactly what makes something like this useful. The difference between a generic best-practices checklist and a tool you actually trust is lived experience encoded into it.
 
-We're inviting the Iceberg community to collaborate. Open a PR with a pattern you've hit, a recommendation you'd add, or a scenario where the current guidance gets it wrong. The more real-world knowledge goes in, the more useful it gets for everyone who comes after.
+**We're inviting the Iceberg community to collaborate.** Head to [github.com/itamarwe/iceberg-optimizer-skill](https://github.com/itamarwe/iceberg-optimizer-skill) and open a PR with a pattern you've hit, a recommendation you'd add, or a scenario where the current guidance gets it wrong. The more real-world knowledge goes in, the more useful it gets for everyone who comes after.
 
 The format is designed to be extended — new platforms, new ingestion patterns, new maintenance scenarios slot in cleanly. If your team has specific experience with a particular engine or cloud provider, that expertise belongs in here.
 
 ## Why this matters more than it might seem
 
-The reason I keep coming back to Iceberg problems — rather than treating them as someone else's infrastructure concern — is that most "AI for data" projects I see hit a wall that has nothing to do with the AI. The model is fine. The queries are reasonable. But the underlying tables are so poorly maintained that the data they're reading is stale, slow, or subtly wrong.
+Most "AI for data" projects I see hit a wall that has nothing to do with the AI. The model is fine. The queries are reasonable. But the underlying tables are so poorly maintained that the data they're reading is stale, slow, or subtly wrong.
 
 Iceberg is foundational infrastructure. How you design and maintain those tables shapes everything that reads from them — dashboards, analytics, AI agents. Getting it right isn't glamorous, but getting it wrong silently poisons everything above it.
 
-That's the thing that most teams learn too late. I'd rather they learn it earlier, from a tool, than the hard way at 2am.
+That's the thing most teams learn too late. I'd rather they learn it earlier, from a tool, than the hard way at 2am.
