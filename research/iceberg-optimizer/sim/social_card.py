@@ -42,9 +42,12 @@ W, H, DPI = 1200, 630, 100
 
 
 def fetch_logo(url: str) -> Image.Image | None:
+    # Wikimedia (and some CDNs) 403 the default python-requests UA, so send a
+    # descriptive browser-like User-Agent.
+    headers = {'User-Agent': 'Mozilla/5.0 (iceberg-optimizer social-card generator; +https://itamar-weiss.com)'}
     try:
         import requests
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=10, headers=headers)
         r.raise_for_status()
         return Image.open(io.BytesIO(r.content)).convert('RGBA')
     except Exception as e:
@@ -101,28 +104,34 @@ ax.text(lx, 36, 'itamar-weiss.com', color=MUTED, fontsize=11, ha='left', va='cen
 ax.plot([640, 640], [36, H - 36], color='#1a1a1a', linewidth=1.5)
 
 # ── RIGHT PANEL – logos ───────────────────────────────────────────────────────
-LOGO_W = 200   # display width for each logo in data-units (px)
+LOGO_W = 170   # display width for each logo in data-units (px)
 
 if claude_img is not None and iceberg_img is not None:
-    # Place Claude logo: left of centre, vertically centred
+    # Right panel spans x≈640..1200; lay the two logos out symmetrically about
+    # its centre (≈920) with the "+" between them, keeping a right-edge margin
+    # so the Iceberg wordmark is never clipped.
+    gap    = 80                                  # space between the two logos
+    panel_cx = 920
+    c_x0   = panel_cx - LOGO_W - gap / 2         # Claude bottom-left x
+    i_x0   = panel_cx + gap / 2                  # Iceberg bottom-left x
+    mid_x  = panel_cx                            # "+" connector x
+
+    # Place Claude logo: left, vertically centred
     c_arr  = logo_to_array(claude_img, LOGO_W)
     c_h    = int(c_arr.shape[0])
-    c_x0, c_y0 = 680, H // 2 - c_h // 2          # bottom-left corner in data coords
+    c_y0   = H // 2 - c_h // 2                    # bottom-left corner in data coords
     ax.imshow(c_arr, extent=[c_x0, c_x0 + LOGO_W, c_y0, c_y0 + c_h],
               origin='upper', aspect='auto', zorder=5)
     ax.text(c_x0 + LOGO_W / 2, c_y0 - 22, 'Claude Code',
             color=GOLD, fontsize=11, ha='center', va='top', fontweight='bold', alpha=0.85)
 
     # "+" connector
-    mid_x = 680 + LOGO_W + 60
     ax.text(mid_x, H // 2, '+', color=MUTED, fontsize=40, ha='center', va='center', alpha=0.55)
 
-    # Place Iceberg logo: right of centre
+    # Place Iceberg logo: right, vertically centred
     i_arr  = logo_to_array(iceberg_img, LOGO_W)
     i_h    = int(i_arr.shape[0])
-    i_x0   = mid_x + 60
     i_y0   = H // 2 - i_h // 2
-    # Make white/light background transparent for Iceberg logo
     ax.imshow(i_arr, extent=[i_x0, i_x0 + LOGO_W, i_y0, i_y0 + i_h],
               origin='upper', aspect='auto', zorder=5)
     ax.text(i_x0 + LOGO_W / 2, i_y0 - 22, 'Apache Iceberg',
@@ -177,5 +186,7 @@ else:
     ax.text((cc_x + ice_x) / 2, ice_y, '+', color=MUTED, fontsize=40,
             ha='center', va='center', alpha=0.55)
 
-plt.savefig(str(OUTPUT), dpi=DPI, bbox_inches='tight', pad_inches=0, facecolor=BLACK)
+# Save at the exact figure size (1200×630). No bbox_inches='tight' — the figure
+# axes already fill the canvas, and tight would crop the intended black margins.
+plt.savefig(str(OUTPUT), dpi=DPI, facecolor=BLACK)
 print(f'Saved → {OUTPUT}')
