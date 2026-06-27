@@ -8,6 +8,4 @@ export const site = {
   twitterUsername: "itamarwe",
   githubUsername: "itamarwe",
   author: "Itamar Weiss",
-  /** Disqus shortname for comments. */
-  disqusShortname: "itamarweiss",
 } as const;

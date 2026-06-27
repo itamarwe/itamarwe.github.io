@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "The Five Layers That Make Your Data Stack AI-Ready"
-comments: true
 date: 2026-06-17
 categories: ai, data
 image: /img/metadata-stack/five-layers.png

@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Ethereum smart contract development"
-comments: true
 date:   2018-01-30
 categories: personal
 ---

@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Training a Hebrew LLM: Behind the Scenes of Hebatron"
-comments: true
 date: 2026-06-16
 categories: ai
 image: /img/hebatron/social.png

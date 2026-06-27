@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "How Eon Turns Cloud Backups Into an AI-Queryable Data Lake"
-comments: true
 date: 2026-06-15
 categories: ai, code
 image: /img/eon-layers/four-layers.png

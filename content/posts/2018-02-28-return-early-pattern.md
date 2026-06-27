@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "The 'Return Early' Pattern"
-comments: true
 date: 2018-02-28
 categories: personal
 ---

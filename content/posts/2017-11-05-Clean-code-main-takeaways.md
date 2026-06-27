@@ -2,7 +2,6 @@
 layout: post
 title:  "Clean code - key takeaways"
 date:   2017-11-05
-comments: true
 categories: code
 ---
 

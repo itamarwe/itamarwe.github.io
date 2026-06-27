@@ -11,7 +11,7 @@ redirects, so nothing that pointed at the old site breaks.
 - Markdown posts rendered at build time with `remark` / `rehype`
   (GFM, raw HTML, and `highlight.js` syntax highlighting)
 - Sass for styling (ported from the original theme)
-- Disqus comments, GA4 analytics, RSS, sitemap, and robots
+- GA4 analytics, RSS, sitemap, and robots
 
 ## Project structure
 
@@ -28,7 +28,7 @@ content/
   posts/*.md            Blog posts (frontmatter + markdown)
   pages/*.md            About / Portfolio content
 lib/                    Post loading, URL logic, markdown rendering, redirects
-components/             Header, Footer, Disqus, Analytics
+components/             Header, Footer, Analytics
 styles/globals.scss     Ported theme + dark mode + syntax highlighting
 apps/
   photo-geolocation/    Embedded Vite app — see "Embedded apps" below

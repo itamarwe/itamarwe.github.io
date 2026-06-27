@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "The Dolly Zoom, From the Inside"
-comments: true
 date: 2026-06-12
 categories: graphics
 image: /img/dolly-zoom/social.png

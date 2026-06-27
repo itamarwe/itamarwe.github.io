@@ -2,7 +2,6 @@
 layout: post
 title:  "Zookeeper client reconnect - design pattern and node.js example"
 date:   2016-04-24
-comments: true
 categories: code, zookeeper, node.js
 ---
 Imagine that you would like to create a Zookeeper client that is always connected

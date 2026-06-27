@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Your Data Isn't as Big as You Think"
-comments: true
 date: 2025-09-16
 categories: data
 ---
