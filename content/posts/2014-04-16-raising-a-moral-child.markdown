@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Raising a moral child - key takeaways"
-comments: true
 date:   2014-04-14
 categories: personal
 ---

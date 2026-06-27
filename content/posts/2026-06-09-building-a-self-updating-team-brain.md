@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Building a Team Brain That Updates Itself"
-comments: true
 date: 2026-06-09
 categories: ai
 image: /img/team-brain/social.png

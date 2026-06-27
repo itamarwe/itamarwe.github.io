@@ -2,7 +2,6 @@
 layout: post
 title:  "Problems with democracy"
 date:   2017-03-28
-comments: true
 categories: personal, politics
 ---
 

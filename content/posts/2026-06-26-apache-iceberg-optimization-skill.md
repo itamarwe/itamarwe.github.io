@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Developing an Iceberg Optimization Skill"
-comments: true
 date: 2026-06-26
 categories: data, ai
 image: /img/iceberg-optimizer/social.png

@@ -8,7 +8,6 @@ import {
   formatDate,
   DEFAULT_OG_IMAGE,
 } from "@/lib/posts";
-import Disqus from "@/components/Disqus";
 import KatexAutofit from "@/components/KatexAutofit";
 import TwitterWidgets from "@/components/TwitterWidgets";
 
@@ -78,8 +77,6 @@ export default async function PostPage({
 
       <KatexAutofit />
       <TwitterWidgets />
-
-      {post.comments && <Disqus />}
     </>
   );
 }

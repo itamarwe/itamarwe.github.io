@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "How Does a Drone Fly?"
-comments: true
 date: 2024-12-07
 categories: drones
 ---

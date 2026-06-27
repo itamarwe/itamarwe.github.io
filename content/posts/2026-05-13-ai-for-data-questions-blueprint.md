@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "How monday.com Built Kramer: A Blueprint for Democratizing Data with AI"
-comments: true
 date: 2026-05-13
 categories: ai, code
 ---

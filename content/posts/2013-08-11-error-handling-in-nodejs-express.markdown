@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Error handling in node.js express"
-comments: true
 date:   2014-04-14
 categories: code, node.js, express
 ---

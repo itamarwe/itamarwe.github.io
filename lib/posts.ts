@@ -24,8 +24,6 @@ export interface Post {
   date: string;
   /** Raw `categories` frontmatter value, as written. */
   categories: string;
-  /** Whether Disqus comments are enabled. */
-  comments: boolean;
   /** Social-share (OpenGraph/Twitter) image path. Optional `image` in
    *  frontmatter; falls back to {@link DEFAULT_OG_IMAGE}. */
   image: string;
@@ -86,7 +84,6 @@ function buildPost(filename: string): Post {
     title: String(data.title ?? slug),
     date: iso,
     categories,
-    comments: data.comments === true,
     image: typeof data.image === "string" && data.image.trim()
       ? data.image.trim()
       : DEFAULT_OG_IMAGE,

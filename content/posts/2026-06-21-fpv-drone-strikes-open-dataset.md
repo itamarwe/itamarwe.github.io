@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "An Open Dataset of Hezbollah FPV Drone Strikes on the IDF in Lebanon"
-comments: true
 date: 2026-06-21
 categories: drones
 image: /img/fpv-drone-strikes/social.png

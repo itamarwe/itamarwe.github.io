@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "How to Geolocate a Photo From a Single Image"
-comments: true
 date: 2026-06-08
 categories: ai
 ---

@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Why Can't Drones Fly for More Than 40 Minutes?"
-comments: true
 date: 2024-12-11
 categories: drones
 ---

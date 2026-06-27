@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "How I Built a 3D Simulation to Teach My Kids About Day, Night, and Seasons"
-comments: true
 date: 2025-03-07
 categories: ai
 image: /img/solar-system/social.png

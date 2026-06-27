@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "3D Gaussian Splatting, Explained"
-comments: true
 date: 2026-06-13
 categories: graphics
 image: /img/gaussian-splatting/social.png
