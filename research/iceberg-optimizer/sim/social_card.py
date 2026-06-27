@@ -78,9 +78,8 @@ ax.set_facecolor(BLACK)
 # ── LEFT PANEL – text ────────────────────────────────────────────────────────
 lx = 52
 
-ax.text(lx, 548, 'Codifying a Year of',      color=TEXT,  fontsize=33, fontweight='bold', ha='left', va='center')
-ax.text(lx, 490, 'Apache Iceberg Pain',       color=CYAN,  fontsize=33, fontweight='bold', ha='left', va='center')
-ax.text(lx, 432, 'into a Claude Code Skill',  color=TEXT,  fontsize=33, fontweight='bold', ha='left', va='center')
+ax.text(lx, 516, 'Developing an Iceberg', color=TEXT, fontsize=34, fontweight='bold', ha='left', va='center')
+ax.text(lx, 456, 'Optimization Skill',    color=CYAN, fontsize=34, fontweight='bold', ha='left', va='center')
 
 platforms = ['Spark', 'Trino', 'AWS Glue', 'Snowflake', 'Flink']
 tx, ty = lx, 356
