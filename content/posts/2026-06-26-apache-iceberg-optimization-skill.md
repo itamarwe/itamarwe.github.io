@@ -8,7 +8,7 @@ image: /img/iceberg-optimizer/social.png
 
 ![Claude Code and Apache Iceberg icons — the iceberg optimization skill codifies deployment patterns from large-scale real-world usage.](/img/iceberg-optimizer/social.png)
 
-I've spent the last couple of years working closely with one of the most data-intensive organizations in Israel, deploying Apache Iceberg at scale. Petabytes of data, multiple ingestion pipelines, constant schema evolution, several query engines reading the same tables. Exactly the kind of environment that stress-tests every assumption you had about the format.
+I've been working with Apache Iceberg for several years. In the last year I've been helping one of the most data-heavy organizations in Israel deploy it at scale — petabytes of data, multiple ingestion pipelines, constant schema evolution, several query engines reading the same tables. Exactly the kind of environment that stress-tests every assumption you had about the format.
 
 Most of the problems weren't about scale. They were about **not knowing what Iceberg is actually doing under the hood**.
 
