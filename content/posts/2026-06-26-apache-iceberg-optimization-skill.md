@@ -18,7 +18,7 @@ Here's how it goes. A team discovers Iceberg, reads the getting-started docs, wi
 
 The root cause is almost always the same: **Iceberg has a lot of knobs, and the defaults were chosen for correctness, not for your workload**. Partition specs, sort orders, file size targets, snapshot retention policies, manifest sizing, V1 vs V2 table format — most teams never touch any of them. They accept the defaults, the problems accumulate invisibly, and the first sign anything is wrong is a data engineer firefighting at 2am.
 
-What makes it worse is that the wrong choices interact. A poor partition strategy amplifies the cost of unoptimized file sizes. Unbounded snapshot accumulation slows partition pruning. Too many small files and the wrong delete mode turn a trivially fast CDC table into a read-time disaster. The problems compound before they're visible.
+The deeper problem is that these mistakes don't fail independently — they stack. A poor partition strategy amplifies the cost of unoptimized file sizes. Unbounded snapshot accumulation slows partition pruning. Too many small files and the wrong delete mode turn a trivially fast CDC table into a read-time disaster. Each bad choice makes the next one worse, and the compounding is invisible until it isn't.
 
 ## What I kept doing over and over
 
@@ -28,9 +28,9 @@ This is specialized knowledge. It took time to build, and it isn't well-document
 
 ## The skill
 
-I codified everything I kept doing into a **[Claude Code skill](https://github.com/itamarwe/iceberg-optimizer-skill)** — a reusable, promptable assistant that knows the bits and bytes of Iceberg and guides you through the decisions that actually matter for your workload.
+I codified everything I kept doing into a **[Claude Code skill](https://github.com/itamarwe/iceberg-optimizer-skill)** (available on GitHub) — a reusable, promptable assistant that knows the bits and bytes of Iceberg and guides you through the decisions that actually matter for your workload.
 
-The design principle is: *observe before you ask, ask before you decide, simulate before you recommend*. Rather than firing generic best-practice advice, the skill runs a structured diagnostic before it tells you anything. It works by operating on exported metadata tables and query logs — it never connects directly to your warehouse — and it stays read-only until you explicitly approve Phase 5's commands.
+The design principle is: *observe before you ask, ask before you decide, simulate before you recommend*. Rather than firing generic best-practice advice, the skill runs a structured diagnostic before it tells you anything. In v0.1, it works from metadata you export yourself — you run the diagnostic queries it provides, paste back the output, or supply pre-exported files — and stays read-only until you explicitly approve Phase 5's commands. Direct connectivity to your catalog, ingestion pipeline, and query engine is the natural next step.
 
 ## The six-phase flow
 
@@ -52,7 +52,7 @@ The skill handles Spark, Trino, AWS Glue/EMR, Snowflake, and Flink/Kafka Connect
 
 ## Benchmarks
 
-Any optimization advisor is only as useful as its ability to handle the edge cases — the failure modes that only show up in production, under specific combinations of write pattern, engine, and table shape. We benchmarked the skill against 22 scenarios built from real failure patterns.
+Any optimization advisor is only as useful as its ability to handle the edge cases — the failure modes that only show up in production, under specific combinations of write pattern, engine, and table shape. I benchmarked the skill against 22 scenarios built from real failure patterns.
 
 ![22 benchmark scenarios across 7 failure-mode categories. Every scenario is a distinct real-world failure pattern — no duplicates, no synthetic toy tables.](/img/iceberg-optimizer/benchmark_coverage.png)
 
@@ -66,15 +66,15 @@ The scenarios cover seven categories of failure:
 - **Indexes** — bloom filters on the wrong columns (low-cardinality or range-queried columns where min/max statistics already do the job), and Z-ordering over too many columns, which reduces locality rather than improving it.
 - **Cost & Lifecycle** — cold archives where the compute cost of maintenance exceeds any query savings, and the query-cost vs maintenance-cost tradeoff where the right answer is to do less, not more.
 
-The benchmark scores each plan with an LLM judge evaluating correctness, specificity, and safety. **All 22 passed with a perfect 5.0/5 average.**
+The benchmark scores each plan with an LLM judge evaluating correctness, specificity, and safety. **All 22 passed with a perfect 5/5 average.**
 
-Two things are worth noting about the benchmark design. First, every scenario is a distinct failure pattern — we didn't generate synthetic variations of the same problem. Second, the score checks not just whether the skill recommends the right action, but whether it recommends it *for the right reason* and with the right caveats. A correct answer for the wrong reason scores lower.
+Two things are worth noting about the benchmark design. First, every scenario is a distinct failure pattern — I didn't generate synthetic variations of the same problem. Second, the score checks not just whether the skill recommends the right action, but whether it recommends it *for the right reason* and with the right caveats. A correct answer for the wrong reason scores lower.
 
 ## This is v0.1
 
 All five engines are supported. The 22 failure modes above are covered. Twenty-nine unit tests pass across the profiler and query-log parser.
 
-What's missing: deeper multi-engine write coordination, large-scale migration scenarios (Hudi-to-Iceberg, Delta-to-Iceberg), Z-ordering tradeoffs at very high cardinalities, and more efficient token usage as the prompt structure matures. **This is a starting point**, not a complete reference.
+What's missing: direct catalog and engine connectivity (currently you export the metadata yourself), DuckDB support for local development workflows, deeper multi-engine write coordination, large-scale migration scenarios (Hudi-to-Iceberg, Delta-to-Iceberg), Z-ordering tradeoffs at very high cardinalities, and more efficient token usage as the prompt structure matures. **This is a starting point**, not a complete reference.
 
 As the skill gets used on more real deployments, the patterns will sharpen and coverage will expand.
 
