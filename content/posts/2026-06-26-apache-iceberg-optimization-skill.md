@@ -30,7 +30,7 @@ This is specialized knowledge. It took time to build, and it isn't well-document
 
 I codified everything I kept doing into a **[Claude Code skill](https://github.com/itamarwe/iceberg-optimizer-skill)** (available on GitHub) — a reusable, promptable assistant that knows the bits and bytes of Iceberg and guides you through the decisions that actually matter for your workload.
 
-The design principle is: *observe before you ask, ask before you decide, simulate before you recommend*. Rather than firing generic best-practice advice, the skill runs a structured diagnostic before it tells you anything. In v0.1, it works from metadata you export yourself — you run the diagnostic queries it provides, paste back the output, or supply pre-exported files — and stays read-only until you explicitly approve Phase 5's commands. Direct connectivity to your catalog, ingestion pipeline, and query engine is the natural next step.
+The design principle is: *observe before you ask, ask before you decide, simulate before you recommend*. Rather than firing generic best-practice advice, the skill runs a structured diagnostic before it tells you anything. It can connect directly to your table, ingestion pipeline, and query engine — or, if you prefer, you export the metadata yourself, paste back the output, or supply pre-exported files. Either way, it stays read-only until you explicitly approve Phase 5's commands.
 
 ## The six-phase flow
 
@@ -74,7 +74,7 @@ Two things are worth noting about the benchmark design. First, every scenario is
 
 All five engines are supported. The 22 failure modes above are covered. Twenty-nine unit tests pass across the profiler and query-log parser.
 
-What's missing: direct catalog and engine connectivity (currently you export the metadata yourself), DuckDB support for local development workflows, deeper multi-engine write coordination, large-scale migration scenarios (Hudi-to-Iceberg, Delta-to-Iceberg), Z-ordering tradeoffs at very high cardinalities, and more efficient token usage as the prompt structure matures. **This is a starting point**, not a complete reference.
+What's missing: support for other query engines such as DuckDB, deeper multi-engine write coordination, large-scale migration scenarios (Hudi-to-Iceberg, Delta-to-Iceberg), Z-ordering tradeoffs at very high cardinalities, and more efficient token usage as the prompt structure matures. **This is a starting point**, not a complete reference.
 
 As the skill gets used on more real deployments, the patterns will sharpen and coverage will expand.
 
