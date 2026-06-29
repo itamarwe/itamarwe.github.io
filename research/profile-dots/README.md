@@ -9,13 +9,26 @@ density tracks image brightness. The Voronoi diagram is recomputed each iteratio
 with the Jump-Flooding Algorithm (JFA) on a grid.
 
 The result is an organic, non-grid scatter of white dots on black: density (and
-dot radius) follow brightness, so the bright shirt/face are dense and the dark
-studio background carries no dots and disappears.
+dot radius) follow the image, so detailed regions are dense and the dark studio
+background carries only a faint scatter.
 
 A "levels" pre-pass (`HL_DIM`/`HL_POW`) rolls off the highlights before
 stippling — the brightest areas were packing in so many dots they read as a
 blown-out white blob, so the top end of the brightness range is dimmed
 (mid-tones left alone) to thin them out.
+
+**Edge-aware density.** Density is a mix of tone and *edges* (a blurred Sobel
+magnitude), `rho = tone^GAMMA * (FLAT_BASE + EDGE_GAIN * edge)`. Information-rich
+regions (face, hair, beard, collar) get many more dots than flat regions (the
+t-shirt), while tone still gates the figure against the empty background.
+
+**Foreground / background split.** The subject is far brighter than the
+near-black backdrop, so a flood fill of dark pixels inward from the image border
+cleanly separates background from foreground — no transparent PNG needed (if a
+`public/img/profile.png` with real alpha is added later, prefer that). Each
+emitted point carries an `fg` flag (`stride: 4`); `ProfileDots.tsx` lets the
+background dots drift with a loose Brownian wander while the figure animates as
+before.
 
 ## Regenerate
 
@@ -24,9 +37,10 @@ node research/profile-dots/stipple.mjs
 ```
 
 Writes `public/img/profile-dots/points.json`
-(`{ size, bmax, n, data:[x,y,b, …] }`, integer-quantized coordinates). The
-on-page render is `components/ProfileDots.tsx`, used by `app/about/page.tsx`; it
-just loads this file and draws a white dot per point, radius scaled by `b`.
+(`{ size, bmax, n, stride, data:[x,y,b,fg, …] }`, integer-quantized
+coordinates). The on-page render is `components/ProfileDots.tsx`, used by
+`app/about/page.tsx`; it loads this file and draws a white dot per point, radius
+scaled by `b`.
 
 Re-run after changing the source image or the parameters at the top of
 `stipple.mjs` (`G` grid resolution, `N` dot count, `ITERS`, `GAMMA` density
