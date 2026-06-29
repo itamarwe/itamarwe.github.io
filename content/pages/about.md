@@ -1,61 +1,65 @@
-I offer expert consulting in AI and machine learning. I partner with organizations to leverage the power of AI, machine learning, and distributed systems to drive innovation, optimize operations, and scale effectively in today's fast-paced digital landscape.
+I help teams turn AI, data, and distributed-systems ideas into production systems people can actually use. My work usually sits where research prototypes, product requirements, and messy real-world infrastructure meet: agents connected to business APIs, retrieval systems grounded in private data, streaming and lakehouse platforms, and the evaluation loops that keep those systems reliable.
 
-I specialize in LLMs, AI agents, and retrieval-augmented generation (RAG) — designing and shipping agentic systems that integrate with production data and APIs. I work across the full stack: embeddings, vector stores, orchestration frameworks, and the evals that make systems trustworthy.
+I have built systems across defense, cybersecurity, fintech, online marketplaces, secure communications, and autonomous navigation. I am comfortable moving between architecture, hands-on implementation, performance work, and the practical product decisions that make technical systems useful.
 
-On the data engineering side, I build and optimize high-scale platforms using Python, PySpark, Apache Spark, Kafka, Flink, and Iceberg, with deep experience on Databricks and Snowflake across AWS, GCP, and Azure.
+For consulting inquiries, email [weiss.itamar@gmail.com](mailto:weiss.itamar@gmail.com).
 
-For application development I use Next.js and FastAPI to deliver full-stack products that put AI and data capabilities directly in users' hands.
+## What I help with
 
-I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).
+- AI and machine learning in real-world applications and production systems
+- LLM agents that integrate with data, tools, APIs, and human workflows
+- Retrieval-augmented generation (RAG), embeddings, vector stores, and evaluation pipelines
+- Data lake, streaming, and analytics platforms using Spark, Kafka, Flink, Iceberg, Databricks, Snowflake, AWS, GCP, and Azure
+- Architecture reviews, technical due diligence, and implementation plans for complex engineering efforts
+- Product-facing prototypes that prove what is possible without ignoring production constraints
 
-## Background:
+## How I work
 
-I developed my first computer program in 1992 at the age of 10 — an analog clock created using [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). Throughout high school, I pursued a variety of creative projects, including music production, 3D modeling, and animation rendering. I operated multiple [BBSs](https://en.wikipedia.org/wiki/Bulletin_board_system), developed management tools, and experimented with cybersecurity. I also built and piloted radio-controlled model airplanes and later became an instructor. Additionally, I created a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog) to help me prepare for the SATs, and developed a natural language processing tool capable of constructing a semantic network and responding to queries in natural language.
+I am hands-on and code-first. I like to get close to the actual system, the data, the users, and the failure modes, then build the shortest path from a useful prototype to something robust enough for production.
 
-Since those early years, I have continued to build upon my diverse interests and skills. I earned a B.Sc. in Physics and Mathematics from Hebrew University and an M.Sc. in Electrical Engineering from Tel Aviv University, combining my passion for technology and problem-solving with a strong academic foundation. Professionally, I have developed complex systems in fields ranging from blockchain technology and secure communications to online marketplaces and autonomous navigation systems.
+I care about boring details because they are what make ambitious systems survive contact with reality: observability, evals, data quality, latency, costs, deployment ergonomics, and clear ownership boundaries. I also care about the product surface. A good AI or data system should not live only in a notebook, dashboard, or backend service; it should put capability directly in users' hands.
 
-## Education:
+## Selected work
 
-- B.Sc. in Physics and Mathematics - Hebrew University (Dean's List 2002, 2003)
+### AI, data, and infrastructure
+
+**Large-scale Apache Iceberg deployment.** Deployed and optimized Apache Iceberg at a large-scale defense organization, enabling reliable, high-performance data lake management across petabytes of data. The project involved table-format architecture, schema evolution, and integration with existing data infrastructure.
+
+**Scalable Apache Flink pipeline for a cybersecurity startup.** Built a real-time data pipeline and developed an internal framework on top of Flink, allowing teams to define complex, multi-stage streaming pipelines using a single YAML configuration file. The framework reduced development time and improved pipeline consistency and maintainability.
+
+**Database lineage graph optimization.** Upgraded a recursive graph algorithm for computing database column-level lineage. The improved algorithm increased performance and accuracy, allowing the system to handle larger and more complex dependency graphs across enterprise-scale database environments.
+
+**Real-time Apache Kafka visualization.** Created a tool to visualize real-time, high-throughput data streams, aggregate statistics, and provide real-time search capabilities using Node.js, Angular.js, Socket.io, and Apache Kafka.
+
+### Product and application systems
+
+**Online marketplace.** Developed a two-sided marketplace where sellers could create profiles and offer services, while buyers could search, contact, book, pay online, and leave reviews. The system included admin workflows for approving sellers, monitoring transactions, handling disputes, and managing payouts.
+
+**SMS sending API.** Developed a scalable SMS sending platform with a user-friendly API for a [Kannel](http://www.kannel.org/) server. The platform included self-service subscription and payment flows, campaign management, and an admin interface for monitoring system health and activity.
+
+**Flash-card spaced repetition tool.** Developed a Facebook app for creating and practicing flashcards using the [spaced repetition](https://www.supermemo.com/english/ol/sm2.htm) algorithm.
+
+**Angular.js course.** Designed and instructed a one-week Angular.js course, delivered multiple times to developers at [Pictet Private Bank](https://www.group.pictet/) and other front-end developers in Geneva, Switzerland.
+
+### Security, blockchain, and autonomous systems
+
+**Accurate autonomous landing system for multicopters.** Developed a computer-vision algorithm for identifying a unique pattern on a ground base station, enabling precise autonomous multicopter landing. The algorithm was designed to be accurate, computationally efficient, real-time, and height-invariant, and was implemented with OpenCV on an embedded Linux board.
+
+**Double-ratchet secure messaging system.** Defined requirements for a secure messaging system, researched potential solutions, and selected, adapted, and integrated a double-ratchet messaging protocol into the client's application.
+
+**Blockchain customization.** Customized a proof-of-stake blockchain for client-specific requirements, guiding multiple teams through the integration process. The resulting cryptocurrency passed several security and functionality audits.
+
+**Cryptocurrency exchange and Ethereum token.** Developed a cryptocurrency exchange platform for trading between a custom cryptocurrency and Bitcoin, and created an Ethereum token with a smart contract for trustless exchange.
+
+## Background
+
+I developed my first computer program in 1992 at the age of 10: an analog clock created using [Logo](https://en.wikipedia.org/wiki/Logo_(programming_language)). In high school I pursued a mix of creative and technical projects, including music production, 3D modeling, animation rendering, BBS management tools, cybersecurity experiments, radio-controlled model airplanes, a [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) memorization tool in [Prolog](https://en.wikipedia.org/wiki/Prolog), and a natural language processing tool that could construct a semantic network and respond to natural-language queries.
+
+I earned a B.Sc. in Physics and Mathematics from Hebrew University and an M.Sc. in Electrical Engineering from Tel Aviv University. That mix of mathematical modeling, engineering, and hands-on software work still shapes how I approach technical problems.
+
+## Education
+
+- B.Sc. in Physics and Mathematics (Talpiot) - Hebrew University (Dean's List 2002, 2003)
 - M.Sc. in Electrical Engineering - Tel Aviv University
 
-## Projects:
-
-### Large-Scale Apache Iceberg Deployment
-Deployed and optimized Apache Iceberg at a large-scale defense organization, enabling reliable, high-performance data lake management across petabytes of data. The project involved designing the table format architecture, managing schema evolution, and ensuring seamless integration with existing data infrastructure.
-
-### Scalable Data Pipeline with Apache Flink for a Cybersecurity Startup
-Built a scalable, real-time data pipeline using Apache Flink for a cybersecurity startup. As part of the project, developed an internal framework on top of Flink that allowed teams to define complex, multi-stage streaming pipelines using a single YAML configuration file, dramatically reducing development time and improving pipeline consistency and maintainability.
-
-### Database Lineage Graph Algorithm Optimization
-Upgraded a recursive, graph-based algorithm for computing database column-level lineage. The improved algorithm significantly increased performance and accuracy, enabling the system to handle larger and more complex dependency graphs across enterprise-scale database environments.
-
-### Real-Time Apache Kafka Visualization
-Created a tool to visualize real-time, high-throughput data streams, aggregate statistics, and provide real-time search capabilities, using Node.js, Angular.js, Socket.io, and Apache Kafka.
-
-### Flash-Card Based Spaced Repetition Tool for Memorization
-Developed a user-friendly Facebook app to create and practice flashcards using the [spaced repetition](https://www.supermemo.com/english/ol/sm2.htm) algorithm to optimize learning.
-
-### Angular.js Course
-Designed and instructed a comprehensive one-week Angular.js course, delivered multiple times to developers at [Pictet Private Bank](https://www.group.pictet/) and other front-end developers in Geneva, Switzerland.
-
-### SMS Sending API
-Developed a scalable SMS sending platform with a user-friendly API for a [Kannel](http://www.kannel.org/) server. The platform featured self-service capabilities, allowing users to subscribe, input payment details, and manage SMS campaigns. It also included an admin interface for monitoring system health and activity. Built using Node.js, MongoDB, and Angular.js, the platform supported millions of SMS messages for various marketing campaigns.
-
-### Online Marketplace
-Developed a comprehensive two-sided online marketplace platform. Sellers could create profiles and offer services, while buyers could search, contact, book, and pay online, as well as leave reviews. The system included an admin interface for approving sellers, monitoring transactions, handling disputes, and managing payouts. The platform was built using Node.js, MongoDB, Elasticsearch, and Angular, with integration for email, SMS, and telephony services, and was optimized for both desktop and mobile devices.
-
-### Accurate Autonomous Landing System for [Multicopters](https://en.wikipedia.org/wiki/Multirotor)
-Developed a computer vision-based algorithm for accurately identifying a unique pattern on a ground base station, essential for autonomous multicopter landing. The algorithm was designed to be highly accurate, computationally efficient, real-time, and height-invariant. Implemented using OpenCV on an embedded Linux board, it enabled precise positional and orientational landing.
-
-### Double-Ratchet Secure Messaging System
-Defined the requirements for a secure messaging system, researched potential solutions, and selected, adapted, and integrated a double-ratchet messaging protocol into the client's application.
-
-### Blockchain Customization
-Customized a proof-of-stake blockchain to meet client-specific requirements. This involved guiding multiple development teams, inexperienced in cryptocurrency, through the integration process. The new cryptocurrency successfully passed several rigorous security and functionality audits.
-
-### Cryptocurrency Exchange
-Developed a cryptocurrency exchange platform enabling secure, automated trading between a custom cryptocurrency and Bitcoin.
-
-### Ethereum Token
-Created an Ethereum token tailored to the client's specifications and designed a smart contract for a trustless exchange of the token.
+I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).

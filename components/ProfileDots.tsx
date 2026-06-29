@@ -15,8 +15,7 @@ import { useEffect, useRef } from "react";
  *   - curl-noise shimmer  — a divergence-free flow field, gentle swirling drift
  *   - breathing           — a slow radial inhale/exhale about the centroid
  *   - pointer repulsion    — dots part around the cursor and spring back
- * Background dots (outside the figure) skip the shimmer and breathe much harder
- * than the figure, so the field around the subject swells and contracts.
+ *   - background fountain  — bg dots spray outward from the center and recycle
  *
  * Physics runs in normalized [0,1] space (resize just rescales the draw). Dots
  * are blitted from a pre-rendered sprite for speed; the loop pauses when the
@@ -50,8 +49,11 @@ const DAMP = 11; // velocity damping (~critical for SPRING)
 const CURL_AMP = 0.2; // shimmer strength
 const CURL_FREQ = 18; // shimmer spatial frequency (radians across the image)
 const CURL_SPEED = 0.175; // shimmer temporal speed (also halved)
-const BREATHE_AMP = 0.0156; // ±1.56% scale about the centroid
-const BREATHE_PERIOD = 7; // seconds per breath
+const BREATHE_AMP = 0.032; // ±3.2% scale about the centroid
+const BREATHE_PERIOD = 6.4; // seconds per breath
+const BREATHE_INHALE = 0.42; // fraction of the cycle spent expanding
+const BREATHE_RIPPLE_AMP = 0.005; // small non-sinusoidal secondary motion
+const BREATHE_RIPPLE_PERIOD = 2.1;
 const POINTER_R = 0.5; // repulsion radius (fraction of size)
 const POINTER_STR = 0.65; // repulsion strength (soft, rounded peak — see below)
 
@@ -64,10 +66,23 @@ const HEAD_RX = 0.17;
 const HEAD_RY = 0.2;
 const HEAD_FADE = 1.8; // ellipse-distance² at which curl returns to full
 
-// Background dots (outside the figure) breathe far harder than the figure: they
-// scale in and out about the figure's centroid on the same breath, so the whole
-// field of background dots swells and contracts around the subject.
-const BG_BREATHE_AMP = 0.08; // background breath amplitude (vs BREATHE_AMP)
+// Background dots spray outward from the image center like a fountain.
+// The foreground mask keeps them hidden while they pass behind the portrait.
+const BG_CENTER_X = 0.5;
+const BG_CENTER_Y = 0.5;
+const BG_BIRTH_R = 0.04;
+const BG_SPEED = 0.18;
+const BG_SPEED_JITTER = 0.38;
+const BG_SIDE_NOISE = 0.035;
+const BG_CURL_NOISE = 0.035;
+const BG_WOBBLE_SPEED = 2.6;
+const BG_EXIT_PAD = 0.08;
+
+// Coarse foreground occupancy used only to occlude wandering background dots.
+// The visual foreground remains the stippled dots; this mask just prevents bg
+// dust from showing through the portrait silhouette as it wanders.
+const MASK_GRID = 128;
+const MASK_PAD = 2;
 
 /** Divergence-free flow field: curl of a scalar potential, so dots swirl in
  *  place rather than drifting away. Returns a roughly unit-magnitude vector. */
@@ -93,6 +108,74 @@ function makeSprite(): HTMLCanvasElement {
   return s;
 }
 
+function maskIndex(x: number, y: number) {
+  const xi = Math.min(MASK_GRID - 1, Math.max(0, Math.floor(x * MASK_GRID)));
+  const yi = Math.min(MASK_GRID - 1, Math.max(0, Math.floor(y * MASK_GRID)));
+  return yi * MASK_GRID + xi;
+}
+
+function buildForegroundMask(
+  x: Float32Array,
+  y: Float32Array,
+  fg: Uint8Array,
+  n: number,
+) {
+  const src = new Uint8Array(MASK_GRID * MASK_GRID);
+  for (let i = 0; i < n; i++) {
+    if (!fg[i]) continue;
+    src[maskIndex(x[i], y[i])] = 1;
+  }
+
+  const dst = new Uint8Array(src.length);
+  for (let yi = 0; yi < MASK_GRID; yi++) {
+    for (let xi = 0; xi < MASK_GRID; xi++) {
+      const idx = yi * MASK_GRID + xi;
+      if (!src[idx]) continue;
+      for (let dy = -MASK_PAD; dy <= MASK_PAD; dy++) {
+        const yy = yi + dy;
+        if (yy < 0 || yy >= MASK_GRID) continue;
+        for (let dx = -MASK_PAD; dx <= MASK_PAD; dx++) {
+          const xx = xi + dx;
+          if (xx < 0 || xx >= MASK_GRID) continue;
+          dst[yy * MASK_GRID + xx] = 1;
+        }
+      }
+    }
+  }
+
+  return dst;
+}
+
+function outsideCanvas(x: number, y: number) {
+  return (
+    x < -BG_EXIT_PAD ||
+    y < -BG_EXIT_PAD ||
+    x > 1 + BG_EXIT_PAD ||
+    y > 1 + BG_EXIT_PAD
+  );
+}
+
+function wrap01(v: number) {
+  return v - Math.floor(v);
+}
+
+function triangle(phase: number) {
+  return 1 - 4 * Math.abs(wrap01(phase) - 0.5);
+}
+
+function asymmetricTriangle(phase: number, rise: number) {
+  const p = wrap01(phase);
+  return p < rise
+    ? -1 + (2 * p) / rise
+    : 1 - (2 * (p - rise)) / (1 - rise);
+}
+
+function breatheScale(t: number) {
+  const main = asymmetricTriangle(t / BREATHE_PERIOD, BREATHE_INHALE);
+  const ripple = triangle(t / BREATHE_RIPPLE_PERIOD + 0.17);
+  return 1 + BREATHE_AMP * main + BREATHE_RIPPLE_AMP * ripple;
+}
+
 export default function ProfileDots({
   src = "/img/profile-dots/points.json",
   rMin = 0.6 / 600,
@@ -115,8 +198,10 @@ export default function ProfileDots({
     let n = 0;
     let homeX: Float32Array, homeY: Float32Array, br: Float32Array;
     let posX: Float32Array, posY: Float32Array, velX: Float32Array, velY: Float32Array;
+    let bgSpeed: Float32Array, bgPhase: Float32Array;
     let curlScale: Float32Array; // 0 over the face, 1 in the free field
     let fg: Uint8Array; // 1 = foreground (figure), 0 = background (wanders)
+    let foregroundMask: Uint8Array | null = null;
     let cx = 0.5,
       cy = 0.5; // centroid, for breathing
 
@@ -136,11 +221,23 @@ export default function ProfileDots({
       ctx.fillRect(0, 0, pxSize, pxSize);
       const r0 = rMin * pxSize;
       const dr = (rMax - rMin) * pxSize;
-      for (let i = 0; i < n; i++) {
+      const drawDot = (i: number) => {
         const r = r0 + dr * br[i];
-        if (r < 0.15) continue;
+        if (r < 0.15) return;
         const d = r * 2;
         ctx.drawImage(sprite, posX[i] * pxSize - r, posY[i] * pxSize - r, d, d);
+      };
+
+      // Background first, clipped by the foreground silhouette so wandering
+      // dust never appears behind the portrait.
+      for (let i = 0; i < n; i++) {
+        if (fg[i]) continue;
+        if (foregroundMask?.[maskIndex(posX[i], posY[i])]) continue;
+        drawDot(i);
+      }
+      for (let i = 0; i < n; i++) {
+        if (!fg[i]) continue;
+        drawDot(i);
       }
     };
 
@@ -158,6 +255,32 @@ export default function ProfileDots({
 
     const cf: [number, number] = [0, 0];
     const hf: [number, number] = [0, 0];
+    const recycleBackgroundDot = (i: number, spread = false) => {
+      let x = BG_CENTER_X;
+      let y = BG_CENTER_Y;
+      for (let tries = 0; tries < 12; tries++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = spread
+          ? Math.sqrt(Math.random()) * (0.72 + BG_EXIT_PAD)
+          : Math.sqrt(Math.random()) * BG_BIRTH_R;
+        x = BG_CENTER_X + Math.cos(a) * r;
+        y = BG_CENTER_Y + Math.sin(a) * r;
+        if (!outsideCanvas(x, y)) break;
+      }
+
+      const dx = x - BG_CENTER_X;
+      const dy = y - BG_CENTER_Y;
+      const len = Math.hypot(dx, dy) || 1;
+      const radialX = dx / len;
+      const radialY = dy / len;
+      posX[i] = x;
+      posY[i] = y;
+      bgSpeed[i] = 1 - BG_SPEED_JITTER / 2 + Math.random() * BG_SPEED_JITTER;
+      bgPhase[i] = Math.random() * Math.PI * 2;
+      velX[i] = radialX * BG_SPEED * bgSpeed[i];
+      velY[i] = radialY * BG_SPEED * bgSpeed[i];
+    };
+
     // Cursor repulsion (shared by fg and bg): soft (1-q^2)^2 bump.
     const hoverForce = (px: number, py: number) => {
       hf[0] = 0;
@@ -176,23 +299,29 @@ export default function ProfileDots({
     };
 
     const step = (t: number, dt: number) => {
-      const phase = Math.sin((2 * Math.PI * t) / BREATHE_PERIOD);
-      const breathe = 1 + BREATHE_AMP * phase;
-      const breatheBg = 1 + BG_BREATHE_AMP * phase;
+      const breathe = breatheScale(t);
       for (let i = 0; i < n; i++) {
         if (!fg[i]) {
-          // background: breathes much harder than the figure, same breath
-          const tx = cx + (homeX[i] - cx) * breatheBg;
-          const ty = cy + (homeY[i] - cy) * breatheBg;
-          let ax = SPRING * (tx - posX[i]) - DAMP * velX[i];
-          let ay = SPRING * (ty - posY[i]) - DAMP * velY[i];
+          // background: outward fountain spray with side wobble and cursor push
+          const dx = posX[i] - BG_CENTER_X;
+          const dy = posY[i] - BG_CENTER_Y;
+          const len = Math.hypot(dx, dy) || 1e-4;
+          const radialX = dx / len;
+          const radialY = dy / len;
+          const side = Math.sin(t * BG_WOBBLE_SPEED + bgPhase[i]) * BG_SIDE_NOISE;
+          curl(posX[i], posY[i], t * 1.8, cf);
+          velX[i] =
+            radialX * BG_SPEED * bgSpeed[i] +
+            -radialY * side +
+            cf[0] * BG_CURL_NOISE;
+          velY[i] =
+            radialY * BG_SPEED * bgSpeed[i] +
+            radialX * side +
+            cf[1] * BG_CURL_NOISE;
           hoverForce(posX[i], posY[i]);
-          ax += hf[0];
-          ay += hf[1];
-          velX[i] += ax * dt;
-          velY[i] += ay * dt;
-          posX[i] += velX[i] * dt;
-          posY[i] += velY[i] * dt;
+          posX[i] += (velX[i] + hf[0]) * dt;
+          posY[i] += (velY[i] + hf[1]) * dt;
+          if (outsideCanvas(posX[i], posY[i])) recycleBackgroundDot(i);
           continue;
         }
 
@@ -296,6 +425,8 @@ export default function ProfileDots({
         posY = new Float32Array(n);
         velX = new Float32Array(n);
         velY = new Float32Array(n);
+        bgSpeed = new Float32Array(n);
+        bgPhase = new Float32Array(n);
         curlScale = new Float32Array(n);
         fg = new Uint8Array(n);
         let sx = 0,
@@ -318,10 +449,13 @@ export default function ProfileDots({
             sx += x;
             sy += y;
             fgN++;
+          } else {
+            recycleBackgroundDot(i, true);
           }
         }
         cx = fgN ? sx / fgN : 0.5;
         cy = fgN ? sy / fgN : 0.5;
+        foregroundMask = buildForegroundMask(homeX, homeY, fg, n);
         canvas.addEventListener("pointermove", onMove);
         canvas.addEventListener("pointerleave", onLeave);
         drawStatic(); // portrait visible immediately

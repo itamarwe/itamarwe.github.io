@@ -28,9 +28,9 @@ t-shirt), while tone still gates the figure against the empty background.
 near-black backdrop, so a flood fill of dark pixels inward from the image border
 cleanly separates background from foreground — no transparent PNG needed (if a
 `public/img/profile.png` with real alpha is added later, prefer that). Each
-emitted point carries an `fg` flag (`stride: 4`); `ProfileDots.tsx` makes the
-background dots breathe much harder than the figure (swelling and contracting
-about its centroid) while the figure animates as before.
+emitted point carries an `fg` flag (`stride: 4`); `ProfileDots.tsx` uses it to
+render the figure over a foreground occupancy mask, while background dots spray
+outward from the image center and recycle after leaving the canvas.
 
 ## Regenerate
 
