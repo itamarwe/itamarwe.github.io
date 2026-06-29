@@ -41,8 +41,8 @@ const CURL_FREQ = 18; // shimmer spatial frequency (radians across the image)
 const CURL_SPEED = 0.35; // shimmer temporal speed
 const BREATHE_AMP = 0.0156; // ±1.56% scale about the centroid
 const BREATHE_PERIOD = 7; // seconds per breath
-const POINTER_R = 0.2; // repulsion radius (fraction of size)
-const POINTER_STR = 2.6; // repulsion strength
+const POINTER_R = 0.5; // repulsion radius (fraction of size)
+const POINTER_STR = 2.6; // repulsion strength (soft, rounded peak — see below)
 
 // Head mask: suppress the curl swirl over the face/hair so it never distorts
 // the features (breathing and pointer repulsion still apply there). An ellipse
@@ -160,7 +160,11 @@ export default function ProfileDots({
           const d2 = dx * dx + dy * dy;
           if (d2 < POINTER_R * POINTER_R) {
             const d = Math.sqrt(d2) || 1e-4;
-            const f = (POINTER_STR * (1 - d / POINTER_R)) / d;
+            const q = d / POINTER_R;
+            // soft bump (1-q^2)^2: rounded peak with zero slope at the centre, so
+            // dots under the cursor are nudged, not punched into a clean hole.
+            const bump = 1 - q * q;
+            const f = (POINTER_STR * bump * bump) / d;
             ax += f * dx;
             ay += f * dy;
           }
