@@ -4,8 +4,6 @@ I specialize in LLMs, AI agents, and retrieval-augmented generation (RAG) — de
 
 On the data engineering side, I build and optimize high-scale platforms using Python, PySpark, Apache Spark, Kafka, Flink, and Iceberg, with deep experience on Databricks and Snowflake across AWS, GCP, and Azure.
 
-For application development I use Next.js and FastAPI to deliver full-stack products that put AI and data capabilities directly in users' hands.
-
 I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).
 
 ## Background:
@@ -45,7 +43,7 @@ Developed a scalable SMS sending platform with a user-friendly API for a [Kannel
 ### Online Marketplace
 Developed a comprehensive two-sided online marketplace platform. Sellers could create profiles and offer services, while buyers could search, contact, book, and pay online, as well as leave reviews. The system included an admin interface for approving sellers, monitoring transactions, handling disputes, and managing payouts. The platform was built using Node.js, MongoDB, Elasticsearch, and Angular, with integration for email, SMS, and telephony services, and was optimized for both desktop and mobile devices.
 
-### Accurate Autonomous Landing System for [Multicopters](https://en.wikipedia.org/wiki/Multirotor)
+### Accurate Autonomous Landing System for Multicopters
 Developed a computer vision-based algorithm for accurately identifying a unique pattern on a ground base station, essential for autonomous multicopter landing. The algorithm was designed to be highly accurate, computationally efficient, real-time, and height-invariant. Implemented using OpenCV on an embedded Linux board, it enabled precise positional and orientational landing.
 
 ### Double-Ratchet Secure Messaging System
