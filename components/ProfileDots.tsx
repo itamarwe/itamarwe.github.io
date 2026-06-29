@@ -3,82 +3,62 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Dot-art ("halftone") rendering of the profile portrait. The source image is
- * sampled once into a `cols x rows` grid of luma values; each grid cell becomes
- * a white dot whose radius scales with the local brightness, on a pure-black
- * background. The portrait already sits on black, so the background samples to
- * zero-radius dots and simply disappears — leaving the face and shirt drawn in
- * dots of varying size.
+ * Dot-art ("stipple") rendering of the profile portrait, in the StippleGen 2
+ * style: a weighted Voronoi stippling (centroidal Voronoi tessellation) whose
+ * local dot *density* tracks image brightness, so the dots are scattered
+ * organically rather than on a grid. Each dot's radius also scales with the
+ * local brightness. The portrait sits on black, so the dark background carries
+ * no dots and disappears, leaving the face and shirt in a field of white dots.
  *
- * Sampling and drawing are kept separate (`sampleGrid` → `draw`) so a later
- * animation pass can re-run `draw` each frame against the cached grid without
- * re-reading pixels.
+ * The point set is precomputed offline (`research/profile-dots/stipple.mjs` →
+ * `public/img/profile-dots/points.json`) so the page just loads and draws it —
+ * no per-load relaxation. Points are stored in a normalized integer grid; we
+ * scale them to the canvas on draw, so a resize only rescales. Keeping the
+ * point set in memory also leaves the door open for a later animation pass.
  */
 
+type Packed = { size: number; bmax: number; n: number; data: number[] };
+
 type Props = {
-  /** Source image (same-origin so the canvas stays untainted). */
+  /** Precomputed stipple points (normalized integer coords + brightness). */
   src?: string;
-  /** Grid resolution: number of dots across (image is square, so rows = cols). */
-  cols?: number;
-  /** Max dot radius as a fraction of half the cell (>1 lets bright dots touch). */
-  fill?: number;
-  /** Brightness curve; <1 fattens midtones, >1 thins them. */
-  gamma?: number;
+  /** Min/max dot radius as a fraction of the canvas size. */
+  rMin?: number;
+  rMax?: number;
   alt?: string;
   className?: string;
 };
 
-function sampleGrid(img: HTMLImageElement, cols: number, rows: number) {
-  const off = document.createElement("canvas");
-  off.width = cols;
-  off.height = rows;
-  const octx = off.getContext("2d", { willReadFrequently: true })!;
-  octx.drawImage(img, 0, 0, cols, rows);
-  const data = octx.getImageData(0, 0, cols, rows).data;
-  const grid = new Float32Array(cols * rows);
-  for (let i = 0; i < cols * rows; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    grid[i] = (0.299 * r + 0.587 * g + 0.114 * b) / 255; // luma 0..1
-  }
-  return grid;
-}
-
 function draw(
   ctx: CanvasRenderingContext2D,
-  grid: Float32Array,
-  cols: number,
-  rows: number,
+  pts: Packed,
   pxSize: number,
-  fill: number,
-  gamma: number,
+  rMin: number,
+  rMax: number,
 ) {
-  ctx.clearRect(0, 0, pxSize, pxSize);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, pxSize, pxSize);
   ctx.fillStyle = "#fff";
-
-  const cell = pxSize / cols;
-  const maxR = cell * 0.5 * fill;
-
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const v = Math.pow(grid[y * cols + x], gamma);
-      const r = maxR * v;
-      if (r < 0.12) continue; // skip the black background
-      ctx.beginPath();
-      ctx.arc((x + 0.5) * cell, (y + 0.5) * cell, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  const { data, n, size, bmax } = pts;
+  const sc = pxSize / size;
+  const r0 = rMin * pxSize;
+  const dr = (rMax - rMin) * pxSize;
+  for (let i = 0; i < n; i++) {
+    const x = data[i * 3] * sc;
+    const y = data[i * 3 + 1] * sc;
+    const b = data[i * 3 + 2] / bmax;
+    const r = r0 + dr * b;
+    if (r < 0.12) continue;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
 export default function ProfileDots({
-  src = "/img/profile.jpg",
-  cols = 100,
-  fill = 1.15,
-  gamma = 0.78,
+  src = "/img/profile-dots/points.json",
+  rMin = 0.6 / 600,
+  rMax = 2.4 / 600,
   alt = "Itamar Weiss",
   className,
 }: Props) {
@@ -90,14 +70,13 @@ export default function ProfileDots({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const rows = cols;
-    let grid: Float32Array | null = null;
+    let pts: Packed | null = null;
     let raf = 0;
+    let cancelled = false;
 
     const render = () => {
-      if (!grid) return;
-      // Size the backing store to the CSS box × devicePixelRatio so dots stay
-      // crisp on retina. The element is square (aspect-ratio:1 in CSS).
+      if (!pts) return;
+      // Backing store = CSS box × devicePixelRatio so dots stay crisp on retina.
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const cssSize = canvas.clientWidth || 300;
       const pxSize = Math.round(cssSize * dpr);
@@ -105,16 +84,17 @@ export default function ProfileDots({
         canvas.width = pxSize;
         canvas.height = pxSize;
       }
-      draw(ctx, grid, cols, rows, pxSize, fill, gamma);
+      draw(ctx, pts, pxSize, rMin, rMax);
     };
 
-    const img = new Image();
-    img.decoding = "async";
-    img.onload = () => {
-      grid = sampleGrid(img, cols, rows);
-      render();
-    };
-    img.src = src;
+    fetch(src)
+      .then((r) => r.json())
+      .then((data: Packed) => {
+        if (cancelled) return;
+        pts = data;
+        render();
+      })
+      .catch(() => {});
 
     const onResize = () => {
       cancelAnimationFrame(raf);
@@ -124,18 +104,13 @@ export default function ProfileDots({
     ro.observe(canvas);
 
     return () => {
+      cancelled = true;
       ro.disconnect();
       cancelAnimationFrame(raf);
-      img.onload = null;
     };
-  }, [src, cols, fill, gamma]);
+  }, [src, rMin, rMax]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={className}
-      role="img"
-      aria-label={alt}
-    />
+    <canvas ref={canvasRef} className={className} role="img" aria-label={alt} />
   );
 }
