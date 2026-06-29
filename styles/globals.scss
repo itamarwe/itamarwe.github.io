@@ -432,6 +432,7 @@ pre {
 .post .profile-photo {
   width: 300px;
   max-width: 45%;
+  aspect-ratio: 1 / 1;
   height: auto;
   float: left;
   margin: 6px $spacing-unit $spacing-unit 0;
