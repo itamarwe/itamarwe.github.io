@@ -59,7 +59,7 @@ I earned a B.Sc. in Physics and Mathematics from Hebrew University and an M.Sc. 
 
 ## Education
 
-- B.Sc. in Physics and Mathematics - Hebrew University (Dean's List 2002, 2003)
+- B.Sc. in Physics and Mathematics (Talpiot) - Hebrew University (Dean's List 2002, 2003)
 - M.Sc. in Electrical Engineering - Tel Aviv University
 
 I'm married to [Dr. Sarah Weiss, neurologist specialized in stroke treatment](https://www.drsarahweiss.co.il/).
