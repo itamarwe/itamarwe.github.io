@@ -22,7 +22,13 @@ import { useEffect, useRef } from "react";
  * renders the static stipple and never starts the loop.
  */
 
-type Packed = { size: number; bmax: number; n: number; data: number[] };
+type Packed = {
+  size: number;
+  bmax: number;
+  n: number;
+  stride?: number; // 4 includes a foreground flag; 3 is the older format
+  data: number[];
+};
 
 type Props = {
   src?: string;
@@ -55,6 +61,13 @@ const HEAD_CY = 0.27;
 const HEAD_RX = 0.17;
 const HEAD_RY = 0.2;
 const HEAD_FADE = 1.8; // ellipse-distance² at which curl returns to full
+
+// Background dots (outside the figure) drift with a loose Brownian wander
+// instead of holding their stipple spot: a weak tether keeps them roughly in
+// place while random kicks make them jitter like floating dust. The foreground
+// is unaffected.
+const BG_SPRING = 10; // weak tether to home (vs SPRING for the figure)
+const BG_BROWN = 1.1; // Brownian kick magnitude
 
 /** Divergence-free flow field: curl of a scalar potential, so dots swirl in
  *  place rather than drifting away. Returns a roughly unit-magnitude vector. */
@@ -103,6 +116,7 @@ export default function ProfileDots({
     let homeX: Float32Array, homeY: Float32Array, br: Float32Array;
     let posX: Float32Array, posY: Float32Array, velX: Float32Array, velY: Float32Array;
     let curlScale: Float32Array; // 0 over the face, 1 in the free field
+    let fg: Uint8Array; // 1 = foreground (figure), 0 = background (wanders)
     let cx = 0.5,
       cy = 0.5; // centroid, for breathing
 
@@ -143,10 +157,44 @@ export default function ProfileDots({
     const onLeave = () => (hover = false);
 
     const cf: [number, number] = [0, 0];
+    const hf: [number, number] = [0, 0];
+    // Cursor repulsion (shared by fg and bg): soft (1-q^2)^2 bump.
+    const hoverForce = (px: number, py: number) => {
+      hf[0] = 0;
+      hf[1] = 0;
+      if (!hover) return;
+      const dx = px - mx;
+      const dy = py - my;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= POINTER_R * POINTER_R) return;
+      const d = Math.sqrt(d2) || 1e-4;
+      const q = d / POINTER_R;
+      const bump = 1 - q * q;
+      const f = (POINTER_STR * bump * bump) / d;
+      hf[0] = f * dx;
+      hf[1] = f * dy;
+    };
+
     const step = (t: number, dt: number) => {
       const breathe = 1 + BREATHE_AMP * Math.sin((2 * Math.PI * t) / BREATHE_PERIOD);
       for (let i = 0; i < n; i++) {
-        // breathing target: stipple home scaled about the centroid
+        if (!fg[i]) {
+          // background: loose tether + Brownian wander (+ cursor push)
+          let ax = BG_SPRING * (homeX[i] - posX[i]) - DAMP * velX[i];
+          let ay = BG_SPRING * (homeY[i] - posY[i]) - DAMP * velY[i];
+          ax += BG_BROWN * (Math.random() * 2 - 1);
+          ay += BG_BROWN * (Math.random() * 2 - 1);
+          hoverForce(posX[i], posY[i]);
+          ax += hf[0];
+          ay += hf[1];
+          velX[i] += ax * dt;
+          velY[i] += ay * dt;
+          posX[i] += velX[i] * dt;
+          posY[i] += velY[i] * dt;
+          continue;
+        }
+
+        // foreground: breathing target = stipple home scaled about the centroid
         const tx = cx + (homeX[i] - cx) * breathe;
         const ty = cy + (homeY[i] - cy) * breathe;
         let ax = SPRING * (tx - posX[i]) - DAMP * velX[i];
@@ -157,21 +205,9 @@ export default function ProfileDots({
         ax += ca * cf[0];
         ay += ca * cf[1];
 
-        if (hover) {
-          const dx = posX[i] - mx;
-          const dy = posY[i] - my;
-          const d2 = dx * dx + dy * dy;
-          if (d2 < POINTER_R * POINTER_R) {
-            const d = Math.sqrt(d2) || 1e-4;
-            const q = d / POINTER_R;
-            // soft bump (1-q^2)^2: rounded peak with zero slope at the centre, so
-            // dots under the cursor are nudged, not punched into a clean hole.
-            const bump = 1 - q * q;
-            const f = (POINTER_STR * bump * bump) / d;
-            ax += f * dx;
-            ay += f * dy;
-          }
-        }
+        hoverForce(posX[i], posY[i]);
+        ax += hf[0];
+        ay += hf[1];
 
         velX[i] += ax * dt;
         velY[i] += ay * dt;
@@ -250,6 +286,7 @@ export default function ProfileDots({
       .then((p: Packed) => {
         if (cancelled) return;
         n = p.n;
+        const st = p.stride ?? 3;
         homeX = new Float32Array(n);
         homeY = new Float32Array(n);
         br = new Float32Array(n);
@@ -258,24 +295,31 @@ export default function ProfileDots({
         velX = new Float32Array(n);
         velY = new Float32Array(n);
         curlScale = new Float32Array(n);
+        fg = new Uint8Array(n);
         let sx = 0,
-          sy = 0;
+          sy = 0,
+          fgN = 0;
         for (let i = 0; i < n; i++) {
-          const x = p.data[i * 3] / p.size;
-          const y = p.data[i * 3 + 1] / p.size;
+          const x = p.data[i * st] / p.size;
+          const y = p.data[i * st + 1] / p.size;
           homeX[i] = posX[i] = x;
           homeY[i] = posY[i] = y;
-          br[i] = p.data[i * 3 + 2] / p.bmax;
+          br[i] = p.data[i * st + 2] / p.bmax;
+          fg[i] = st > 3 ? p.data[i * st + 3] : 1;
           // suppress curl inside the head ellipse, smooth ramp back outside
           const d2 =
             ((x - HEAD_CX) / HEAD_RX) ** 2 + ((y - HEAD_CY) / HEAD_RY) ** 2;
           const s = Math.min(1, Math.max(0, (d2 - 1) / (HEAD_FADE - 1)));
           curlScale[i] = s * s * (3 - 2 * s); // smoothstep
-          sx += x;
-          sy += y;
+          // breathing pivots on the figure's centroid, not the wandering bg
+          if (fg[i]) {
+            sx += x;
+            sy += y;
+            fgN++;
+          }
         }
-        cx = sx / n;
-        cy = sy / n;
+        cx = fgN ? sx / fgN : 0.5;
+        cy = fgN ? sy / fgN : 0.5;
         canvas.addEventListener("pointermove", onMove);
         canvas.addEventListener("pointerleave", onLeave);
         drawStatic(); // portrait visible immediately
