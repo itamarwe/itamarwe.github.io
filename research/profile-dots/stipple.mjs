@@ -34,24 +34,149 @@ const GAMMA = 0.85; // density = brightness^GAMMA  (<1 lifts midtones)
 const OUT_SIZE = 4096; // coordinate quantization in the output file
 const BMAX = 255;
 
-// ---- load brightness / density field --------------------------------------
+// Highlight rolloff (a "levels" pre-pass): the bright shirt/face highlights
+// were packing in too many dots, reading as a blown-out white blob. Dim the
+// highlights before stippling so they get fewer, slightly smaller dots. The
+// b^HL_POW factor concentrates the dimming in the top end, leaving the
+// mid-tones essentially untouched:  b' = b * (1 - HL_DIM * b^HL_POW).
+const HL_DIM = 0.55; // how much to pull down pure white (0..1)
+const HL_POW = 2.5; // higher => dimming stays closer to the highlights
+const levels = (b) => b * (1 - HL_DIM * Math.pow(b, HL_POW));
+
+// Brightness ceiling outside the face. The bright t-shirt was hitting the same
+// tone ceiling as the face and saturating (especially shrunk to phone size), so
+// outside a face ellipse the tone (which drives dot size *and* density) is
+// capped to ~80% of the in-face max — the face stays the bright focal point and
+// the shirt reads dimmer. Smoothly ramps over the ellipse so there's no seam.
+const FACE_CX = 0.47;
+const FACE_CY = 0.28;
+const FACE_RX = 0.18;
+const FACE_RY = 0.22;
+const FACE_FADE = 1.8; // ellipse-distance² where the cap reaches full strength
+const CAP_OUT = 0.44; // ~80% of the rolloff ceiling (~0.549)
+const faceCap = (xN, yN) => {
+  const d2 = ((xN - FACE_CX) / FACE_RX) ** 2 + ((yN - FACE_CY) / FACE_RY) ** 2;
+  const s = Math.min(1, Math.max(0, (d2 - 1) / (FACE_FADE - 1)));
+  const out = s * s * (3 - 2 * s); // 0 in face, 1 outside
+  return 1 - out * (1 - CAP_OUT); // 1.0 in face, CAP_OUT outside
+};
+
+// Edge-aware density: density is a mix of tone (so the figure stays present and
+// the dark background empty) and *edges* (so detailed, information-rich regions
+// like the face/hair/collar get many more dots than flat regions like the
+// t-shirt). rho = tone^GAMMA * (FLAT_BASE + EDGE_GAIN * edge).
+const FLAT_BASE = 0.32; // density of a flat, edgeless area (relative)
+const EDGE_GAIN = 2.4; // how hard edges boost density
+const EDGE_BLUR = 5; // box-blur radius (px) spreading edges into a region
+const EDGE_POW = 0.7; // <1 lifts faint edges so detail reads broadly
+
+// Foreground mask: the subject is far brighter than the near-black studio
+// backdrop, so a flood fill of dark pixels inward from the border cleanly
+// separates background from foreground (no transparent PNG needed). If a
+// public/img/profile.png with real alpha is added later, prefer that instead.
+const BG_THRESH = 0.18; // luma below this, reachable from the border, is bg
+
+// ---- load luma -------------------------------------------------------------
 const { data } = await sharp(SRC)
   .resize(G, G, { fit: "fill" })
   .grayscale()
   .raw()
   .toBuffer({ resolveWithObject: true });
 
-const bright = new Float32Array(G * G); // 0..1 luma
-const rho = new Float32Array(G * G); // density used for weighting
+const lum = new Float32Array(G * G); // original luma 0..1
+const bright = new Float32Array(G * G); // tone after rolloff + face cap (dot size)
 for (let i = 0; i < G * G; i++) {
-  const b = data[i] / 255;
-  bright[i] = b;
-  rho[i] = Math.pow(b, GAMMA);
+  lum[i] = data[i] / 255;
+  const xN = (i % G) / G;
+  const yN = ((i / G) | 0) / G;
+  bright[i] = Math.min(levels(lum[i]), faceCap(xN, yN));
 }
+
+// Sobel edge magnitude on the original luma, normalized.
+const edge = new Float32Array(G * G);
+const lAt = (x, y) =>
+  lum[Math.min(G - 1, Math.max(0, y)) * G + Math.min(G - 1, Math.max(0, x))];
+let emax = 0;
+for (let y = 0; y < G; y++) {
+  for (let x = 0; x < G; x++) {
+    const gx =
+      lAt(x + 1, y - 1) + 2 * lAt(x + 1, y) + lAt(x + 1, y + 1) -
+      (lAt(x - 1, y - 1) + 2 * lAt(x - 1, y) + lAt(x - 1, y + 1));
+    const gy =
+      lAt(x - 1, y + 1) + 2 * lAt(x, y + 1) + lAt(x + 1, y + 1) -
+      (lAt(x - 1, y - 1) + 2 * lAt(x, y - 1) + lAt(x + 1, y - 1));
+    const m = Math.hypot(gx, gy);
+    edge[y * G + x] = m;
+    if (m > emax) emax = m;
+  }
+}
+// separable box blur to spread edges into a region around the detail
+const blur = (src) => {
+  const tmp = new Float32Array(G * G);
+  const r = EDGE_BLUR;
+  const norm = 1 / (2 * r + 1);
+  for (let y = 0; y < G; y++) {
+    let acc = 0;
+    for (let x = -r; x <= r; x++) acc += src[y * G + Math.min(G - 1, Math.max(0, x))];
+    for (let x = 0; x < G; x++) {
+      tmp[y * G + x] = acc * norm;
+      const xo = Math.max(0, x - r);
+      const xi = Math.min(G - 1, x + r + 1);
+      acc += src[y * G + xi] - src[y * G + xo];
+    }
+  }
+  const dst = new Float32Array(G * G);
+  for (let x = 0; x < G; x++) {
+    let acc = 0;
+    for (let y = -r; y <= r; y++) acc += tmp[Math.min(G - 1, Math.max(0, y)) * G + x];
+    for (let y = 0; y < G; y++) {
+      dst[y * G + x] = acc * norm;
+      const yo = Math.max(0, y - r);
+      const yi = Math.min(G - 1, y + r + 1);
+      acc += tmp[yi * G + x] - tmp[yo * G + x];
+    }
+  }
+  return dst;
+};
+const edgeB = blur(edge);
+for (let i = 0; i < G * G; i++) edgeB[i] = Math.pow(edgeB[i] / emax, EDGE_POW);
+
+// Density = tone gate × (flat base + edge boost).
+const rho = new Float32Array(G * G);
+for (let i = 0; i < G * G; i++) {
+  rho[i] = Math.pow(bright[i], GAMMA) * (FLAT_BASE + EDGE_GAIN * edgeB[i]);
+}
+
+// Background mask by flood fill of dark pixels from the border.
+const isBg = new Uint8Array(G * G);
+{
+  const st = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= G || y >= G) return;
+    const i = y * G + x;
+    if (isBg[i] || lum[i] > BG_THRESH) return;
+    isBg[i] = 1;
+    st.push(i);
+  };
+  for (let x = 0; x < G; x++) { push(x, 0); push(x, G - 1); }
+  for (let y = 0; y < G; y++) { push(0, y); push(G - 1, y); }
+  while (st.length) {
+    const i = st.pop();
+    const x = i % G;
+    const y = (i / G) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+}
+
 const brightAt = (x, y) => {
   const xi = Math.min(G - 1, Math.max(0, x | 0));
   const yi = Math.min(G - 1, Math.max(0, y | 0));
   return bright[yi * G + xi];
+};
+const fgAt = (x, y) => {
+  const xi = Math.min(G - 1, Math.max(0, x | 0));
+  const yi = Math.min(G - 1, Math.max(0, y | 0));
+  return isBg[yi * G + xi] ? 0 : 1;
 };
 
 // ---- seed points by rejection sampling ∝ density --------------------------
@@ -168,16 +293,21 @@ for (let it = 0; it < ITERS; it++) {
 process.stdout.write("\n");
 
 // ---- emit -----------------------------------------------------------------
-const out = new Array(N * 3);
+// Stride 4 per point: x, y, brightness, fg (1 = foreground, 0 = background).
+const out = new Array(N * 4);
+let bgCount = 0;
 for (let s = 0; s < N; s++) {
   const b = brightAt(sx[s], sy[s]);
-  out[s * 3] = Math.round((sx[s] / G) * OUT_SIZE);
-  out[s * 3 + 1] = Math.round((sy[s] / G) * OUT_SIZE);
-  out[s * 3 + 2] = Math.round(b * BMAX);
+  const fg = fgAt(sx[s], sy[s]);
+  if (!fg) bgCount++;
+  out[s * 4] = Math.round((sx[s] / G) * OUT_SIZE);
+  out[s * 4 + 1] = Math.round((sy[s] / G) * OUT_SIZE);
+  out[s * 4 + 2] = Math.round(b * BMAX);
+  out[s * 4 + 3] = fg;
 }
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(
   OUT,
-  JSON.stringify({ size: OUT_SIZE, bmax: BMAX, n: N, data: out }),
+  JSON.stringify({ size: OUT_SIZE, bmax: BMAX, n: N, stride: 4, data: out }),
 );
-console.log(`wrote ${N} points -> ${OUT}`);
+console.log(`wrote ${N} points (${bgCount} background) -> ${OUT}`);
