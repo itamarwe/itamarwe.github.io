@@ -39,10 +39,19 @@ const DAMP = 22; // velocity damping (~critical for SPRING)
 const CURL_AMP = 0.8; // shimmer strength
 const CURL_FREQ = 18; // shimmer spatial frequency (radians across the image)
 const CURL_SPEED = 0.35; // shimmer temporal speed
-const BREATHE_AMP = 0.012; // ±1.2% scale about the centroid
+const BREATHE_AMP = 0.0156; // ±1.56% scale about the centroid
 const BREATHE_PERIOD = 7; // seconds per breath
-const POINTER_R = 0.16; // repulsion radius (fraction of size)
-const POINTER_STR = 1.1; // repulsion strength
+const POINTER_R = 0.2; // repulsion radius (fraction of size)
+const POINTER_STR = 2.6; // repulsion strength
+
+// Head mask: suppress the curl swirl over the face/hair so it never distorts
+// the features (breathing and pointer repulsion still apply there). An ellipse
+// in normalized coords; curl ramps back to full strength beyond HEAD_FADE.
+const HEAD_CX = 0.47;
+const HEAD_CY = 0.27;
+const HEAD_RX = 0.17;
+const HEAD_RY = 0.2;
+const HEAD_FADE = 1.8; // ellipse-distance² at which curl returns to full
 
 /** Divergence-free flow field: curl of a scalar potential, so dots swirl in
  *  place rather than drifting away. Returns a roughly unit-magnitude vector. */
@@ -90,6 +99,7 @@ export default function ProfileDots({
     let n = 0;
     let homeX: Float32Array, homeY: Float32Array, br: Float32Array;
     let posX: Float32Array, posY: Float32Array, velX: Float32Array, velY: Float32Array;
+    let curlScale: Float32Array; // 0 over the face, 1 in the free field
     let cx = 0.5,
       cy = 0.5; // centroid, for breathing
 
@@ -140,8 +150,9 @@ export default function ProfileDots({
         let ay = SPRING * (ty - posY[i]) - DAMP * velY[i];
 
         curl(posX[i], posY[i], t, cf);
-        ax += CURL_AMP * cf[0];
-        ay += CURL_AMP * cf[1];
+        const ca = CURL_AMP * curlScale[i];
+        ax += ca * cf[0];
+        ay += ca * cf[1];
 
         if (hover) {
           const dx = posX[i] - mx;
@@ -239,6 +250,7 @@ export default function ProfileDots({
         posY = new Float32Array(n);
         velX = new Float32Array(n);
         velY = new Float32Array(n);
+        curlScale = new Float32Array(n);
         let sx = 0,
           sy = 0;
         for (let i = 0; i < n; i++) {
@@ -247,6 +259,11 @@ export default function ProfileDots({
           homeX[i] = posX[i] = x;
           homeY[i] = posY[i] = y;
           br[i] = p.data[i * 3 + 2] / p.bmax;
+          // suppress curl inside the head ellipse, smooth ramp back outside
+          const d2 =
+            ((x - HEAD_CX) / HEAD_RX) ** 2 + ((y - HEAD_CY) / HEAD_RY) ** 2;
+          const s = Math.min(1, Math.max(0, (d2 - 1) / (HEAD_FADE - 1)));
+          curlScale[i] = s * s * (3 - 2 * s); // smoothstep
           sx += x;
           sy += y;
         }
