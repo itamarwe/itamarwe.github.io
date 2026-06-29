@@ -43,6 +43,24 @@ const HL_DIM = 0.55; // how much to pull down pure white (0..1)
 const HL_POW = 2.5; // higher => dimming stays closer to the highlights
 const levels = (b) => b * (1 - HL_DIM * Math.pow(b, HL_POW));
 
+// Brightness ceiling outside the face. The bright t-shirt was hitting the same
+// tone ceiling as the face and saturating (especially shrunk to phone size), so
+// outside a face ellipse the tone (which drives dot size *and* density) is
+// capped to ~80% of the in-face max — the face stays the bright focal point and
+// the shirt reads dimmer. Smoothly ramps over the ellipse so there's no seam.
+const FACE_CX = 0.47;
+const FACE_CY = 0.28;
+const FACE_RX = 0.18;
+const FACE_RY = 0.22;
+const FACE_FADE = 1.8; // ellipse-distance² where the cap reaches full strength
+const CAP_OUT = 0.44; // ~80% of the rolloff ceiling (~0.549)
+const faceCap = (xN, yN) => {
+  const d2 = ((xN - FACE_CX) / FACE_RX) ** 2 + ((yN - FACE_CY) / FACE_RY) ** 2;
+  const s = Math.min(1, Math.max(0, (d2 - 1) / (FACE_FADE - 1)));
+  const out = s * s * (3 - 2 * s); // 0 in face, 1 outside
+  return 1 - out * (1 - CAP_OUT); // 1.0 in face, CAP_OUT outside
+};
+
 // Edge-aware density: density is a mix of tone (so the figure stays present and
 // the dark background empty) and *edges* (so detailed, information-rich regions
 // like the face/hair/collar get many more dots than flat regions like the
@@ -66,10 +84,12 @@ const { data } = await sharp(SRC)
   .toBuffer({ resolveWithObject: true });
 
 const lum = new Float32Array(G * G); // original luma 0..1
-const bright = new Float32Array(G * G); // tone after highlight rolloff (dot size)
+const bright = new Float32Array(G * G); // tone after rolloff + face cap (dot size)
 for (let i = 0; i < G * G; i++) {
   lum[i] = data[i] / 255;
-  bright[i] = levels(lum[i]);
+  const xN = (i % G) / G;
+  const yN = ((i / G) | 0) / G;
+  bright[i] = Math.min(levels(lum[i]), faceCap(xN, yN));
 }
 
 // Sobel edge magnitude on the original luma, normalized.

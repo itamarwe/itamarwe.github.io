@@ -15,6 +15,8 @@ import { useEffect, useRef } from "react";
  *   - curl-noise shimmer  — a divergence-free flow field, gentle swirling drift
  *   - breathing           — a slow radial inhale/exhale about the centroid
  *   - pointer repulsion    — dots part around the cursor and spring back
+ * Background dots (outside the figure) skip the shimmer and breathe much harder
+ * than the figure, so the field around the subject swells and contracts.
  *
  * Physics runs in normalized [0,1] space (resize just rescales the draw). Dots
  * are blitted from a pre-rendered sprite for speed; the loop pauses when the
@@ -62,12 +64,10 @@ const HEAD_RX = 0.17;
 const HEAD_RY = 0.2;
 const HEAD_FADE = 1.8; // ellipse-distance² at which curl returns to full
 
-// Background dots (outside the figure) drift with a loose Brownian wander
-// instead of holding their stipple spot: a weak tether keeps them roughly in
-// place while random kicks make them jitter like floating dust. The foreground
-// is unaffected.
-const BG_SPRING = 10; // weak tether to home (vs SPRING for the figure)
-const BG_BROWN = 1.1; // Brownian kick magnitude
+// Background dots (outside the figure) breathe far harder than the figure: they
+// scale in and out about the figure's centroid on the same breath, so the whole
+// field of background dots swells and contracts around the subject.
+const BG_BREATHE_AMP = 0.08; // background breath amplitude (vs BREATHE_AMP)
 
 /** Divergence-free flow field: curl of a scalar potential, so dots swirl in
  *  place rather than drifting away. Returns a roughly unit-magnitude vector. */
@@ -176,14 +176,16 @@ export default function ProfileDots({
     };
 
     const step = (t: number, dt: number) => {
-      const breathe = 1 + BREATHE_AMP * Math.sin((2 * Math.PI * t) / BREATHE_PERIOD);
+      const phase = Math.sin((2 * Math.PI * t) / BREATHE_PERIOD);
+      const breathe = 1 + BREATHE_AMP * phase;
+      const breatheBg = 1 + BG_BREATHE_AMP * phase;
       for (let i = 0; i < n; i++) {
         if (!fg[i]) {
-          // background: loose tether + Brownian wander (+ cursor push)
-          let ax = BG_SPRING * (homeX[i] - posX[i]) - DAMP * velX[i];
-          let ay = BG_SPRING * (homeY[i] - posY[i]) - DAMP * velY[i];
-          ax += BG_BROWN * (Math.random() * 2 - 1);
-          ay += BG_BROWN * (Math.random() * 2 - 1);
+          // background: breathes much harder than the figure, same breath
+          const tx = cx + (homeX[i] - cx) * breatheBg;
+          const ty = cy + (homeY[i] - cy) * breatheBg;
+          let ax = SPRING * (tx - posX[i]) - DAMP * velX[i];
+          let ay = SPRING * (ty - posY[i]) - DAMP * velY[i];
           hoverForce(posX[i], posY[i]);
           ax += hf[0];
           ay += hf[1];
