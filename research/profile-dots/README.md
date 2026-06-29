@@ -12,6 +12,11 @@ The result is an organic, non-grid scatter of white dots on black: density (and
 dot radius) follow brightness, so the bright shirt/face are dense and the dark
 studio background carries no dots and disappears.
 
+A "levels" pre-pass (`HL_DIM`/`HL_POW`) rolls off the highlights before
+stippling — the brightest areas were packing in so many dots they read as a
+blown-out white blob, so the top end of the brightness range is dimmed
+(mid-tones left alone) to thin them out.
+
 ## Regenerate
 
 ```bash
