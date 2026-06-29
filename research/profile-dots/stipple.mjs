@@ -34,6 +34,15 @@ const GAMMA = 0.85; // density = brightness^GAMMA  (<1 lifts midtones)
 const OUT_SIZE = 4096; // coordinate quantization in the output file
 const BMAX = 255;
 
+// Highlight rolloff (a "levels" pre-pass): the bright shirt/face highlights
+// were packing in too many dots, reading as a blown-out white blob. Dim the
+// highlights before stippling so they get fewer, slightly smaller dots. The
+// b^HL_POW factor concentrates the dimming in the top end, leaving the
+// mid-tones essentially untouched:  b' = b * (1 - HL_DIM * b^HL_POW).
+const HL_DIM = 0.55; // how much to pull down pure white (0..1)
+const HL_POW = 2.5; // higher => dimming stays closer to the highlights
+const levels = (b) => b * (1 - HL_DIM * Math.pow(b, HL_POW));
+
 // ---- load brightness / density field --------------------------------------
 const { data } = await sharp(SRC)
   .resize(G, G, { fit: "fill" })
@@ -44,7 +53,7 @@ const { data } = await sharp(SRC)
 const bright = new Float32Array(G * G); // 0..1 luma
 const rho = new Float32Array(G * G); // density used for weighting
 for (let i = 0; i < G * G; i++) {
-  const b = data[i] / 255;
+  const b = levels(data[i] / 255); // apply the highlight rolloff first
   bright[i] = b;
   rho[i] = Math.pow(b, GAMMA);
 }
