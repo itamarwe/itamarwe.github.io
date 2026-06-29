@@ -15,7 +15,9 @@ background carries only a faint scatter.
 A "levels" pre-pass (`HL_DIM`/`HL_POW`) rolls off the highlights before
 stippling — the brightest areas were packing in so many dots they read as a
 blown-out white blob, so the top end of the brightness range is dimmed
-(mid-tones left alone) to thin them out.
+(mid-tones left alone) to thin them out. A second cap (`CAP_OUT`) limits tone
+*outside a face ellipse* to ~80% of the in-face max, so the bright t-shirt no
+longer out-shines the face (it was saturating, especially at phone size).
 
 **Edge-aware density.** Density is a mix of tone and *edges* (a blurred Sobel
 magnitude), `rho = tone^GAMMA * (FLAT_BASE + EDGE_GAIN * edge)`. Information-rich
@@ -26,9 +28,9 @@ t-shirt), while tone still gates the figure against the empty background.
 near-black backdrop, so a flood fill of dark pixels inward from the image border
 cleanly separates background from foreground — no transparent PNG needed (if a
 `public/img/profile.png` with real alpha is added later, prefer that). Each
-emitted point carries an `fg` flag (`stride: 4`); `ProfileDots.tsx` lets the
-background dots drift with a loose Brownian wander while the figure animates as
-before.
+emitted point carries an `fg` flag (`stride: 4`); `ProfileDots.tsx` uses it to
+render the figure over a foreground occupancy mask, while background dots spray
+outward from the image center and recycle after leaving the canvas.
 
 ## Regenerate
 
