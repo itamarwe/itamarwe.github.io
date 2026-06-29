@@ -39,7 +39,7 @@ const BMAX = 255;
 // highlights before stippling so they get fewer, slightly smaller dots. The
 // b^HL_POW factor concentrates the dimming in the top end, leaving the
 // mid-tones essentially untouched:  b' = b * (1 - HL_DIM * b^HL_POW).
-const HL_DIM = 0.42; // how much to pull down pure white (0..1)
+const HL_DIM = 0.55; // how much to pull down pure white (0..1)
 const HL_POW = 2.5; // higher => dimming stays closer to the highlights
 const levels = (b) => b * (1 - HL_DIM * Math.pow(b, HL_POW));
 
