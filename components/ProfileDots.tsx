@@ -34,15 +34,18 @@ type Props = {
 };
 
 // --- force-field tuning (normalized units, time in seconds) ----------------
-const SPRING = 120; // pull-home stiffness
-const DAMP = 22; // velocity damping (~critical for SPRING)
-const CURL_AMP = 0.8; // shimmer strength
+// Relaxation runs at half speed: the spring's natural frequency is halved
+// (SPRING ÷4, DAMP ÷2), and the forces are scaled down to match (÷4) so the
+// resting displacements are unchanged — only the settling is 2x slower.
+const SPRING = 30; // pull-home stiffness
+const DAMP = 11; // velocity damping (~critical for SPRING)
+const CURL_AMP = 0.2; // shimmer strength
 const CURL_FREQ = 18; // shimmer spatial frequency (radians across the image)
-const CURL_SPEED = 0.35; // shimmer temporal speed
+const CURL_SPEED = 0.175; // shimmer temporal speed (also halved)
 const BREATHE_AMP = 0.0156; // ±1.56% scale about the centroid
 const BREATHE_PERIOD = 7; // seconds per breath
 const POINTER_R = 0.5; // repulsion radius (fraction of size)
-const POINTER_STR = 2.6; // repulsion strength (soft, rounded peak — see below)
+const POINTER_STR = 0.65; // repulsion strength (soft, rounded peak — see below)
 
 // Head mask: suppress the curl swirl over the face/hair so it never distorts
 // the features (breathing and pointer repulsion still apply there). An ellipse

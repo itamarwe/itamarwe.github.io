@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
 
-const navPages = [
-  { title: "About", url: "/about/" },
-  { title: "Portfolio", url: "/portfolio/" },
-];
+const navPages = [{ title: "About", url: "/about/" }];
 
 export default function Header() {
   return (

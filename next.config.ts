@@ -21,8 +21,12 @@ const nextConfig: NextConfig = {
 
   // Permanent (301/308) redirects from every legacy Jekyll URL to the new
   // clean URL, so existing links and search-engine results keep working.
+  // The Portfolio page was merged into About, so /portfolio/ now redirects there.
   async redirects() {
-    return legacyRedirects;
+    return [
+      ...legacyRedirects,
+      { source: "/portfolio", destination: "/about/", permanent: true },
+    ];
   },
 };
 
