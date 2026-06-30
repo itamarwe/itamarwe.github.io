@@ -391,13 +391,17 @@ pre {
   margin: 6px $spacing-unit $spacing-unit 0;
   border-radius: 8px;
 
-  // On phones the portrait goes full-bleed: it spans the entire viewport width
+  // On phones the canvas goes full-bleed: it spans the entire viewport width
   // (breaking out of the wrapper's side padding) and sits flush against the
-  // header's bottom hairline (pulled up through the .page-content top padding).
+  // header's bottom hairline. The figure keeps its normal height (the canvas is
+  // a fixed-height band, not a full-width square); the component centres the
+  // portrait and lets the programmatic dot-background fill the extra width.
   @media (max-width: 600px) {
     float: none;
     display: block;
     width: calc(100% + #{$spacing-unit});
+    height: 300px;
+    aspect-ratio: auto;
     max-width: none;
     margin: -#{$spacing-unit} math.div(-$spacing-unit, 2) $spacing-unit;
     border-radius: 0;
