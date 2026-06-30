@@ -399,11 +399,16 @@ pre {
   @media (max-width: 600px) {
     float: none;
     display: block;
-    width: calc(100% + #{$spacing-unit});
+    // Full *screen* width (viewport-based), independent of the wrapper padding:
+    // 100vw centred on the page via symmetric calc(50% - 50vw) side margins.
+    width: 100vw;
     height: 300px;
     aspect-ratio: auto;
     max-width: none;
-    margin: -#{$spacing-unit} math.div(-$spacing-unit, 2) $spacing-unit;
+    margin-top: -#{$spacing-unit}; // flush under the header hairline
+    margin-bottom: $spacing-unit;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
     border-radius: 0;
   }
 }
