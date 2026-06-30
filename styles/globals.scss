@@ -391,12 +391,25 @@ pre {
   margin: 6px $spacing-unit $spacing-unit 0;
   border-radius: 8px;
 
+  // On phones the canvas goes full-bleed: it spans the entire viewport width
+  // (breaking out of the wrapper's side padding) and sits flush against the
+  // header's bottom hairline. The figure keeps its normal height (the canvas is
+  // a fixed-height band, not a full-width square); the component centres the
+  // portrait and lets the programmatic dot-background fill the extra width.
   @media (max-width: 600px) {
     float: none;
     display: block;
-    width: 220px;
-    max-width: 70%;
-    margin: 0 auto $spacing-unit;
+    // Full *screen* width (viewport-based), independent of the wrapper padding:
+    // 100vw centred on the page via symmetric calc(50% - 50vw) side margins.
+    width: 100vw;
+    height: 300px;
+    aspect-ratio: auto;
+    max-width: none;
+    margin-top: -#{$spacing-unit}; // flush under the header hairline
+    margin-bottom: $spacing-unit;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
   }
 }
 

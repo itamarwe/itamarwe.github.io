@@ -146,11 +146,13 @@ function buildForegroundMask(
   return dst;
 }
 
-function outsideCanvas(x: number, y: number) {
+// Bounds are in figure-square units. marginX extends the left/right limits so
+// the background fills the full (wider-than-tall) canvas, not just the square.
+function outsideCanvas(x: number, y: number, marginX: number) {
   return (
-    x < -BG_EXIT_PAD ||
+    x < -marginX - BG_EXIT_PAD ||
     y < -BG_EXIT_PAD ||
-    x > 1 + BG_EXIT_PAD ||
+    x > 1 + marginX + BG_EXIT_PAD ||
     y > 1 + BG_EXIT_PAD
   );
 }
@@ -205,34 +207,66 @@ export default function ProfileDots({
     let cx = 0.5,
       cy = 0.5; // centroid, for breathing
 
-    let pxSize = 0;
+    // The figure is drawn into a centred square of side = canvas height; the
+    // canvas itself can be wider (full-bleed on mobile) and the background dots
+    // fill the extra width. World coords are figure-square units in [0,1]²:
+    //   pixel = (originX + x * scale, y * scale).  bgMarginX is how far past the
+    // square's left/right edges (in those same units) the background may roam.
+    let pxW = 0;
+    let pxH = 0;
+    let scale = 0;
+    let originX = 0;
+    let bgMarginX = 0;
     const ensureSize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const next = Math.round((canvas.clientWidth || 300) * dpr);
-      if (next !== pxSize) {
-        pxSize = next;
-        canvas.width = pxSize;
-        canvas.height = pxSize;
+      const nextW = Math.round((canvas.clientWidth || 300) * dpr);
+      const nextH = Math.round(
+        (canvas.clientHeight || canvas.clientWidth || 300) * dpr,
+      );
+      if (nextW !== pxW || nextH !== pxH) {
+        pxW = nextW;
+        pxH = nextH;
+        canvas.width = pxW;
+        canvas.height = pxH;
       }
+      scale = pxH;
+      originX = (pxW - pxH) / 2;
+      bgMarginX = scale > 0 ? originX / scale : 0;
     };
 
     const render = () => {
       ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, pxSize, pxSize);
-      const r0 = rMin * pxSize;
-      const dr = (rMax - rMin) * pxSize;
+      ctx.fillRect(0, 0, pxW, pxH);
+      const r0 = rMin * scale;
+      const dr = (rMax - rMin) * scale;
       const drawDot = (i: number) => {
         const r = r0 + dr * br[i];
         if (r < 0.15) return;
         const d = r * 2;
-        ctx.drawImage(sprite, posX[i] * pxSize - r, posY[i] * pxSize - r, d, d);
+        ctx.drawImage(
+          sprite,
+          originX + posX[i] * scale - r,
+          posY[i] * scale - r,
+          d,
+          d,
+        );
       };
 
       // Background first, clipped by the foreground silhouette so wandering
-      // dust never appears behind the portrait.
+      // dust never appears behind the portrait. Only dots over the figure
+      // square can be occluded; those out in the side wings always draw.
       for (let i = 0; i < n; i++) {
         if (fg[i]) continue;
-        if (foregroundMask?.[maskIndex(posX[i], posY[i])]) continue;
+        const bx = posX[i];
+        const by = posY[i];
+        if (
+          bx >= 0 &&
+          bx <= 1 &&
+          by >= 0 &&
+          by <= 1 &&
+          foregroundMask?.[maskIndex(bx, by)]
+        )
+          continue;
         drawDot(i);
       }
       for (let i = 0; i < n; i++) {
@@ -247,8 +281,10 @@ export default function ProfileDots({
       hover = false;
     const onMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mx = (e.clientX - rect.left) / rect.width;
-      my = (e.clientY - rect.top) / rect.height;
+      // map into figure-square world units (origin offset for the wide canvas)
+      const s = rect.height || rect.width;
+      mx = (e.clientX - rect.left - (rect.width - s) / 2) / s;
+      my = (e.clientY - rect.top) / s;
       hover = true;
     };
     const onLeave = () => (hover = false);
@@ -259,13 +295,18 @@ export default function ProfileDots({
       let x = BG_CENTER_X;
       let y = BG_CENTER_Y;
       for (let tries = 0; tries < 12; tries++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = spread
-          ? Math.sqrt(Math.random()) * (0.72 + BG_EXIT_PAD)
-          : Math.sqrt(Math.random()) * BG_BIRTH_R;
-        x = BG_CENTER_X + Math.cos(a) * r;
-        y = BG_CENTER_Y + Math.sin(a) * r;
-        if (!outsideCanvas(x, y)) break;
+        if (spread) {
+          // initial pre-fill: scatter across the whole (wide) canvas
+          x = -bgMarginX + Math.random() * (1 + 2 * bgMarginX);
+          y = Math.random();
+        } else {
+          // respawn near the centre to spray outward like a fountain
+          const a = Math.random() * Math.PI * 2;
+          const r = Math.sqrt(Math.random()) * BG_BIRTH_R;
+          x = BG_CENTER_X + Math.cos(a) * r;
+          y = BG_CENTER_Y + Math.sin(a) * r;
+        }
+        if (!outsideCanvas(x, y, bgMarginX)) break;
       }
 
       const dx = x - BG_CENTER_X;
@@ -321,7 +362,7 @@ export default function ProfileDots({
           hoverForce(posX[i], posY[i]);
           posX[i] += (velX[i] + hf[0]) * dt;
           posY[i] += (velY[i] + hf[1]) * dt;
-          if (outsideCanvas(posX[i], posY[i])) recycleBackgroundDot(i);
+          if (outsideCanvas(posX[i], posY[i], bgMarginX)) recycleBackgroundDot(i);
           continue;
         }
 
@@ -416,6 +457,7 @@ export default function ProfileDots({
       .then((r) => r.json())
       .then((p: Packed) => {
         if (cancelled) return;
+        ensureSize(); // set scale/originX/bgMarginX before seeding background dots
         n = p.n;
         const st = p.stride ?? 3;
         homeX = new Float32Array(n);
