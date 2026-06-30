@@ -391,12 +391,16 @@ pre {
   margin: 6px $spacing-unit $spacing-unit 0;
   border-radius: 8px;
 
+  // On phones the portrait goes full-bleed: it spans the entire viewport width
+  // (breaking out of the wrapper's side padding) and sits flush against the
+  // header's bottom hairline (pulled up through the .page-content top padding).
   @media (max-width: 600px) {
     float: none;
     display: block;
-    width: 220px;
-    max-width: 70%;
-    margin: 0 auto $spacing-unit;
+    width: calc(100% + #{$spacing-unit});
+    max-width: none;
+    margin: -#{$spacing-unit} math.div(-$spacing-unit, 2) $spacing-unit;
+    border-radius: 0;
   }
 }
 
