@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       { source: "/solar-system/", destination: "/solar-system/index.html" },
       { source: "/photo-geolocation", destination: "/photo-geolocation/index.html" },
       { source: "/photo-geolocation/", destination: "/photo-geolocation/index.html" },
+      { source: "/fpv", destination: "/fpv/index.html" },
+      { source: "/fpv/", destination: "/fpv/index.html" },
     ];
   },
 
