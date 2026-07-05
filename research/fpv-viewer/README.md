@@ -19,7 +19,8 @@ This directory only regenerates the post's **figures** (in
 sim/
   figures.py   tool_flow.png         qualitative schematic of the three views
                                      (gallery -> annotated player -> 3-D scene);
-                                     no numeric axes.
+                                     no numeric axes. The 3-D panel is a REAL
+                                     capture (assets/biranit_scene_capture.png).
                annotated_clip.png    REAL flight-annotation timeline of one clip
                                      (2026-06-06 Merkava tank, Blat), from its
                                      segment markers.
@@ -29,6 +30,14 @@ sim/
                                      boundaries; each clip's final open-ended
                                      segment is excluded (no clip-end time in the
                                      manifest).
+               scene_pipeline.png    qualitative schematic of the reconstruction
+                                     pipeline (raw clip -> extract flight ->
+                                     enhance -> select the run -> 3-D scene);
+                                     no numeric axes.
+               scale_ambiguity.png   qualitative schematic of monocular scale
+                                     ambiguity (small near house vs large far
+                                     house in the same view cone; a known-size
+                                     door anchors the scale); no numeric axes.
                social.png            1200x630 OpenGraph card, composited over a
                                      REAL capture of the viewer's 3-D scene
                                      (assets/biranit_scene_capture.png).
@@ -47,10 +56,11 @@ capture/
                         (the guided tour embedded in the post).
 ```
 
-The little gallery cards and point clouds drawn *inside* the schematics are
-illustrative stand-ins (not screenshots) — they say "this is what the view looks
-like," they don't plot data. The social card and the demo video, by contrast, are
-**real** captures of the running viewer (Biranit / Iron Dome scene).
+The little gallery cards and the pipeline boxes drawn *inside* the schematics
+are illustrative stand-ins (not screenshots) — they say "this is what the view
+looks like," they don't plot data. The tool_flow 3-D panel, the social card and
+the demo video, by contrast, are **real** captures of the running viewer
+(Biranit / Iron Dome scene).
 
 ## Rebuild the demo video / social capture
 
@@ -67,7 +77,7 @@ cp out/scene_still.png ../assets/biranit_scene_capture.png   # refresh social bg
 
 ```
 python3 -m venv .venv          # gitignored (research/**/.venv/)
-.venv/bin/pip install numpy matplotlib
+.venv/bin/pip install numpy matplotlib pillow
 .venv/bin/python sim/figures.py
 ```
 
