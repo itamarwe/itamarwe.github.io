@@ -8,7 +8,7 @@ from the dataset post's figures.
   - annotated_clip.png   : REAL flight-annotation timeline of one clip
                            (2026-06-06 Merkava tank, Blat), straight from the
                            dataset's segment markers. Shows how much of a
-                           propaganda clip is banner / replay / pause vs. flight.
+                           clip is banner / replay / pause vs. flight.
   - footage_breakdown.png: REAL — of all annotated footage across the dataset,
                            how the seconds split by segment type. Durations are
                            summed from consecutive segment boundaries (the final,

@@ -13,9 +13,9 @@ image: /img/fpv-viewer/social.png
 
 ![Explore the FPV strike dataset — a reconstructed 3-D attack path on the "Biranit" Iron Dome platform, in the viewer](/img/fpv-viewer/social.png)
 
-A few weeks ago I [opened up a dataset of Hezbollah FPV drone-strike videos](/blog/fpv-drone-strikes-open-dataset/) — every clip I could pull out of OSINT, labelled and kept in one place so anyone building a defense could start from real footage instead of a press release. It worked as a *dataset*: a repo, a manifest, download links, files in S3. It was miserable as something to actually *look at*. To answer a simple question — "show me the strikes on air-defense sites near the border, and skip the propaganda intros" — you were downloading MP4s and scrubbing through them by hand.
+A few weeks ago I [opened up a dataset of Hezbollah FPV drone-strike videos](/blog/fpv-drone-strikes-open-dataset/) — every clip I could pull out of OSINT, labelled and kept in one place so anyone building a defense could start from real footage instead of a press release. It worked as a *dataset*, but it was miserable as something to actually *look at*. To answer a simple question — "show me the strikes on air-defense sites near the border" — you were downloading MP4s and scrubbing through them by hand.
 
-So I built the thing that was missing: **a viewer that turns the folder-of-links into something you can browse, read, and fly through, right in the browser.** It's live at **[itamar-weiss.com/fpv](/fpv)**. This post is what it does and the two ideas behind it that I think are worth stealing for any video-forensics collection.
+So I built the thing that was missing: **a viewer that makes the dataset accessible to the community — something you can browse, read, and fly through, right in the browser.** It's live at **[itamar-weiss.com/fpv](/fpv)**. This post is what it does and the two ideas behind it that I think are worth stealing for any video-forensics collection.
 
 ## Three ways to look at the same clip
 
@@ -31,9 +31,9 @@ Here's the whole thing in one pass — browsing the gallery, reading a clip's fl
 
 It's the same catalog as the repo, just alive — and it grows as new footage surfaces. It's best experienced full-screen at **[itamar-weiss.com/fpv](/fpv)**.
 
-## The clips are propaganda, so I annotate them
+## Annotations: extracting the flight segments
 
-Here's the first idea that shaped the tool. These videos are *edited* — they're published as propaganda, not as evidence. A single clip opens on a title-card banner, cuts between flight segments, freezes on the moment of impact, and ends on a slow-motion replay with a branded outro. If you're a human trying to study tactics, or a model trying to learn from the footage, **most of the runtime is noise the editor added on top.** The camera is the weapon's eye, but only for part of the clip.
+Here's the first idea that shaped the tool. These videos are *edited*. A single clip opens on a title-card banner, cuts between flight segments, freezes on the moment of impact, and ends on a slow-motion replay. If you're a human trying to study tactics, or a model trying to learn from the footage, **only part of the runtime is the drone actually flying** — and that part is what you're after. The camera is the weapon's eye, but only for part of the clip. The annotations exist to extract exactly those flight segments.
 
 So every video in the viewer gets a **flight-annotation timeline**: the footage is segmented into *flight*, *banner*, *pause / freeze* and *replay*, and the player lets you jump straight to the parts that are genuinely the drone flying. Here's one clip, annotated — the 2026-06-06 Merkava-tank strike near Blat:
 
@@ -45,13 +45,17 @@ And this isn't a one-off. Once every clip is annotated, you can add it up across
 
 ![Across all annotated footage, barely half the seconds are actual flight; the rest is banners, freezes and replays](/img/fpv-viewer/footage_breakdown.png)
 
-Of the roughly 2.4 hours of annotated footage, **only about half is real flight.** The other half is banners, freeze-frames and replays. That's the concrete argument for annotating: if you feed a reconstruction pipeline or a training set the raw clips, half your data is title cards and slow-motion — and, worse, the freezes and replays look like camera motion to a naive algorithm and quietly poison the geometry. The timeline is how you keep only the signal. (The segment boundaries here are auto-generated; they're a starting point, not hand-verified ground truth.)
+Of the roughly 2.4 hours of annotated footage, **only about half is real flight.** The other half is banners, freeze-frames and replays. That's the concrete argument for annotating: if you feed a reconstruction pipeline or a training set the raw clips, half your data is title cards and slow-motion — and, worse, the freezes and replays look like camera motion to a naive algorithm and quietly poison the geometry. The timeline is how you keep only the signal.
+
+One honest caveat: **some of these annotations were generated automatically and haven't been manually reviewed yet**, so expect occasional boundaries that are a little off. I'm reviewing and correcting them gradually — treat them as a strong starting point, not hand-verified ground truth.
 
 ## The clips you can fly
 
 The second idea is the payoff from the [last post](/blog/fpv-drone-strikes-open-dataset/), made interactive. There I took a *single* clip and recovered the drone's real 3-D attack path straight from the pixels — no telemetry, just [VGGT](https://arxiv.org/abs/2503.11651) run over the isolated flight frames. Since then I've run that pipeline across the dataset, and **a growing share of the clips now have a full 3-D reconstruction** you can open in the browser.
 
 Each scene is the recovered point cloud of the terrain plus the drone's flight path — the ordered camera centers — drawn from the launch camera along the approach to the terminal pose over the target, with a corner panel that plays the real footage in step with the reconstruction. You orbit it with the mouse, and there's a **measure tool**: click two points and it reads back the distance between them, so you can eyeball a standoff range or the size of a targeted vehicle in the reconstruction's own units. Filter the gallery to **3D scenes** and click any card's *3D scene* button to open one.
+
+Two caveats here too: **not every clip has a 3-D scene yet, and some of the reconstructions that do exist aren't the highest quality.** This is a work in progress — I'll keep extracting scenes for the remaining clips and improving the existing ones, gradually.
 
 Do that across the whole collection and the anecdotes start turning into distributions: approach corridors, dive angles, standoff distances — the geometry of how these attacks actually unfold, browsable one clip at a time.
 
