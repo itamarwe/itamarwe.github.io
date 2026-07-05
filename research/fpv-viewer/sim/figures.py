@@ -157,7 +157,7 @@ def fig_tool_flow(videos):
     panels = [
         ("Browse", "Gallery of every clip —\nsearch, sort, filter to the\nones with a 3-D scene", CYAN),
         ("Read the edit", "Auto-annotated timeline:\njump past banners &\nreplays to real flight", GOLD),
-        ("Explore the strike", "Replay the reconstructed\n3-D scene, measure it, and\nlearn how it unfolded", GREEN),
+        ("Explore the strike", "Replay the reconstructed\n3-D scene and learn\nhow it unfolded", GREEN),
     ]
     pw, ph, gap = 3.1, 2.4, 0.55
     y0 = 1.35
