@@ -18,6 +18,10 @@ from the dataset post's figures.
                            (raw clip -> extract flight -> enhance -> select the
                            attack run -> recover path + point cloud). Concept
                            diagram, no numeric axes.
+  - scale_ambiguity.png  : qualitative schematic of monocular scale ambiguity —
+                           a small near house and a large far house fill the
+                           same view cone; a known-size object (a door) anchors
+                           the scale. Concept diagram, no numeric axes.
   - social.png           : 1200x630 OpenGraph card for the post.
 
 All counts/durations are REAL, computed from ../2026-07-05_videos_snapshot.json
@@ -412,6 +416,83 @@ def fig_scene_pipeline(videos):
     print("scene_pipeline.png")
 
 
+def fig_scale_ambiguity(videos):
+    """Why the reconstruction doesn't know its scale — a small near house and a
+    large far house subtend the same view, so they project to the same pixels.
+    Concept schematic, no numeric axes."""
+    W, H = 10.0, 3.4
+    fig, ax = inch_axes(W, H)
+
+    ax.text(0.5, H - 0.38, "One image, two possible worlds", color=TXT,
+            fontsize=13.5, fontweight="bold")
+    ax.text(0.5 + text_w(fig, ax, "One image, two possible worlds", 13.5,
+                         "bold") + 0.14,
+            H - 0.38, "—  the model recovers shape, not size", color=MUTED,
+            fontsize=11)
+
+    apex = (0.85, 1.55)
+    m = 0.145                      # half-angle slope of the view cone
+    x_end = 9.35
+
+    # view cone: faint fill + hairline rays
+    xs = np.linspace(apex[0], x_end, 2)
+    ax.fill_between(xs, apex[1] - m * (xs - apex[0]),
+                    apex[1] + m * (xs - apex[0]), color=CYAN, alpha=0.045,
+                    linewidth=0)
+    for sgn in (+1, -1):
+        ax.plot(xs, apex[1] + sgn * m * (xs - apex[0]), color="#3a424e",
+                lw=1.0)
+    # camera glyph + "same image" arc at the apex
+    ax.scatter([apex[0]], [apex[1]], s=34, color=GOLD, zorder=5)
+    ax.text(apex[0], apex[1] - 0.30, "camera", ha="center", va="top",
+            color=MUTED, fontsize=8.5)
+    th = np.linspace(-np.arctan(m), np.arctan(m), 40)
+    ax.plot(apex[0] + 0.55 * np.cos(th), apex[1] + 0.55 * np.sin(th),
+            color=GOLD, lw=1.0)
+    ax.text(apex[0] + 0.68, apex[1], "same\nview", va="center", color=MUTED,
+            fontsize=7.8, linespacing=1.3)
+
+    def house(dx, col, label):
+        """A house that exactly fills the view cone at distance dx."""
+        cx = apex[0] + dx
+        h = 2 * m * dx
+        base = apex[1] - m * dx
+        w = 0.72 * h
+        body = 0.62 * h
+        ax.add_patch(Rectangle((cx - w / 2, base), w, body, facecolor="none",
+                     edgecolor=col, lw=1.6))
+        ax.add_patch(plt.Polygon(
+            [[cx - 0.56 * w, base + body], [cx + 0.56 * w, base + body],
+             [cx, base + h]], closed=True, facecolor="none", edgecolor=col,
+            lw=1.6))
+        dw, dh = 0.22 * w, 0.42 * body     # the door
+        ax.add_patch(Rectangle((cx - dw / 2, base), dw, dh, facecolor="none",
+                     edgecolor=col, lw=1.1))
+        ax.text(cx, base - 0.13, label, ha="center", va="top", color=MUTED,
+                fontsize=8.5)
+        return cx, base, dw, dh
+
+    house(2.3, CYAN, "small & near")
+    fcx, fbase, fdw, fdh = house(7.3, PURPLE, "large & far")
+
+    # the resolution: measure an object of known size (the far house's door)
+    bx = fcx + fdw / 2 + 0.10
+    ax.annotate("", (bx, fbase), (bx, fbase + fdh),
+                arrowprops=dict(arrowstyle="<->", color=GOLD, lw=1.2))
+    tx, ty = 4.05, 0.38
+    ax.text(tx, ty,
+            "a door is ~2 m — measure one known size\nand the whole scene snaps to real units",
+            va="center", color=GOLD, fontsize=8.6, linespacing=1.5)
+    ax.plot([tx + text_w(fig, ax, "and the whole scene snaps to real units",
+                         8.6) + 0.30, bx - 0.04],
+            [ty, fbase + fdh * 0.35], color="#6b5a2a", lw=0.9)
+
+    fig.savefig(os.path.join(OUT, "scale_ambiguity.png"), dpi=150,
+                facecolor=BG)
+    plt.close(fig)
+    print("scale_ambiguity.png")
+
+
 def SEG_COLOR(label):
     for _, (lab, col) in SEG.items():
         if lab == label:
@@ -474,4 +555,5 @@ if __name__ == "__main__":
     fig_annotated_clip(videos)
     fig_footage_breakdown(videos)
     fig_scene_pipeline(videos)
+    fig_scale_ambiguity(videos)
     fig_social(videos)
