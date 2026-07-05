@@ -14,6 +14,10 @@ from the dataset post's figures.
                            summed from consecutive segment boundaries (the final,
                            open-ended segment of each clip is excluded because the
                            clip end time isn't in the manifest).
+  - scene_pipeline.png   : qualitative schematic of the reconstruction pipeline
+                           (raw clip -> extract flight -> enhance -> select the
+                           attack run -> recover path + point cloud). Concept
+                           diagram, no numeric axes.
   - social.png           : 1200x630 OpenGraph card for the post.
 
 All counts/durations are REAL, computed from ../2026-07-05_videos_snapshot.json
@@ -149,7 +153,7 @@ def fig_tool_flow(videos):
     panels = [
         ("Browse", "Gallery of every clip —\nsearch, sort, filter to the\nones with a 3-D scene", CYAN),
         ("Read the edit", "Auto-annotated timeline:\njump past banners &\nreplays to real flight", GOLD),
-        ("Debrief the strike", "Replay the reconstructed\n3-D scene, measure it, and\nlearn how it unfolded", GREEN),
+        ("Explore the strike", "Replay the reconstructed\n3-D scene, measure it, and\nlearn how it unfolded", GREEN),
     ]
     pw, ph, gap = 3.1, 2.4, 0.55
     y0 = 1.35
@@ -370,6 +374,44 @@ def fig_footage_breakdown(videos):
           (100 * dur["Flight"] / total, total))
 
 
+def fig_scene_pipeline(videos):
+    """How a raw clip becomes a 3-D scene — a five-step concept schematic."""
+    steps = [
+        ("Raw clip", "the edited footage —\nbanners, freezes, replays", MUTED),
+        ("Extract flight", "the annotations isolate\nthe real flying", CYAN),
+        ("Enhance", "equalize & clean up the\ncompressed frames", GOLD),
+        ("Select the run", "keep the relevant part\nof the attack flight", GREEN),
+        ("3-D scene", "recover the camera path\n+ the point cloud", PURPLE),
+    ]
+    W, H = 10.0, 2.55
+    M, gap = 0.5, 0.42
+    bw = (W - 2 * M - (len(steps) - 1) * gap) / len(steps)
+    bh, by = 0.62, 1.12
+    fig, ax = inch_axes(W, H)
+
+    ax.text(M, H - 0.38, "From raw clip to 3-D scene", color=TXT,
+            fontsize=13.5, fontweight="bold")
+
+    x = M
+    for i, (title, body, col) in enumerate(steps):
+        ax.add_patch(FancyBboxPatch((x, by), bw, bh,
+                     boxstyle="round,pad=0.02,rounding_size=0.07",
+                     linewidth=1.4, edgecolor=col, facecolor=PANEL))
+        ax.text(x + bw / 2, by + bh / 2, title, ha="center", va="center",
+                color=col, fontsize=10.5, fontweight="bold")
+        ax.text(x + bw / 2, by - 0.16, body, ha="center", va="top",
+                color=MUTED, fontsize=8.2, linespacing=1.4)
+        if i < len(steps) - 1:
+            ax.add_patch(FancyArrowPatch((x + bw + 0.07, by + bh / 2),
+                         (x + bw + gap - 0.07, by + bh / 2), arrowstyle="-|>",
+                         mutation_scale=13, color="#4a5260", linewidth=1.4))
+        x += bw + gap
+
+    fig.savefig(os.path.join(OUT, "scene_pipeline.png"), dpi=150, facecolor=BG)
+    plt.close(fig)
+    print("scene_pipeline.png")
+
+
 def SEG_COLOR(label):
     for _, (lab, col) in SEG.items():
         if lab == label:
@@ -431,4 +473,5 @@ if __name__ == "__main__":
     fig_tool_flow(videos)
     fig_annotated_clip(videos)
     fig_footage_breakdown(videos)
+    fig_scene_pipeline(videos)
     fig_social(videos)
