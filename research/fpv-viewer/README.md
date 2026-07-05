@@ -34,6 +34,10 @@ sim/
                                      pipeline (raw clip -> extract flight ->
                                      enhance -> select the run -> 3-D scene);
                                      no numeric axes.
+               scale_ambiguity.png   qualitative schematic of monocular scale
+                                     ambiguity (small near house vs large far
+                                     house in the same view cone; a known-size
+                                     door anchors the scale); no numeric axes.
                social.png            1200x630 OpenGraph card, composited over a
                                      REAL capture of the viewer's 3-D scene
                                      (assets/biranit_scene_capture.png).
