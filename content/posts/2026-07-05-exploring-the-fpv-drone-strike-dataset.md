@@ -51,25 +51,15 @@ One honest caveat: **some of these annotations were generated automatically and 
 
 ## Explore the strike in 3-D
 
-The second idea is the payoff from the [last post](/blog/fpv-drone-strikes-open-dataset/), made interactive. There I took a *single* clip and recovered the drone's real 3-D attack path straight from the pixels — no telemetry, just [VGGT](https://arxiv.org/abs/2503.11651) run over the isolated flight frames. Since then I've run that pipeline across the dataset, and **a growing share of the clips now have a full 3-D reconstruction** you can open in the browser.
+The second idea is the payoff from the [last post](/blog/fpv-drone-strikes-open-dataset/): recovering a drone's real 3-D attack path from the pixels alone, using [VGGT](https://arxiv.org/abs/2503.11651) over the isolated flight frames — no telemetry needed. Run across the whole dataset, **a growing share of clips now have a full 3-D reconstruction**: raw clip → extract flight → clean frames → recover camera path and point cloud.
 
-Every scene goes through the same pipeline. It starts from the raw clip, and the flight annotations from the previous section make the first cut: they extract the segments where the drone is actually flying. Those frames then get some image processing — equalization and cleanup, to squeeze the most out of heavily compressed footage. From what's left I keep just the relevant part of the attack flight, and that goes into the model, which recovers the camera position for every frame — the flight path — together with the point cloud of the terrain around it. That's the scene you open in the viewer.
+![The reconstruction pipeline: raw clip → extract flight → clean frames → recover camera path and point cloud](/img/fpv-viewer/scene_pipeline.png)
 
-![The reconstruction pipeline: raw clip → extract the flight → enhance the frames → select the attack run → recover the camera path and point cloud](/img/fpv-viewer/scene_pipeline.png)
+Each scene is the terrain's point cloud plus the drone's recovered flight path, with a corner panel playing the real footage in step. Orbit it with the mouse — filter the gallery to **3D scenes** to find one. It's not a pretty render: an attack you could only watch once becomes something you can stand in and learn from.
 
-Each scene is the recovered point cloud of the terrain plus the drone's flight path — the ordered camera centers — drawn from the launch camera along the approach to the terminal pose over the target, with a corner panel that plays the real footage in step with the reconstruction. You orbit it with the mouse. Filter the gallery to **3D scenes** and click any card's *3D scene* button to open one. (A measure tool — click two points, read back the distance, eyeball a standoff range or the size of a targeted vehicle — is coming, but I'm holding it back for now; the scale problem below explains why.)
+Not every clip has a scene yet, and quality varies — compressed footage, sky and smoke the model can't reconstruct, and unreviewed annotations all show up as noise. **The reconstruction also doesn't know its own scale** — a small near object and a large far one look identical in pixels — so distances stay in the model's own units until I anchor one known real-world size. That's why there's no measure tool yet, and why this part is still a gradual work in progress.
 
-The point isn't a pretty render — it's that you get to **explore the strike**. An attack you could only watch happen once, through the attacker's camera, becomes a scene you can stand in after the fact: replay the approach, see what the drone saw at every moment, and reflect on how the flight actually unfolded — and where along it a defense could have broken it.
-
-Do that across the whole collection and the anecdotes start turning into distributions: approach corridors, dive angles, standoff distances — the geometry of how these attacks actually unfold, browsable one clip at a time.
-
-This is the hardest, least finished part of the project, and it's worth being upfront about the challenges. **Not every clip has a 3-D scene yet, and some of the reconstructions that do exist aren't the highest quality.** A lot of the source footage is heavily compressed, and when the video quality drops the recovered geometry gets noisy. The model also sometimes tries to map the *sky* — which has no geometry to recover — and that shows up as a haze of stray points that makes the scene hard to decompose and read. Smoke is another hard case: the moments around impact are often full of it, and no reconstruction handles that well. And since the flight annotations that feed the pipeline are partly auto-generated and not yet manually reviewed, a bad boundary upstream can become a bad scene downstream.
-
-There's a subtler challenge too: **the reconstruction doesn't know its own scale.** From pixels alone, a small house up close and a big house far away look exactly the same — the model recovers the shape of the scene, but not its size. The only way to pin it down is to find something in the scene whose real-world size you know — a vehicle, a doorway, a road — measure it inside the 3-D world, and scale the entire model to match. Get that right and heights, distances and speeds all become real numbers — and that's the point at which a measure tool becomes genuinely useful, which is why I'm holding it back until scenes are anchored to real-world scale.
-
-![Scale ambiguity: a small house nearby and a large house far away project onto the same pixels — only an object of known real-world size can anchor the scale](/img/fpv-viewer/scale_ambiguity.png)
-
-All of it is a work in progress — I'll keep extracting scenes for the remaining clips, improving the existing ones, and working the scale problem, gradually.
+![Scale ambiguity: a small near house and a large far house project onto the same pixels; only a known-size object can anchor the scale](/img/fpv-viewer/scale_ambiguity.png)
 
 ## Why bother building the viewer
 
