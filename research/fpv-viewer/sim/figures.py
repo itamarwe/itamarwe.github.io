@@ -268,47 +268,52 @@ def SEG_COLOR(label):
 
 
 def fig_social(videos):
-    n = len(videos)
-    n3d = sum(1 for v in videos if v.get("scenePath"))
-    towns = len({v.get("town") for v in videos if v.get("town")})
-    ex = next(v for v in videos if v["slug"] == "2026-06-06_merkava_tank_blat_position")
+    """1200x630 OG card built around a REAL capture of the viewer's 3-D scene
+    for the Biranit / Iron Dome strike (../assets/biranit_scene_capture.png,
+    a screenshot of the live scene viewer). Text sits over a left scrim."""
+    from PIL import Image
+    W, H = 1200, 630
+    cap = os.path.join(HERE, "..", "assets", "biranit_scene_capture.png")
+    img = Image.open(cap).convert("RGB")
+    # cover-crop the capture to fill the whole card
+    s = max(W / img.width, H / img.height)
+    img = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
+    l = (img.width - W) // 2
+    t = (img.height - H) // 2
+    arr = np.asarray(img.crop((l, t, l + W, t + H))) / 255.0
 
-    fig = plt.figure(figsize=(12, 6.3), facecolor=BG)
+    fig = plt.figure(figsize=(12, 6.3), dpi=100, facecolor="#050607")
     ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
-    ax.set_xlim(0, 12); ax.set_ylim(0, 6.3)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.imshow(arr, extent=[0, 1, 0, 1], aspect="auto", zorder=0)
 
-    # right side: a scene glyph + a small annotation ribbon under it
-    draw_scene(ax, 9.05, 3.9, 0.62)
-    draw_timeline(ax, 7.4, 1.15, 3.3, 0.8, ex["segments"])
+    # left-to-right black scrim so the title stays legible over the render
+    ramp = np.clip(np.linspace(0.92, -0.35, W), 0, 1)
+    scrim = np.zeros((2, W, 4)); scrim[:, :, 3] = ramp
+    ax.imshow(scrim, extent=[0, 1, 0, 1], aspect="auto", zorder=1)
+    # slim bottom scrim for the footer line (alpha strongest at the bottom row)
+    bot = np.zeros((H, 2, 4))
+    bot[:, :, 3] = np.clip(np.linspace(-0.2, 0.55, H), 0, 1)[:, None]
+    ax.imshow(bot, extent=[0, 1, 0, 1], aspect="auto", zorder=1)
 
-    ax.text(0.62, 5.35, "Explore the FPV", color=TXT, fontsize=33,
-            fontweight="bold")
-    ax.text(0.62, 4.55, "strike dataset", color=CYAN, fontsize=33,
-            fontweight="bold")
-    ax.text(0.62, 3.55,
-            "Browse every clip, read the propaganda\n"
-            "edit, and orbit the real 3-D attack path —\n"
-            "right in the browser.",
-            color="#cdd3dc", fontsize=15, va="top", linespacing=1.5)
+    T = dict(transform=ax.transAxes, zorder=3)
+    ax.text(0.045, 0.83, "Explore the FPV", color="#ffffff", fontsize=35,
+            fontweight="bold", **T)
+    ax.text(0.045, 0.70, "strike dataset", color=CYAN, fontsize=35,
+            fontweight="bold", **T)
+    ax.text(0.045, 0.55,
+            "Browse the gallery, read each clip's\n"
+            "flight edit, and orbit the reconstructed\n"
+            "3-D attack path — in the browser.",
+            color="#e2e7ec", fontsize=15.5, va="top", linespacing=1.55, **T)
+    ax.text(0.045, 0.075, "itamar-weiss.com/fpv", color=GOLD, fontsize=14, **T)
+    ax.text(0.972, 0.055,
+            "Reconstructed 3-D scene · Iron Dome platform, “Biranit”",
+            color="#cfd5dd", fontsize=10.5, ha="right", **T)
 
-    # real stat chips
-    chips = [(f"{n}", "clips"), (f"{n3d}", "3-D scenes"), (f"{towns}", "towns")]
-    cx = 0.62
-    for big, small in chips:
-        w = 0.55 + 0.36 * len(big)
-        ax.add_patch(FancyBboxPatch((cx, 1.05), w, 1.05,
-                     boxstyle="round,pad=0.04,rounding_size=0.12",
-                     linewidth=1.4, edgecolor="#2b323c", facecolor=PANEL))
-        ax.text(cx + w / 2, 1.72, big, ha="center", va="center", color=GOLD,
-                fontsize=22, fontweight="bold")
-        ax.text(cx + w / 2, 1.32, small, ha="center", va="center",
-                color=MUTED, fontsize=11)
-        cx += w + 0.35
-
-    ax.text(0.62, 0.42, "itamar-weiss.com/fpv", color=GOLD, fontsize=13)
-    fig.savefig(os.path.join(OUT, "social.png"), dpi=100, facecolor=BG)
+    fig.savefig(os.path.join(OUT, "social.png"), dpi=100, facecolor="#050607")
     plt.close(fig)
-    print(f"social.png  ({n} clips, {n3d} 3D, {towns} towns)")
+    print("social.png (real Biranit scene capture)")
 
 
 if __name__ == "__main__":

@@ -42,3 +42,6 @@ yarn-error.log*
 
 # editor / agent
 .claude/
+
+# FPV viewer demo capture scratch
+/research/fpv-viewer/capture/out/
