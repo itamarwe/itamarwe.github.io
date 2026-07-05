@@ -8,19 +8,28 @@ from the dataset post's figures.
   - annotated_clip.png   : REAL flight-annotation timeline of one clip
                            (2026-06-06 Merkava tank, Blat), straight from the
                            dataset's segment markers. Shows how much of a
-                           propaganda clip is banner / replay / pause vs. flight.
+                           clip is banner / replay / pause vs. flight.
   - footage_breakdown.png: REAL — of all annotated footage across the dataset,
                            how the seconds split by segment type. Durations are
                            summed from consecutive segment boundaries (the final,
                            open-ended segment of each clip is excluded because the
                            clip end time isn't in the manifest).
+  - scene_pipeline.png   : qualitative schematic of the reconstruction pipeline
+                           (raw clip -> extract flight -> enhance -> select the
+                           attack run -> recover path + point cloud). Concept
+                           diagram, no numeric axes.
+  - scale_ambiguity.png  : qualitative schematic of monocular scale ambiguity —
+                           a small near house and a large far house fill the
+                           same view cone; a known-size object (a door) anchors
+                           the scale. Concept diagram, no numeric axes.
   - social.png           : 1200x630 OpenGraph card for the post.
 
 All counts/durations are REAL, computed from ../2026-07-05_videos_snapshot.json
 (a frozen copy of public/fpv/data/videos.json; the live one keeps growing).
-The little gallery cards and point clouds drawn inside the schematics are
-illustrative stand-ins, not screenshots — they're there to say "this is what the
-view looks like," not to plot data.
+Inside the tool_flow schematic, the gallery cards and the small timeline are
+illustrative stand-ins (the timeline uses real segment boundaries); the 3-D
+scene panel is a REAL screenshot of the viewer
+(../assets/biranit_scene_capture.png).
 """
 import os, json
 from collections import Counter
@@ -45,14 +54,16 @@ plt.rcParams.update({
     "font.family": "sans-serif",
 })
 
-# segment type -> (display label, colour). "flight" is the signal; the rest is
-# editing added on top of the footage.
+# segment type -> (display label, colour). "flight" is the signal (the one
+# saturated colour); the rest is editing on top of the footage and stays in a
+# muted family. All colours were checked against the black surface with the
+# dataviz palette validator (>=3:1 contrast, CVD-separable with labels+gaps).
 SEG = {
     "flight_start":     ("Flight",     CYAN),
     "new_flight_start": ("Flight",     CYAN),
     "banner_start":     ("Banner",     MUTED),
     "replay_start":     ("Replay",     PURPLE),
-    "pause_start":      ("Pause/freeze", "#4a5260"),
+    "pause_start":      ("Pause/freeze", "#5b6675"),
     "other":            ("Other",      "#6b7480"),
 }
 
@@ -116,22 +127,25 @@ def draw_timeline(ax, x0, y0, w, h, segs):
     return T
 
 
-def draw_scene(ax, cx, cy, s):
-    """A little point cloud with a cyan->gold flight path arcing onto a target."""
-    rng = np.random.default_rng(3)
-    pts = rng.normal(0, 1, (260, 2)) * np.array([1.5, 0.7]) * s
-    ax.scatter(cx + pts[:, 0], cy + pts[:, 1] - 0.5 * s, s=2.2,
-               c="#3a444f", alpha=0.7, linewidths=0)
-    t = np.linspace(0, 1, 60)
-    px = cx + (-2.2 + 2.4 * t) * s
-    py = cy + (1.5 * s) * (1 - t) ** 1.6 - 0.15 * s
-    cols = plt.cm.ScalarMappable().to_rgba(t)  # unused; explicit gradient below
-    for i in range(len(t) - 1):
-        f = i / (len(t) - 1)
-        col = (CYAN if f < 0.5 else GOLD)
-        ax.plot(px[i:i + 2], py[i:i + 2], color=col, lw=2.0, alpha=0.9)
-    ax.scatter([px[0]], [py[0]], s=26, color=GREEN, zorder=5)   # launch
-    ax.scatter([px[-1]], [py[-1]], s=30, color=RED, marker="X", zorder=5)  # target
+def draw_scene_capture(ax, x0, y0, w, h):
+    """A REAL screenshot of the scene viewer (the Biranit / Iron Dome strike),
+    cropped and fitted inside the panel with rounded corners."""
+    from PIL import Image
+    cap = Image.open(os.path.join(HERE, "..", "assets",
+                                  "biranit_scene_capture.png")).convert("RGB")
+    cap = cap.crop((240, 55, 1040, 400))   # drop dead space & the UI button
+    ar = cap.width / cap.height
+    dw, dh = (w, w / ar) if ar > w / h else (h * ar, h)
+    ex0, ey0 = x0 + (w - dw) / 2, y0 + (h - dh) / 2
+    im = ax.imshow(np.asarray(cap) / 255.0,
+                   extent=[ex0, ex0 + dw, ey0, ey0 + dh],
+                   aspect="auto", zorder=2, interpolation="lanczos")
+    clip = FancyBboxPatch((ex0, ey0), dw, dh,
+                          boxstyle="round,pad=0,rounding_size=0.05",
+                          transform=ax.transData,
+                          facecolor="none", edgecolor="none")
+    ax.add_patch(clip)
+    im.set_clip_path(clip)
 
 
 # --------------------------------------------------------------------------
@@ -143,7 +157,7 @@ def fig_tool_flow(videos):
     panels = [
         ("Browse", "Gallery of every clip —\nsearch, sort, filter to the\nones with a 3-D scene", CYAN),
         ("Read the edit", "Auto-annotated timeline:\njump past banners &\nreplays to real flight", GOLD),
-        ("Fly the strike", "Orbit the reconstructed\n3-D scene & measure\nright in the browser", GREEN),
+        ("Explore the strike", "Replay the reconstructed\n3-D scene and learn\nhow it unfolded", GREEN),
     ]
     pw, ph, gap = 3.1, 2.4, 0.55
     y0 = 1.35
@@ -158,7 +172,7 @@ def fig_tool_flow(videos):
         elif i == 1:
             draw_timeline(ax, x + 0.22, y0 + 0.35, pw - 0.44, 1.2, ex["segments"])
         else:
-            draw_scene(ax, x + pw / 2, y0 + ph / 2 - 0.25, 0.46)
+            draw_scene_capture(ax, x + 0.18, y0 + 0.22, pw - 0.36, ph - 0.85)
         ax.text(x + pw / 2, y0 + ph - 0.06, title, ha="center", va="top",
                 color=col, fontsize=12.5, fontweight="bold")
         ax.text(x + pw / 2, 0.98, body, ha="center", va="top",
@@ -176,46 +190,124 @@ def fig_tool_flow(videos):
     print("tool_flow.png")
 
 
+# ---- shared helpers for the two "breakdown" charts ------------------------
+# Both charts use an axes that maps 1 data unit = 1 inch in x AND y, so the
+# rounded corners of FancyBboxPatch come out circular instead of squashed.
+
+def inch_axes(fig_w, fig_h):
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, fig_w); ax.set_ylim(0, fig_h); ax.axis("off")
+    return fig, ax
+
+
+def text_w(fig, ax, s, fontsize, fontweight="normal"):
+    """Measured width of a string, in inches (== data units here)."""
+    t = ax.text(0, -5, s, fontsize=fontsize, fontweight=fontweight)
+    fig.canvas.draw()
+    w = t.get_window_extent().width / fig.dpi
+    t.remove()
+    return w
+
+
+def seg_patch(ax, x, y, w, h, color, gap=0.028, rs=0.045):
+    """One rounded timeline/bar segment with a small breathing gap around it."""
+    x, w = x + gap / 2, max(w - gap, 0.02)
+    ax.add_patch(FancyBboxPatch(
+        (x, y), w, h,
+        boxstyle=f"round,pad=0,rounding_size={min(rs, 0.49 * w)}",
+        linewidth=0, facecolor=color))
+
+
+def legend_swatch(fig, ax, x, y, label, color, fontsize=9.5, color_txt="#c3cad3"):
+    """Rounded swatch + label; returns the x where the next item can start."""
+    sw, sh = 0.17, 0.11
+    ax.add_patch(FancyBboxPatch((x, y - sh / 2), sw, sh,
+                 boxstyle="round,pad=0,rounding_size=0.03",
+                 linewidth=0, facecolor=color))
+    ax.text(x + sw + 0.07, y, label, va="center", color=color_txt,
+            fontsize=fontsize)
+    return x + sw + 0.07 + text_w(fig, ax, label, fontsize) + 0.32
+
+
 def fig_annotated_clip(videos):
     ex = next(v for v in videos if v["slug"] == "2026-06-06_merkava_tank_blat_position")
     segs = ex["segments"]
     times = [s["time"] for s in segs]
     T = times[-1] + 3.0
-    fig, ax = plt.subplots(figsize=(10, 3.1))
-    ax.set_xlim(0, T); ax.set_ylim(0, 1); ax.axis("off")
 
-    # title (top) ; legend (just under it) ; ribbon (middle) ; ticks (bottom)
-    ax.text(0, 0.95,
-            "One clip, annotated:  Merkava tank, Blat  (2026-06-06)",
-            color=TXT, fontsize=12.5, fontweight="bold")
+    W, H = 10.0, 3.3
+    M = 0.55                       # side margin, inches
+    BW = W - 2 * M                 # ribbon width
+    fig, ax = inch_axes(W, H)
 
-    y, h = 0.30, 0.30
-    seen = {}
+    def X(t):                      # seconds -> inches
+        return M + BW * t / T
+
+    # title
+    ax.text(M, H - 0.42, "One clip, annotated", color=TXT, fontsize=13.5,
+            fontweight="bold")
+    ax.text(M + text_w(fig, ax, "One clip, annotated", 13.5, "bold") + 0.14,
+            H - 0.42, "—  Merkava tank, Blat · 2026-06-06", color=MUTED,
+            fontsize=11)
+
+    # ribbon — merge consecutive same-label markers (the data sometimes has
+    # e.g. two banner_start boundaries in a row) so each visual segment is one
+    # patch and the callouts measure the real span
+    seg_spans = []                 # (t0, t1, label)
     for i, s in enumerate(segs):
         t0 = times[i]
         t1 = times[i + 1] if i + 1 < len(segs) else T
-        label, col = SEG.get(s["type"], ("Other", MUTED))
-        ax.add_patch(Rectangle((t0, y), t1 - t0, h, facecolor=col,
-                     edgecolor=BG, linewidth=1.2))
+        label = SEG.get(s["type"], ("Other", MUTED))[0]
+        if seg_spans and seg_spans[-1][2] == label:
+            seg_spans[-1] = (seg_spans[-1][0], t1, label)
+        else:
+            seg_spans.append((t0, t1, label))
+    ry, rh = 1.18, 0.62
+    seen = {}
+    for t0, t1, label in seg_spans:
+        col = SEG_COLOR(label)
+        seg_patch(ax, X(t0), ry, BW * (t1 - t0) / T, rh, col)
         seen[label] = col
-    # time axis ticks every 15s
+
+    # story callouts above the ribbon (thin leaders, staggered heights)
+    def callout(t0, t1, text, y_text, ha):
+        cx = X((t0 + t1) / 2)
+        ax.plot([cx, cx], [ry + rh + 0.05, y_text - 0.10], color="#39404b",
+                lw=0.9)
+        tx = {"left": max(cx - 0.05, M), "center": cx,
+              "right": min(cx + 0.05, M + BW)}[ha]
+        ax.text(tx, y_text, text, ha=ha, va="bottom", color=MUTED,
+                fontsize=9, style="italic")
+    banners = [s for s in seg_spans if s[2] == "Banner"]
+    pauses = [s for s in seg_spans if s[2] == "Pause/freeze"]
+    replays = [s for s in seg_spans if s[2] == "Replay"]
+    if banners:
+        b = banners[0]
+        callout(b[0], b[1], f"{b[1] - b[0]:.0f}-second banner", ry + rh + 0.22,
+                "left")
+    if pauses:
+        p = max(pauses, key=lambda s: s[1] - s[0])
+        callout(p[0], p[1], "freeze at impact", ry + rh + 0.48, "center")
+    if replays:
+        r = replays[-1]
+        callout(r[0], r[1], "slow-mo replay", ry + rh + 0.22, "right")
+
+    # time axis: hairline baseline + ticks every 15 s
+    ax.plot([M, M + BW], [ry - 0.09, ry - 0.09], color="#262c35", lw=1.0)
     for tt in range(0, int(T) + 1, 15):
-        ax.plot([tt, tt], [y - 0.05, y], color=MUTED, lw=1)
-        ax.text(tt, y - 0.11, f"{tt}s", ha="center", va="top",
-                color=MUTED, fontsize=9)
-    # legend row
+        ax.plot([X(tt), X(tt)], [ry - 0.09, ry - 0.16], color="#3a424e", lw=1.0)
+        ax.text(X(tt), ry - 0.24, f"{tt}s", ha="center", va="top",
+                color=MUTED, fontsize=8.5)
+
+    # legend row (bottom, under the axis)
     order = ["Flight", "Pause/freeze", "Replay", "Banner", "Other"]
-    lx = 0
+    lx = M
     for lab in order:
-        if lab not in seen:
-            continue
-        ax.add_patch(Rectangle((lx, 0.71), T * 0.022, 0.07,
-                     facecolor=seen[lab], edgecolor="none"))
-        ax.text(lx + T * 0.03, 0.745, lab, va="center", color="#c3cad3",
-                fontsize=9.5)
-        lx += T * (0.03 + 0.0085 * len(lab) + 0.045)
-    fig.savefig(os.path.join(OUT, "annotated_clip.png"), dpi=150, facecolor=BG,
-                bbox_inches="tight")
+        if lab in seen:
+            lx = legend_swatch(fig, ax, lx, 0.36, lab, seen[lab])
+
+    fig.savefig(os.path.join(OUT, "annotated_clip.png"), dpi=150, facecolor=BG)
     plt.close(fig)
     print("annotated_clip.png  span %.0fs" % T)
 
@@ -234,30 +326,171 @@ def fig_footage_breakdown(videos):
     vals = [dur[k] for k in order]
     cols = [SEG_COLOR(k) for k in order]
 
-    fig, ax = plt.subplots(figsize=(10, 2.5))
-    ax.set_xlim(0, total); ax.set_ylim(0, 1); ax.axis("off")
-    x = 0
+    W, H = 10.0, 3.3
+    M = 0.55
+    BW = W - 2 * M
+    fig, ax = inch_axes(W, H)
+
+    # title + total
+    ax.text(M, H - 0.42, "Where the seconds go", color=TXT, fontsize=13.5,
+            fontweight="bold")
+    ax.text(M + text_w(fig, ax, "Where the seconds go", 13.5, "bold") + 0.14,
+            H - 0.42,
+            f"—  all annotated footage, {total/3600:.1f} hours",
+            color=MUTED, fontsize=11)
+
+    # one proportional bar with rounded segments and gaps
+    by, bh = 1.22, 0.60
+    x = M
     for k, v, c in zip(order, vals, cols):
-        ax.add_patch(Rectangle((x, 0.42), v, 0.34, facecolor=c,
-                     edgecolor=BG, linewidth=1.4))
+        w = BW * v / total
+        seg_patch(ax, x, by, w, bh, c)
         pct = 100 * v / total
-        if pct > 4:
-            ax.text(x + v / 2, 0.59, f"{k}\n{pct:.0f}%", ha="center",
-                    va="center", color="#04070c" if c in (CYAN, GOLD) else TXT,
-                    fontsize=10, fontweight="bold", linespacing=1.15)
-        x += v
-    ax.text(0, 0.90,
-            "Where the seconds go across all annotated footage",
-            color=TXT, fontsize=12.5, fontweight="bold")
-    ax.text(0, 0.14,
-            f"{total/3600:.1f} hours of annotated footage · barely half is actual flight — "
-            "the rest is banners, freezes and replays the editor added",
-            color=MUTED, fontsize=9.5)
+        if pct > 10:   # big segments carry their share directly
+            ax.text(x + w / 2, by + bh / 2, f"{pct:.0f}%", ha="center",
+                    va="center", fontsize=11.5, fontweight="bold",
+                    color="#04141d" if c == CYAN else "#0b0e13")
+        x += w
+
+    # the story, as two brackets over the bar: flight vs. everything else
+    fw = BW * dur["Flight"] / total
+    def bracket(x0, x1, label, col, y=by + bh + 0.17):
+        ax.plot([x0 + 0.02, x1 - 0.02], [y, y], color=col, lw=1.1)
+        for xe in (x0 + 0.02, x1 - 0.02):
+            ax.plot([xe, xe], [y, y - 0.07], color=col, lw=1.1)
+        ax.text((x0 + x1) / 2, y + 0.09, label, ha="center", va="bottom",
+                color=col, fontsize=9.8)
+    bracket(M, M + fw, f"actual flight — {100*dur['Flight']/total:.0f}%", CYAN)
+    bracket(M + fw, M + BW,
+            f"added in the edit — {100*(total-dur['Flight'])/total:.0f}%",
+            MUTED)
+
+    # value row: every type, even the slivers too small to label in the bar
+    lx = M
+    for k, v, c in zip(order, vals, cols):
+        lab = f"{k} {100*v/total:.0f}% · {v/60:.0f} min"
+        lx = legend_swatch(fig, ax, lx, 0.62, lab, c)
+
     fig.savefig(os.path.join(OUT, "footage_breakdown.png"), dpi=150,
-                facecolor=BG, bbox_inches="tight")
+                facecolor=BG)
     plt.close(fig)
     print("footage_breakdown.png  flight=%.0f%% total=%.0fs" %
           (100 * dur["Flight"] / total, total))
+
+
+def fig_scene_pipeline(videos):
+    """How a raw clip becomes a 3-D scene — a five-step concept schematic."""
+    steps = [
+        ("Raw clip", "the edited footage —\nbanners, freezes, replays", MUTED),
+        ("Extract flight", "the annotations isolate\nthe real flying", CYAN),
+        ("Enhance", "equalize & clean up the\ncompressed frames", GOLD),
+        ("Select the run", "keep the relevant part\nof the attack flight", GREEN),
+        ("3-D scene", "recover the camera path\n+ the point cloud", PURPLE),
+    ]
+    W, H = 10.0, 2.55
+    M, gap = 0.5, 0.42
+    bw = (W - 2 * M - (len(steps) - 1) * gap) / len(steps)
+    bh, by = 0.62, 1.12
+    fig, ax = inch_axes(W, H)
+
+    ax.text(M, H - 0.38, "From raw clip to 3-D scene", color=TXT,
+            fontsize=13.5, fontweight="bold")
+
+    x = M
+    for i, (title, body, col) in enumerate(steps):
+        ax.add_patch(FancyBboxPatch((x, by), bw, bh,
+                     boxstyle="round,pad=0.02,rounding_size=0.07",
+                     linewidth=1.4, edgecolor=col, facecolor=PANEL))
+        ax.text(x + bw / 2, by + bh / 2, title, ha="center", va="center",
+                color=col, fontsize=10.5, fontweight="bold")
+        ax.text(x + bw / 2, by - 0.16, body, ha="center", va="top",
+                color=MUTED, fontsize=8.2, linespacing=1.4)
+        if i < len(steps) - 1:
+            ax.add_patch(FancyArrowPatch((x + bw + 0.07, by + bh / 2),
+                         (x + bw + gap - 0.07, by + bh / 2), arrowstyle="-|>",
+                         mutation_scale=13, color="#4a5260", linewidth=1.4))
+        x += bw + gap
+
+    fig.savefig(os.path.join(OUT, "scene_pipeline.png"), dpi=150, facecolor=BG)
+    plt.close(fig)
+    print("scene_pipeline.png")
+
+
+def fig_scale_ambiguity(videos):
+    """Why the reconstruction doesn't know its scale — a small near house and a
+    large far house subtend the same view, so they project to the same pixels.
+    Concept schematic, no numeric axes."""
+    W, H = 10.0, 3.4
+    fig, ax = inch_axes(W, H)
+
+    ax.text(0.5, H - 0.38, "One image, two possible worlds", color=TXT,
+            fontsize=13.5, fontweight="bold")
+    ax.text(0.5 + text_w(fig, ax, "One image, two possible worlds", 13.5,
+                         "bold") + 0.14,
+            H - 0.38, "—  the model recovers shape, not size", color=MUTED,
+            fontsize=11)
+
+    apex = (0.85, 1.55)
+    m = 0.145                      # half-angle slope of the view cone
+    x_end = 9.35
+
+    # view cone: faint fill + hairline rays
+    xs = np.linspace(apex[0], x_end, 2)
+    ax.fill_between(xs, apex[1] - m * (xs - apex[0]),
+                    apex[1] + m * (xs - apex[0]), color=CYAN, alpha=0.045,
+                    linewidth=0)
+    for sgn in (+1, -1):
+        ax.plot(xs, apex[1] + sgn * m * (xs - apex[0]), color="#3a424e",
+                lw=1.0)
+    # camera glyph + "same image" arc at the apex
+    ax.scatter([apex[0]], [apex[1]], s=34, color=GOLD, zorder=5)
+    ax.text(apex[0], apex[1] - 0.30, "camera", ha="center", va="top",
+            color=MUTED, fontsize=8.5)
+    th = np.linspace(-np.arctan(m), np.arctan(m), 40)
+    ax.plot(apex[0] + 0.55 * np.cos(th), apex[1] + 0.55 * np.sin(th),
+            color=GOLD, lw=1.0)
+    ax.text(apex[0] + 0.68, apex[1], "same\nview", va="center", color=MUTED,
+            fontsize=7.8, linespacing=1.3)
+
+    def house(dx, col, label):
+        """A house that exactly fills the view cone at distance dx."""
+        cx = apex[0] + dx
+        h = 2 * m * dx
+        base = apex[1] - m * dx
+        w = 0.72 * h
+        body = 0.62 * h
+        ax.add_patch(Rectangle((cx - w / 2, base), w, body, facecolor="none",
+                     edgecolor=col, lw=1.6))
+        ax.add_patch(plt.Polygon(
+            [[cx - 0.56 * w, base + body], [cx + 0.56 * w, base + body],
+             [cx, base + h]], closed=True, facecolor="none", edgecolor=col,
+            lw=1.6))
+        dw, dh = 0.22 * w, 0.42 * body     # the door
+        ax.add_patch(Rectangle((cx - dw / 2, base), dw, dh, facecolor="none",
+                     edgecolor=col, lw=1.1))
+        ax.text(cx, base - 0.13, label, ha="center", va="top", color=MUTED,
+                fontsize=8.5)
+        return cx, base, dw, dh
+
+    house(2.3, CYAN, "small & near")
+    fcx, fbase, fdw, fdh = house(7.3, PURPLE, "large & far")
+
+    # the resolution: measure an object of known size (the far house's door)
+    bx = fcx + fdw / 2 + 0.10
+    ax.annotate("", (bx, fbase), (bx, fbase + fdh),
+                arrowprops=dict(arrowstyle="<->", color=GOLD, lw=1.2))
+    tx, ty = 4.05, 0.38
+    ax.text(tx, ty,
+            "a door is ~2 m — measure one known size\nand the whole scene snaps to real units",
+            va="center", color=GOLD, fontsize=8.6, linespacing=1.5)
+    ax.plot([tx + text_w(fig, ax, "and the whole scene snaps to real units",
+                         8.6) + 0.30, bx - 0.04],
+            [ty, fbase + fdh * 0.35], color="#6b5a2a", lw=0.9)
+
+    fig.savefig(os.path.join(OUT, "scale_ambiguity.png"), dpi=150,
+                facecolor=BG)
+    plt.close(fig)
+    print("scale_ambiguity.png")
 
 
 def SEG_COLOR(label):
@@ -321,4 +554,6 @@ if __name__ == "__main__":
     fig_tool_flow(videos)
     fig_annotated_clip(videos)
     fig_footage_breakdown(videos)
+    fig_scene_pipeline(videos)
+    fig_scale_ambiguity(videos)
     fig_social(videos)
