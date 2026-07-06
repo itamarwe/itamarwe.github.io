@@ -128,6 +128,8 @@ const sceneAction = async (page) => {
   const box = stage ? await stage.boundingBox()
                     : { x: 120, y: 210, width: 900, height: 460 };
   const cy = box.y + box.height * 0.52;
+  // fine-grained input (20 ms steps): OrbitControls damping interpolates the
+  // camera between events, so coarse input would show as catch-up pulses
   const drag = async (fromK, toK, steps, lift) => {
     await page.mouse.move(box.x + box.width * fromK, cy);
     await page.mouse.down();
@@ -135,7 +137,7 @@ const sceneAction = async (page) => {
       const k = fromK + (toK - fromK) * (i / steps);
       await page.mouse.move(box.x + box.width * k,
                             cy - Math.sin((i / steps) * Math.PI) * lift);
-      await sleep(55);
+      await sleep(20);
     }
     await page.mouse.up();
   };
@@ -160,9 +162,9 @@ const sceneAction = async (page) => {
   // pass 1: full playback with the orbit sweeps
   await clickPlay(); await waitPlaying();
   await sleep(1200);
-  await drag(0.62, 0.30, 60, 52);    // slow sweep left  (~3.3 s)
+  await drag(0.62, 0.30, 165, 52);   // slow sweep left  (~3.3 s)
   await sleep(800);
-  await drag(0.30, 0.58, 52, 34);    // gentle sweep back (~2.9 s)
+  await drag(0.30, 0.58, 145, 34);   // gentle sweep back (~2.9 s)
   await waitEnded();
   await sleep(600);
   // pass 2: restart from the beginning and play through untouched
