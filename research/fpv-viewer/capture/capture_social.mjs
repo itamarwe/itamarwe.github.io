@@ -86,6 +86,8 @@ const galleryAction = async (page) => {
   if (await btn.count()) await btn.first().click().catch(() => {});
   await sleep(900);
   await smoothScroll(600, 1800);
+  await sleep(400);
+  await smoothScroll(0, 1200);   // end back at the top -> cleaner loop point
   await sleep(700);
 };
 

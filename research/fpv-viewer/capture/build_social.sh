@@ -21,7 +21,7 @@ node capture_social.mjs
 #    action) and encode per platform. Black pad bars are invisible on the
 #    app's black background. The scene take plays the scene start->end twice,
 #    so its window is measured by the capture script (2x duration + margin).
-GAL_S=13; VID_S=10.5
+GAL_S=15; VID_S=10.5
 SCN_S=$(cat out/social-src/scene_keep.txt 2>/dev/null || echo 27)
 TW="-vf scale=1280:720:flags=lanczos,fps=30 -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 21 -movflags +faststart -an"
 LI="-vf scale=1080:1080:flags=lanczos,fps=30 -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 20 -movflags +faststart -an"
@@ -76,4 +76,22 @@ tour twitter
 tour linkedin
 rm -f "$OUTDIR"/cap*.png
 
-echo "wrote 8 videos to $OUTDIR/"
+# 5. make every output loop seamlessly: dissolve its last F seconds into its
+#    first F seconds, so the trimmed clip's final frame equals its first frame
+#    and feed players can repeat it without a visible jump.
+loopify() { # $1 file
+  local f="$1" F=0.5 D OFF
+  D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f")
+  OFF=$(python3 -c "print(max(0.1, $D - 2*$F))")
+  ffmpeg -y -i "$f" -filter_complex "
+[0:v]split[a][b];
+[a]trim=start=$F,setpts=PTS-STARTPTS,fps=30[main];
+[b]trim=duration=$F,setpts=PTS-STARTPTS,fps=30[head];
+[main][head]xfade=transition=fade:duration=$F:offset=$OFF[v]
+" -map "[v]" -c:v libx264 -profile:v high -pix_fmt yuv420p \
+    -crf 20 -movflags +faststart -an "${f%.mp4}.loop.mp4"
+  mv "${f%.mp4}.loop.mp4" "$f"
+}
+for f in "$OUTDIR"/fpv-*.mp4; do loopify "$f"; done
+
+echo "wrote 8 loopable videos to $OUTDIR/"
