@@ -1,0 +1,12 @@
+{
+  "name": "mcp-app-widget-build",
+  "private": true,
+  "type": "module",
+  "description": "Local-only build for the /mcp 'hello' MCP App widget. Not part of the site build.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
