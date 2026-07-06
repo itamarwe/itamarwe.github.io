@@ -36,6 +36,30 @@
       content="https://www.itamarweiss.com/img/fpv-viewer/social.png"
     />
 
+    <!-- Google Analytics 4 — same property as the main site (components/Analytics.tsx).
+         This file is a build artifact of the dataset repo's apps/fpv-viewer; when
+         dropping in a new viewer build, re-apply this block (or add it upstream). -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-K7F22HB9SJ"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      // The viewer is a hash-routed SPA (#/, #/video/:id, #/scene/:id). Fold the
+      // hash route into page_path on the initial view and on every hashchange,
+      // so gallery vs player vs 3-D scene usage is distinguishable in GA.
+      function fpvPagePath() {
+        return "/fpv/" + location.hash.replace(/^#\/?/, "");
+      }
+      gtag("config", "G-K7F22HB9SJ", { page_path: fpvPagePath() });
+      addEventListener("hashchange", function () {
+        gtag("event", "page_view", {
+          page_path: fpvPagePath(),
+          page_location: location.href,
+          page_title: document.title,
+        });
+      });
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Geist for body text, Doto for the site title — same pairing as itamarweiss.com -->
