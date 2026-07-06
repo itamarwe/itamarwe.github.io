@@ -20,7 +20,7 @@ const BASE = (process.env.BASE || "https://www.itamarweiss.com/fpv").replace(/\/
 const SLUG = process.env.SLUG || "2026-05-26_anti_drone_platform_barashit.mp4";
 const FLIGHT_T = Number(process.env.FLIGHT_T || 8.2);
 const OUT = process.env.OUT || "./out/social-src";
-fs.rmSync(OUT, { recursive: true, force: true });
+if (!process.env.ONLY) fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -118,9 +118,10 @@ const sceneSetup = async (page, hideBars) => {
   }, { timeout: 60000 }).catch(() => {});
   await sleep(800);
 };
+// The scene plays start -> end TWICE per take. The player's own semantics make
+// this reliable: at the end the play button flips back to "Play", and clicking
+// it again resets the timeline to t0 (k.t>=t1-.05 -> k.t=t0 in SceneView).
 const sceneAction = async (page) => {
-  await page.evaluate(() => document.querySelector(".play-btn")?.click());
-  await sleep(1500);
   const stage = await page.$(".scene-stage");
   const box = stage ? await stage.boundingBox()
                     : { x: 120, y: 210, width: 900, height: 460 };
@@ -136,18 +137,51 @@ const sceneAction = async (page) => {
     }
     await page.mouse.up();
   };
+  const BTN = ".scene-controls .play-btn";
+  const clickPlay = () => page.evaluate((s) => document.querySelector(s)?.click(), BTN);
+  const waitPlaying = () => page.waitForFunction(
+    (s) => document.querySelector(s)?.getAttribute("aria-label") === "Pause",
+    BTN, { timeout: 8000 }).catch(() => {});
+  const waitEnded = () => page.waitForFunction(
+    (s) => document.querySelector(s)?.getAttribute("aria-label") === "Play",
+    BTN, { timeout: 60000 }).catch(() => {});
+
+  // record the scene's playback duration so build_social.sh can trim exactly
+  const total = await page.evaluate(() => {
+    const t = document.querySelector(".scene-controls .time-display")?.textContent || "";
+    const m = (t.split("/").pop() || "").trim().match(/(\d+):(\d+(?:\.\d+)?)/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  });
+  if (total) fs.writeFileSync(`${OUT}/scene_keep.txt`,
+                              String((2 * total + 3.5).toFixed(1)));
+
+  // pass 1: full playback with the orbit sweeps
+  await clickPlay(); await waitPlaying();
+  await sleep(1200);
   await drag(0.62, 0.30, 60, 52);    // slow sweep left  (~3.3 s)
-  await sleep(1400);
+  await sleep(800);
   await drag(0.30, 0.58, 52, 34);    // gentle sweep back (~2.9 s)
-  await sleep(2200);                  // let playback finish the pass
+  await waitEnded();
+  await sleep(600);
+  // pass 2: restart from the beginning and play through untouched
+  await clickPlay(); await waitPlaying();
+  await waitEnded();
+  await sleep(800);
 };
 
 // ---- record every scenario at both aspect ratios ---------------------------
+// ONLY=gallery|video|scene re-records a single scenario while iterating.
+const ONLY = process.env.ONLY;
+const SCENARIOS = [
+  ["gallery", gallerySetup, galleryAction],
+  ["video",   videoSetup,   videoAction],
+  ["scene",   sceneSetup,   sceneAction],
+].filter(([n]) => !ONLY || n === ONLY);
 const VIEWPORTS = [["169", 1600, 900], ["sq", 1080, 1080]];
 for (const [tag, W, H] of VIEWPORTS) {
-  await record(`gallery-${tag}`, W, H, gallerySetup, galleryAction);
-  await record(`video-${tag}`,   W, H, videoSetup,   videoAction);
-  await record(`scene-${tag}`,   W, H, sceneSetup,   sceneAction);
+  for (const [name, setup, action] of SCENARIOS) {
+    await record(`${name}-${tag}`, W, H, setup, action);
+  }
 }
 
 await browser.close();

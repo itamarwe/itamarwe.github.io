@@ -56,8 +56,10 @@ capture/
                         (the guided tour embedded in the post).
   capture_social.mjs    Playwright: record the three social-media source takes
                         (gallery scroll/search/filter, video playing, scene
-                        playback + orbit), each at 16:9 AND a native square
-                        viewport. Defaults to the LIVE site (override BASE).
+                        playing start->end TWICE — orbit sweeps on the first
+                        pass, untouched second pass), each at 16:9 AND a native
+                        square viewport. Defaults to the LIVE site (override
+                        BASE; ONLY=scene re-records one scenario).
   build_social.sh       capture_social.mjs + trim + encode -> out/social/ with
                         8 videos: {tour,gallery,video,scene} x {linkedin 1080sq,
                         twitter 1280x720}. Tour = the three clips cross-faded

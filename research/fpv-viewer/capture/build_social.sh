@@ -19,8 +19,10 @@ node capture_social.mjs
 
 # 2. trim the setup dead-time (it's at the FRONT; keep the last N seconds of
 #    action) and encode per platform. Black pad bars are invisible on the
-#    app's black background.
-GAL_S=13; VID_S=10.5; SCN_S=12
+#    app's black background. The scene take plays the scene start->end twice,
+#    so its window is measured by the capture script (2x duration + margin).
+GAL_S=13; VID_S=10.5
+SCN_S=$(cat out/social-src/scene_keep.txt 2>/dev/null || echo 27)
 TW="-vf scale=1280:720:flags=lanczos,fps=30 -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 21 -movflags +faststart -an"
 LI="-vf scale=1080:1080:flags=lanczos,fps=30 -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 20 -movflags +faststart -an"
 
