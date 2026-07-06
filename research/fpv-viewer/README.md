@@ -54,6 +54,14 @@ capture/
   build_demo.sh         Trim each recording to its action window, burn caption
                         pills, cross-fade -> public/img/fpv-viewer/viewer-demo.mp4
                         (the guided tour embedded in the post).
+  capture_social.mjs    Playwright: record the three social-media source takes
+                        (gallery scroll/search/filter, video playing, scene
+                        playback + orbit), each at 16:9 AND a native square
+                        viewport. Defaults to the LIVE site (override BASE).
+  build_social.sh       capture_social.mjs + trim + encode -> out/social/ with
+                        8 videos: {tour,gallery,video,scene} x {linkedin 1080sq,
+                        twitter 1280x720}. Tour = the three clips cross-faded
+                        with caption pills.
 ```
 
 The little gallery cards and the pipeline boxes drawn *inside* the schematics
@@ -71,6 +79,18 @@ thumbnails from local disk) — run `npm run dev` in `apps/fpv-viewer/` of the
 ```
 cd capture && ./build_demo.sh
 cp out/scene_still.png ../assets/biranit_scene_capture.png   # refresh social bg
+```
+
+## Social-media videos
+
+`build_social.sh` produces the 8 share-ready clips under `capture/out/social/`
+({tour, gallery, video, scene} × {LinkedIn 1080×1080, Twitter 1280×720}). It
+records from the **live site** by default, so it only needs Playwright + ffmpeg
+— no dev server:
+
+```
+cd capture && ./build_social.sh                 # live site
+BASE=http://localhost:5185 ./build_social.sh    # or against the dev server
 ```
 
 ## Regenerate
