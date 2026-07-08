@@ -136,23 +136,40 @@ export function SceneView({ video }: { video: VideoRecord }) {
     frameModeRef.current = frameMode;
   }, [frameMode]);
 
-  // Preload + decode every frame of the active mode so swapping between them is
-  // instant, then draw whatever frame is current.
+  // Preload only a sliding window of frames around the playhead (biased ahead,
+  // since playback moves forward), in the active mode. Preloading all ~150
+  // frames per mode hammered the CDN hard enough to trip its per-IP rate limit;
+  // a window keeps a scene-open to a few dozen requests while staying smooth.
+  const PRELOAD_BEHIND = 8;
+  const PRELOAD_AHEAD = 24;
+  const ensureWindow = useCallback(
+    (t: number) => {
+      const fr = framesRef.current;
+      if (!fr.length) return;
+      const cache = imgCacheRef.current;
+      const idx = nearestFrameIndex(fr, t);
+      const lo = Math.max(0, idx - PRELOAD_BEHIND);
+      const hi = Math.min(fr.length - 1, idx + PRELOAD_AHEAD);
+      for (let i = lo; i <= hi; i += 1) {
+        const s = fr[i][frameModeRef.current] ?? fr[i].actual;
+        if (!s || cache.has(s)) continue;
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => {
+          if (srcAt(clockRef.current.t) === s) drawFrame(s);
+        };
+        img.src = s;
+        cache.set(s, img);
+      }
+    },
+    [srcAt, drawFrame],
+  );
+
+  // Seed the window (and redraw) whenever the frame set or mode changes.
   useEffect(() => {
-    const cache = imgCacheRef.current;
-    for (const f of frames) {
-      const s = f[frameMode] ?? f.actual;
-      if (!s || cache.has(s)) continue;
-      const img = new Image();
-      img.decoding = "async";
-      img.onload = () => {
-        if (srcAt(clockRef.current.t) === s) drawFrame(s);
-      };
-      img.src = s;
-      cache.set(s, img);
-    }
+    ensureWindow(clockRef.current.t);
     drawFrame(srcAt(clockRef.current.t));
-  }, [frames, frameMode, srcAt, drawFrame]);
+  }, [frames, frameMode, ensureWindow, srcAt, drawFrame]);
 
   // Redraw on the discrete cases React drives: scrubbing while paused, switching
   // mode, or re-showing the panel. (Smooth playback is handled in the tick.)
@@ -179,12 +196,13 @@ export function SceneView({ video }: { video: VideoRecord }) {
         lastTRef.current = c.t;
         viewerRef.current?.setTime(c.t);
         drawFrame(srcAt(c.t));
+        ensureWindow(c.t); // keep the look-ahead topped up as playback advances
         setCurrentT(c.t);
       }
     };
     handle = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(handle);
-  }, [drawFrame, srcAt]);
+  }, [drawFrame, srcAt, ensureWindow]);
 
   useEffect(() => viewerRef.current?.setPathVisible(showPath), [showPath]);
   useEffect(() => viewerRef.current?.setGridVisible(showGrid), [showGrid]);
@@ -195,6 +213,7 @@ export function SceneView({ video }: { video: VideoRecord }) {
     clockRef.current.t = t;
     lastTRef.current = t;
     viewerRef.current?.setTime(t);
+    ensureWindow(t); // jumped elsewhere on the timeline — preload around the new spot
     drawFrame(srcAt(t));
     setCurrentT(t);
   };
