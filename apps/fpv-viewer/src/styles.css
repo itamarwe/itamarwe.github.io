@@ -286,6 +286,9 @@ a:hover {
 }
 
 /* Video view — YouTube-mobile-style: player first, compact headline below. */
+.video-stage {
+  position: relative;
+}
 .video-view video {
   width: 100%;
   max-height: 62vh;
@@ -294,6 +297,36 @@ a:hover {
   border: 1px solid var(--hairline);
   outline: none;
   cursor: pointer;
+  object-fit: contain;
+}
+/* Play affordance over the poster/paused video, so the stage isn't a black box. */
+.video-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 4px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+.video-play-overlay:hover {
+  background: rgba(0, 0, 0, 0.65);
+  border-color: var(--brand);
+  transform: translate(-50%, -50%) scale(1.06);
 }
 /* Transport: two logical rows (primary: play/slider/time; secondary: the rest).
    Desktop shows them side by side on one line; mobile stacks them. */

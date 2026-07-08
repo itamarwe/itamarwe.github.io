@@ -97,10 +97,14 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
       <div className="gallery-toolbar">
         <input
           type="search"
+          name="site-search-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by description, town, date…"
           aria-label="Search videos"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
         />
         <button
           type="button"

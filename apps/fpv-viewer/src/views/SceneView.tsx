@@ -63,8 +63,6 @@ export function SceneView({ video }: { video: VideoRecord }) {
   const [showFrames, setShowFrames] = useState(true);
   const [showPoints, setShowPoints] = useState(true);
   const [showFrusta, setShowFrusta] = useState(false);
-  const [measuring, setMeasuring] = useState(false);
-  const [measureText, setMeasureText] = useState<string | null>(null);
   const variants = video.scenePaths ?? (video.scenePath ? [video.scenePath] : []);
   const [scenePath, setScenePath] = useState<string | null>(video.scenePath);
 
@@ -242,23 +240,6 @@ export function SceneView({ video }: { video: VideoRecord }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleMeasure = () => {
-    const next = !measuring;
-    setMeasuring(next);
-    setMeasureText(next ? "Click two points in the scene" : null);
-    viewerRef.current?.setMeasureMode(next, (meters) => {
-      if (meters !== null) setMeasureText(`Distance: ${meters.toFixed(1)} m`);
-      else if (next) setMeasureText("Click two points in the scene");
-    });
-  };
-
-  const toggleFullscreen = () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void stage.requestFullscreen().catch(() => undefined);
-  };
-
   // Current VGGT frame (nearest by flight time). Used for the counter and to
   // decide whether the panel has anything to show; the picture itself is painted
   // into the canvas imperatively.
@@ -315,14 +296,6 @@ export function SceneView({ video }: { video: VideoRecord }) {
             />
           </div>
         ) : null}
-        <button
-          type="button"
-          className="stage-btn fullscreen-btn"
-          onClick={toggleFullscreen}
-          title="Fullscreen"
-        >
-          ⛶
-        </button>
       </div>
 
       {timeline ? (
@@ -389,18 +362,9 @@ export function SceneView({ video }: { video: VideoRecord }) {
                 })}
               </select>
             ) : null}
-            <button
-              type="button"
-              className={`measure-btn${measuring ? " active" : ""}`}
-              onClick={toggleMeasure}
-              title="Measure the distance between two points"
-            >
-              Measure
-            </button>
           </span>
         </div>
       ) : null}
-      {measureText ? <p className="measure-readout">{measureText}</p> : null}
 
       {timeline ? <SceneCharts timeline={timeline} currentT={currentT} onSeek={seek} /> : null}
 

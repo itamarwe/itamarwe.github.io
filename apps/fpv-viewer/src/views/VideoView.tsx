@@ -128,17 +128,30 @@ export function VideoView({ video }: { video: VideoRecord }) {
       <a className="back-link" href="#/">
         ← All videos
       </a>
-      <video
-        ref={videoRef}
-        src={video.videoUrl}
-        playsInline
-        preload="metadata"
-        onClick={togglePlay}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
-        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-      />
+      <div className="video-stage">
+        <video
+          ref={videoRef}
+          src={video.videoUrl}
+          poster={video.thumbnailUrl}
+          playsInline
+          preload="metadata"
+          onClick={togglePlay}
+          onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+        />
+        {playing ? null : (
+          <button
+            type="button"
+            className="video-play-overlay"
+            onClick={togglePlay}
+            aria-label="Play"
+          >
+            ▶
+          </button>
+        )}
+      </div>
 
       <div className="transport">
         <div className="t-row t-primary">
