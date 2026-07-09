@@ -13,11 +13,12 @@ image: /img/vggt-omega/social.png
 </style>
 
 <!-- FIGURE 1 — SOCIAL / LEAD CARD (1200×630, #000 bg): post title + the
-     register-attention motif (a few frame-columns of tokens all routing through
-     a small central row of "register" tokens). Doubles as the OG image. -->
+     register-attention motif (per-frame token columns whose register tokens meet in
+     a central gold cluster — reflecting the TRUE mechanism: registers self-attend
+     across frames, image tokens stay home). Doubles as the OG image. -->
 ![VGGT-Ω: reconstructing cameras and 3D geometry in one forward pass](/img/vggt-omega/social.png)
 
-For about a decade, turning a pile of photos into a 3D scene meant running an
+For most of two decades, turning a pile of photos into a 3D scene meant running an
 *optimizer*. You'd feed a few dozen images into COLMAP, walk away, and come back to
 find it had matched features, guessed where every camera was, and slowly nudged all
 of it into agreement. It worked, it was accurate, and it was the thing you reached
@@ -25,10 +26,27 @@ for. It was also slow, fragile, and prone to just... giving up on a scene with t
 few textures or too many repeated windows.
 
 The part that made me want to write this post is how completely that has flipped. The
-current best method — [VGGT-Ω](https://arxiv.org/abs/2605.15195) (VGGT-Omega, a CVPR
-2026 oral) — takes those same photos and hands you the cameras *and* the dense 3D
-geometry in **a single forward pass of a neural network**, in about a second, with no
-optimization loop at all. No bundle adjustment, no global alignment, no walking away.
+strongest of the new feed-forward methods —
+[VGGT-Ω](https://arxiv.org/abs/2605.15195) (VGGT-Omega, May 2026, from the same
+Oxford-VGG / Meta AI team behind VGGT) — takes those same photos and hands you the
+cameras *and* the dense 3D geometry in **a single forward pass of a neural network**,
+in about a second, with no optimization loop at all. No bundle adjustment, no global
+alignment, no walking away.
+
+Before the how, here's the whole shift in one clip — the old iterative loop grinding
+toward an answer next to VGGT-Ω snapping the scene into place in one pass (a stylized
+re-enactment of both processes, not real solver output):
+
+<!-- VIDEO (Manim, public/img/vggt-omega/optimize-vs-predict.mp4, embedded as plain
+     autoplay/loop/muted <video>): split screen.
+     LEFT ("Bundle adjustment"): a point cloud + camera frustums that start scattered
+     and jitter, visibly nudging over many iterations, slowly converging (gold),
+     iteration counter ticking up.
+     RIGHT ("VGGT-Ω, one forward pass"): the same set of input photos flash in, and the
+     3D scene (cameras + points) snaps into place once, cleanly (cyan), a single "1 pass"
+     stamp. The contrast in *motion* is the message: iterate vs predict.
+     Both sides are illustrative animations, per the honesty note in the prose. -->
+<video src="/img/vggt-omega/optimize-vs-predict.mp4" autoplay loop muted playsinline style="width:100%; border-radius:8px; margin:1rem 0;"></video>
 
 This post is the explanation I wish I'd had for how we got from one to the other: what
 the old methods did, why each new idea replaced the last, and what exactly VGGT-Ω
@@ -76,12 +94,18 @@ is the canonical implementation, breaks the loop by brute force and iteration:
      it as the expensive iterative core. Purely schematic. -->
 ![The classical SfM + MVS pipeline: match, iteratively optimize, then densify](/img/vggt-omega/sfm-pipeline.png)
 
-**Bundle adjustment is the heart of it, and also the problem.** It's an iterative
-optimizer, so it's slow — minutes to hours for a real scene — and it's only as good as
-its starting guess. Give it a textureless wall, a hall of repeated windows, or too few
-overlapping views, and the matches go wrong, the optimization walks into a bad local
-minimum, and the whole reconstruction collapses. For twenty years the research went
-into making that optimization more robust.
+Be clear about what this pipeline gets right, because it's a lot. **When the capture is
+good, bundle adjustment is astonishingly precise** — on well-conditioned scenes it pins
+camera angles down to hundredths of a degree, which is why photogrammetry and mapping
+still run on it. And it's *interpretable*: the reprojection residual tells you not just
+the answer but how much to trust it.
+
+**Bundle adjustment is also the problem.** It's an iterative optimizer, so it's slow —
+minutes to hours for a real scene — and it's only as good as its starting guess. Give it
+a textureless wall, a hall of repeated windows, or too few overlapping views, and the
+matches go wrong, the optimization walks into a bad local minimum, and the whole
+reconstruction collapses. For twenty years the research went into making that
+optimization more robust.
 
 <!-- FIGURE 4 — LIMITATIONS OF CLASSICAL SfM (qualitative schematic, no numeric axes):
      three small "failure case" panels in a row, each showing why bundle adjustment
@@ -117,9 +141,12 @@ during training that it simply *regresses* plausible geometry.
 
 Because both pointmaps live in the *same* coordinate frame, matching and pose estimation
 fall out almost for free — the network has effectively already decided which points
-correspond. It was a genuine paradigm shift: **reconstruction as regression, not
-optimization.** [MASt3R](https://arxiv.org/abs/2406.09756) sharpened it with a dedicated
-matching head for metric accuracy.
+correspond. And where SfM needs many overlapping, well-textured views before it can even
+start, DUSt3R happily works from **just two images with extreme viewpoint changes**, the
+exact regime that kills feature matching. It was a genuine paradigm shift:
+**reconstruction as regression, not optimization.**
+[MASt3R](https://arxiv.org/abs/2406.09756) sharpened it with a dedicated matching head
+for metric accuracy.
 
 But there's a structural weakness hiding in "take *two* images." Real scenes have
 dozens or hundreds. DUSt3R handles that by processing pairs and then stitching them
@@ -139,26 +166,33 @@ The architecture is worth seeing, because VGGT-Ω is best understood as a surgic
 of it:
 
 <!-- FIGURE 6 — VGGT ARCHITECTURE (clean block schematic):
-     Input frames → [DINO encoder] → per-frame token grids (+ one CAMERA token per
-     frame, drawn distinct/gold). Then a stack of "Alternating Attention" blocks,
-     drawn as two alternating layers: FRAME attention (tokens attend within their own
-     image — draw as within-column arrows) and GLOBAL attention (every token attends to
-     every token across ALL frames — draw as dense all-to-all arrows, cyan, and make
-     them look expensive/dense). Then → heads: [Camera head] → poses; [DPT dense head]
-     → depth + pointmaps. Label the global-attention block as the cost center. -->
+     Input frames → [DINOv2 encoder] → per-frame token grids (+ one CAMERA token per
+     frame, drawn distinct/gold, + a small strip of REGISTER tokens per frame — VGGT
+     already has these; they matter for the sequel). Then a stack of "Alternating
+     Attention" blocks, drawn as two alternating layers: FRAME attention (tokens attend
+     within their own image — within-column arrows) and GLOBAL attention (every token
+     attends to every token across ALL frames — dense all-to-all arrows, cyan, drawn
+     expensive/dense). Then → heads: [Camera head, iterative] → poses; [DPT dense
+     heads] → depth + pointmaps + tracks. Label the global-attention block as the cost
+     center. -->
 ![VGGT: DINO tokens, alternating frame/global attention, camera token, and DPT heads](/img/vggt-omega/vggt-arch.png)
 
 Three pieces to hold onto:
 
-- **A DINO encoder** turns each image into a grid of tokens, and each frame gets one
-  extra **camera token** that will carry that view's pose.
+- **A DINOv2 encoder** turns each image into a grid of tokens, and each frame gets a
+  handful of extra tokens riding along: one **camera token** that will carry that view's
+  pose, plus a few **register tokens** — spare tokens with no pixel of their own.
+  (Registers were introduced into vision transformers because ViTs kept hijacking random
+  patch tokens to stash global information; giving them dedicated scratch tokens fixed
+  it. File that away — it becomes the main character shortly.)
 - **Alternating attention** is the core trick: layers alternate between *frame*
   attention (tokens attend only within their own image) and *global* attention (every
   token attends to every other token across every frame). Frame attention keeps each
   image coherent; global attention is what lets the network reconcile all the views into
   one consistent 3D world.
-- **Prediction heads** decode the refined tokens — a camera head for poses, and heavy
-  **DPT** (dense prediction transformer) heads for the per-pixel depth and pointmaps.
+- **Prediction heads** decode the refined tokens — a camera head that iteratively
+  refines poses, and heavy **DPT** (dense prediction transformer) heads for the
+  per-pixel depth, pointmaps, and tracks.
 
 It reconstructs a scene in **under a second** and beat the optimization-based methods it
 replaced. It was, rightly, a big deal.
@@ -170,22 +204,28 @@ Look back at that global-attention block, because it's where VGGT ran out of roo
 **Global attention is all-to-all, so its cost grows quadratically.** If you have `F`
 frames and `T` tokens each, every global-attention layer relates `F·T` tokens to all
 `F·T` others — an `(F·T)²` blowup. Double the frames and you roughly quadruple the
-memory and compute of that step. That's fine for a handful of images and brutal for
-hundreds. Stacked on top of that, the **DPT heads are heavy and can be unstable to
-train**, and the whole model is capped by how much *labeled* 3D data exists to train it
-on — which is not much, because ground-truth 3D geometry is expensive to capture.
+compute of that step. That's fine for a handful of images and brutal for hundreds. On
+top of that, the **DPT heads' high-resolution convolutional layers eat a
+disproportionate share of GPU memory** — not because they hold many parameters, but
+because training has to store their huge activation maps. And the whole model is capped
+by how much *labeled* 3D data exists to train on — which is not much, because
+ground-truth geometry is expensive to capture.
 
-<!-- FIGURE 7 — THE STAR FIGURE — GLOBAL vs REGISTER ATTENTION (side-by-side, the
-     centerpiece of the post):
-     LEFT ("VGGT: global attention"): several columns of frame tokens with dense
-     all-to-all arrows between EVERY token across all frames — a visual thicket, cyan
-     fading to red at the edges, labeled "cost ~ (F·T)²".
-     RIGHT ("VGGT-Ω: register attention"): the same frame tokens, but now a small
-     central set of REGISTER tokens (gold). Each frame's tokens attend only to the
-     registers, and the registers attend to each other. All-to-few instead of
-     all-to-all — dramatically fewer arrows, clean, labeled "cost ~ linear in F".
-     This one figure carries the whole thesis; make it the most polished. -->
-![Global attention relates every token to every other; register attention routes everything through a few shared tokens](/img/vggt-omega/register-attention.png)
+Here's the observation that opens the door: when the VGGT-Ω team visualized VGGT's
+global attention maps, they found them **mostly sparse** — the overwhelming majority of
+token pairs barely exchange anything. All-to-all attention was paying full price for
+connectivity the network wasn't using.
+
+<!-- FIGURE 7 — THE GLOBAL-ATTENTION WALL (single-thesis figure, the "problem" half):
+     LEFT: several columns of frame tokens with dense all-to-all arrows between EVERY
+     token across all frames — a visual thicket, cyan fading to red, labeled
+     "cost ~ (F·T)²".
+     RIGHT (inset): a stylized attention-map heatmap that is almost entirely dark with
+     a few bright rows/diagonal streaks, labeled "...but the learned attention is mostly
+     sparse". The juxtaposition IS the message: paying quadratic for near-empty traffic.
+     (The SOLUTION topology gets its own figure in the next section — don't show
+     registers here.) -->
+![Global attention pays quadratic cost, yet VGGT's learned attention maps are mostly sparse](/img/vggt-omega/global-attention-wall.png)
 
 So the question VGGT-Ω set out to answer wasn't "can we predict geometry in one pass"
 — VGGT already did that — but "**can we make that pass cheap enough to scale it like we
@@ -193,46 +233,119 @@ scale everything else in deep learning: bigger model, more data.**"
 
 ## VGGT-Ω's three moves
 
-VGGT-Ω (the Ω is just "omega" — the authors' way of signaling the "final form" of the
-architecture) makes three changes, and they compound.
+VGGT-Ω makes three changes, and they compound: together they cut **70% of the GPU
+memory during training**, which is precisely what lets everything in the next section
+happen.
 
-**1. Register attention replaces global attention.** Instead of letting every token
-talk to every other token across all frames, VGGT-Ω introduces a small set of
-**register tokens** — a shared scratchpad the whole scene reads from and writes to.
-Each frame's tokens exchange information *only through the registers*, and the registers
-talk among themselves. Information still flows globally — it just goes through a
-bottleneck instead of a full mesh. That turns the expensive all-to-all step into an
-all-to-few one, and it's the single biggest reason the model gets cheaper.
+**1. Register attention.** Remember those spare register tokens each frame carries
+(sixteen of them, plus the camera token)? VGGT-Ω promotes them from passengers to
+couriers. In a *register attention* layer, **only the registers talk across frames** —
+the image tokens don't attend across frames at all. The cross-frame conversation happens
+between each frame's sixteen couriers, and then, in the *next frame-attention layer*,
+each frame's couriers brief their own image tokens on what the rest of the scene looks
+like. Information still flows globally — it just travels through a two-step relay
+instead of a full mesh.
 
-**2. One simplified dense head replaces the DPT heads.** The heavy, sometimes-unstable
-DPT decoders and their expensive high-resolution convolution layers are gone, replaced
-by a single dense head trained with **loss-driven multi-task supervision** — one head
-that learns to emit depth, pointmaps and the rest, supervised by all the tasks at once
-rather than a separate specialized decoder per output.
+<!-- FIGURE 8 — REGISTER ATTENTION: THE TWO-STEP RELAY (the star figure, must reflect
+     the TRUE mechanism):
+     Draw 3-4 frame columns. Each column = a grid of image tokens (cyan) + a small strip
+     of REGISTER tokens (gold) at the top.
+     STEP 1 (labeled "register attention — cross-frame"): arrows ONLY between the gold
+     register strips of different frames (registers of all frames self-attend). Image
+     tokens have NO cross-frame arrows.
+     STEP 2 (labeled "frame attention — local redistribution"): within each column,
+     arrows between that frame's registers and its own image tokens.
+     Caption the economics: cross-frame step now scales with F·R (R=16) instead of F·T
+     (T≈thousands). Note in small text: "VGGT-Ω swaps 25% of the global-attention
+     layers for this — accuracy unchanged." -->
+![Register attention: each frame's sixteen register tokens meet across frames, then brief their own frame's tokens locally](/img/vggt-omega/register-attention.png)
 
-**3. Self-supervised learning on raw video.** This is the payoff of the first two.
-Because training now uses **~30% of VGGT's GPU memory**, the same hardware can train a
-much bigger model on much more data — and crucially, it can learn from **unlabeled
-video**, where there's no ground-truth 3D at all, by supervising itself on the geometric
-consistency between frames. The reported result: training on roughly **15–20× more
-labeled data and ~100× more unlabeled data** than prior work.
+The economics are dramatic because sixteen is so much smaller than the thousands of
+image tokens per frame. And the ablations are wonderfully precise about the trade:
+**swapping 25% of the global-attention layers for register attention costs no
+measurable accuracy** while saving about 23% of the backbone's training FLOPs and 16%
+of its memory. Swap *all* of them and FLOPs collapse to 6% of the original — a
+1000-frame reconstruction drops from 240 seconds to 12 — but accuracy falls back to
+roughly original-VGGT level. The released model takes the free 25%; the all-register
+variant is there if you're running on a drone.
 
-<!-- FIGURE 8 — DATA SCALE (schematic, no fake numbers): a small labeled box
-     ("ground-truth 3D datasets", drawn tiny) next to a vast field of video frames
-     ("unlabeled internet video", drawn as an ocean of thumbnails) feeding into the
-     model. The visual point: self-supervision unlocks a category of data that's
-     orders of magnitude larger. Keep it qualitative — sizes are illustrative. -->
-![Self-supervision lets VGGT-Ω learn from oceans of unlabeled video, not just scarce labeled 3D](/img/vggt-omega/data-scale.png)
+To feel the difference, poke at it — toggle between full global attention and register
+attention, sweep the number of frames and registers, and watch the interaction count
+diverge:
 
-The concrete numbers back up the efficiency claim. VGGT-Ω runs about **1.6× faster** at
-inference than VGGT for the same reconstruction, and the memory stays modest even at
-scale: the released 1B model on a single A100 uses about **6 GB for a single frame,
-13 GB for 100 frames, and 43 GB for 500 frames** — note how gently that grows, which is
-exactly the register bottleneck doing its job. (The full computation is real; those are
-the reported peak-memory figures from the released model.)
+<!-- INTERACTIVE (Three.js, public/vggt-omega-viz/register-attention.html, embedded via
+     iframe.viz-frame): F frame-token columns (each T image tokens, cyan) + R register
+     tokens per frame (gold strip at top of each column).
+     Controls: slider F (2-12), slider R (1-32), toggle "global attention ↔ register
+     attention".
+     - Global mode: draw all-to-all edges across every token of every frame; live
+       counter of pairwise interactions ~ (F·T)².
+     - Register mode: TWO-STEP topology matching the paper — cross-frame edges ONLY
+       between register tokens of different frames ((F·R)² interactions, gold), then
+       within-column edges from each frame's registers to its own image tokens (frame
+       attention, dim cyan). Live counter shows the two terms and the total.
+     - A small footnote in the panel: "VGGT-Ω replaces 25% of global-attention layers
+       with this; replacing all of them trades accuracy for a ~20× FLOPs cut."
+     Pure-black bg, CSS2D labels, damped orbit or fixed 2.5D. Verify headlessly and
+     check the math in Node against a Python reference. -->
+<iframe class="viz-frame" loading="lazy" src="/vggt-omega-viz/register-attention.html" title="Interactive: global vs register attention"></iframe>
 
-<!-- POSSIBLE VIDEO NOTE: the memory-growth curve could also be a small figure, but I'm
-     keeping numbers in prose to avoid a chart that reads as fabricated. -->
+**2. One lean dense head instead of many heavy ones.** VGGT predicted depth, pointmaps,
+and tracks each through its own DPT decoder, and the expensive part — high-resolution
+convolutions — hoarded training memory. VGGT-Ω keeps only the cheap low-resolution DPT
+layers and replaces the high-resolution blocks with **a single MLP plus a pixel-shuffle
+upsampler**. More surprising: it keeps only **one dense head, for depth** (plus a
+lightweight camera head that now predicts poses in a single shot — no iterative
+refinement; the theme of this post runs deep). Pointmaps and tracks aren't predicted at
+all anymore. They're still *supervised* — the training loss checks them — but at
+inference you get pointmaps by simply unprojecting the predicted depth through the
+predicted cameras. **Multi-task losses, not multi-task heads.** (They tried going
+fully convolution-free with MLP-only decoders; it scored fine on benchmarks but produced
+blocky depth artifacts that humans notice immediately — so the shallow conv layers
+stayed.)
+
+**3. Fifteen times the data — with an assist from the old enemy.** The memory savings
+buy the headline: VGGT-Ω trains on about **4 million scene sequences, 15× more than
+VGGT**. Around 3M come from curated public and internal datasets; the rest were
+distilled from **40 million raw internet-style videos** by a new annotation pipeline —
+a VLM filters out hopeless clips, an ensemble of matchers finds correspondences, moving
+objects are masked out, and then, in a twist I love, **COLMAP runs bundle adjustment to
+produce the pseudo-ground-truth labels**. The classical optimizer this whole lineage
+set out to replace is now the *teacher*, grinding away offline at scale so the network
+never has to optimize online. (The irony has a face: Johannes Schönberger, COLMAP's
+creator, is a co-author on the paper.) The pipeline is deliberately conservative —
+anything ambiguous is thrown away — and its retained labels beat MegaSaM's estimates by
+a wide margin on Sintel's ground truth.
+
+<!-- FIGURE 9 — THE DATA ENGINE (annotation-pipeline schematic, no fake numeric axes):
+     a left-to-right funnel: [40M internet videos] → stage boxes: "VLM pre-filter
+     (drops ~half)" → "feature matching ensemble + dynamic-object masking" →
+     "VGGT init + COLMAP bundle adjustment" (gold box — the old enemy as teacher) →
+     "aggressive quality filtering" → [0.8M labeled sequences, ~1/3 dynamic], joined by
+     [~3M curated dataset sequences] → [4M total — 15× VGGT]. A thin side-branch:
+     videos that fail labeling still feed [self-supervised teacher-student] (drawn
+     smaller — it's the supporting act). The counts shown are the paper's real numbers,
+     not invented. -->
+![VGGT-Ω's data engine: 40M raw videos filtered and pseudo-labeled — by COLMAP — into a 4M-sequence training set](/img/vggt-omega/data-engine.png)
+
+There's also a **self-supervised protocol** — a DINO-style teacher-student setup that
+learns from 18 million videos with no labels at all. I expected this to be the headline
+and it isn't: it nudges the numbers (point error 0.073 → 0.070 in the ablation) and
+mostly helps out-of-distribution robustness. The authors are refreshingly blunt that
+self-supervised reconstruction "remains an open problem." The scale story, for now, is
+the labeled pipeline.
+
+One more source of speed worth naming: the encoder upgraded from DINOv2 to **DINOv3**,
+whose larger 16-pixel patches mean ~25% fewer tokens per image before attention even
+starts. Between that and register attention, VGGT-Ω is meaningfully faster than VGGT at
+inference — and about **50× faster than MegaSaM**, the strongest optimization-based
+method it's compared against. Memory at inference stays remarkably flat as scenes grow —
+the released 1B model on a single A100 uses about **6 GB for one frame, 13 GB for 100,
+and 43 GB for 500** (those are the reported peak-memory figures for the released model,
+not my measurements). The near-linear growth isn't the registers' doing, though — flash
+attention never materializes the quadratic attention matrix, so inference memory is
+dominated by per-frame tensors either way. Registers buy *speed*; the three moves
+together buy *training* memory, and training is where scale lives.
 
 ## Scaling it — the part that changes the story
 
@@ -241,55 +354,31 @@ model looks like training a language model — a clean architecture that eats as
 as you can throw at it — you can ask the question we ask of language models: **does it
 keep getting better as you make it bigger?**
 
-It does. VGGT-Ω reports a smooth, **power-law-like** improvement in reconstruction
-accuracy as the model grows from **0.2B to 10B parameters** and the training data grows
-from a few thousand sequences to about two million. That's the tell of a method that
-isn't near its ceiling — the same shape of curve that drove the LLM scale-up.
+It does, and this time there are real numbers to plot. Growing the model from **0.2B to
+10B parameters** drops the 3D point error from **0.107 to 0.046**; growing the training
+data from two thousand sequences to two million drops it from **0.275 to 0.073**. Both
+curves fall smoothly, **power-law-like**, with no plateau in sight — the same shape of
+curve that drove the LLM scale-up, showing up in geometry.
 
-<!-- FIGURE 9 — SCALING LAW (qualitative log-log sketch, EXPLICITLY illustrative):
-     x-axis "model + data scale (log)" with tick LABELS ONLY at 0.2B and 10B (no
-     invented accuracy values on y — label y as "reconstruction accuracy →" with no
-     numbers). A straight-ish downward-error / upward-accuracy line to convey the
-     power-law shape. Caption MUST say this sketches the reported trend, not measured
-     points, so it doesn't read as data. -->
-![Reconstruction accuracy improves as a power law with model and data scale (illustrative)](/img/vggt-omega/scaling.png)
+<!-- FIGURE 10 — SCALING LAWS (REAL DATA, from the paper's Figure 1): two small
+     log-x panels, matching the paper:
+     (a) Point error vs model size: labeled points 0.107 (0.2B) ... 0.073, 0.057 (5B),
+         0.046 (10B) — use the paper's plotted values, cyan curve, y = "3D point error
+         (lower is better)".
+     (b) Point error vs data size: 0.275 (2K) → 0.210 → 0.160 → 0.129 → 0.073 (2M),
+         gold curve, log-x in sequences.
+     These are published values from VGGT-Ω Fig. 1 — cite in caption. Pure-black bg,
+     house palette; annotate each point with its value like the paper does. -->
+![VGGT-Ω's scaling laws: 3D point error falls smoothly as model size grows 0.2B→10B and data grows 2K→2M sequences (values from the paper)](/img/vggt-omega/scaling.png)
 
-The accuracy gains aren't subtle where they land. VGGT-Ω sets a new state of the art on
-both **static and dynamic** scenes across a range of benchmarks — for example, improving
-camera-pose accuracy on the notoriously hard [Sintel](http://sintel.is.tue.mpg.de/)
-sequence by about **77%** over the previous best. Dynamic scenes — things moving in the
-video — were a weak spot for the whole pointmap lineage, and training on real video is
-what closed it.
-
-To make the register idea concrete, here's a small interactive: sweep the number of
-frames and registers and watch the attention connectivity — and its cost — collapse from
-the dense all-to-all mesh into the all-through-a-few pattern VGGT-Ω actually uses.
-
-<!-- INTERACTIVE (Three.js, public/vggt-omega-viz/register-attention.html, embedded via
-     iframe.viz-frame): a diagram of F frame-token columns and R register tokens.
-     Sliders: number of frames F, number of registers R, and a toggle "global ↔ register".
-     - Global mode: draw all-to-all edges across every token; show the edge count and a
-       relative-cost readout scaling as (F·T)².
-     - Register mode: draw edges only frame↔registers and register↔register; edge count
-       and cost scale ~linearly in F.
-     Pure-black bg, OrbitControls optional (2.5D is fine), CSS2D labels, cyan tokens /
-     gold registers / red expensive edges. Live edge + cost counters so the reader *sees*
-     the quadratic-vs-linear gap. Verify headlessly before commit. -->
-<iframe class="viz-frame" loading="lazy" src="/vggt-omega-viz/register-attention.html" title="Interactive: global vs register attention"></iframe>
-
-And because the whole point of the lineage is the shift from *optimizing* to
-*predicting*, here's that shift as motion — the old iterative loop grinding toward an
-answer next to VGGT-Ω snapping the scene into place in one pass:
-
-<!-- VIDEO (Manim, public/img/vggt-omega/optimize-vs-predict.mp4, embedded as plain
-     autoplay/loop/muted <video>): split screen.
-     LEFT ("Bundle adjustment"): a point cloud + camera frustums that start scattered
-     and jitter, visibly nudging over many iterations, slowly converging (gold),
-     iteration counter ticking up.
-     RIGHT ("VGGT-Ω, one forward pass"): the same set of input photos flash in, and the
-     3D scene (cameras + points) snaps into place once, cleanly (cyan), a single "1 pass"
-     stamp. The contrast in *motion* is the message: iterate vs predict. -->
-<video src="/img/vggt-omega/optimize-vs-predict.mp4" autoplay loop muted playsinline style="width:100%; border-radius:8px; margin:1rem 0;"></video>
+The accuracy lands hard where the field was weakest. VGGT-Ω sets the state of the art
+on three **static** and three **dynamic** benchmarks — dynamic scenes, things moving
+during capture, were the pointmap lineage's blind spot, and training on real video is
+what closed it. On the notoriously hard [Sintel](http://sintel.is.tue.mpg.de/)
+sequences, camera accuracy (AUC@3°) jumps from the previous best of **22.5 to 40.0 — a
+77% relative improvement** — over MegaSaM, an optimization-based method, while running
+50× faster. Depth accuracy on the same data improves by 26%. And the 10B model beats
+the 1B everywhere, which is the scaling law doing exactly what it promises.
 
 ## Where it stands: pros, cons, and where this is headed
 
@@ -297,71 +386,90 @@ Let me lay out the ledger honestly.
 
 **What VGGT-Ω is genuinely good at:**
 
-- **Speed and simplicity** — a single forward pass, ~1.6× faster than VGGT and dramatically
-  faster than any optimization-based pipeline, with no bundle adjustment or global
-  alignment to babysit.
-- **Scale** — it's the first reconstruction model that behaves like a proper foundation
-  model: clean architecture, learns from unlabeled video, and keeps improving from 0.2B to
-  10B parameters.
-- **Robustness and coverage** — because it *learned* geometry rather than solving for it,
-  it doesn't collapse on textureless walls or repeated structure the way SfM does, and it
-  now handles **dynamic** scenes, not just static ones.
+- **Speed and simplicity** — a single forward pass, ~50× faster than the best
+  optimization-based method on dynamic scenes, with no bundle adjustment or global
+  alignment to babysit, and over a thousand frames on one A100.
+- **Scale** — it behaves like a proper foundation model: a clean architecture whose
+  accuracy improves predictably from 0.2B to 10B parameters and from thousands to
+  millions of training scenes.
+- **Robustness and coverage** — because it *learned* geometry rather than solving for
+  it, it doesn't collapse on textureless walls, repeated structure, or barely-overlapping
+  views the way SfM does, and it handles **dynamic** scenes, not just static ones.
 
-<!-- FIGURE 10 — VGGT-Ω LIMITATIONS (qualitative schematic, no numeric axes): three
+<!-- FIGURE 11 — VGGT-Ω LIMITATIONS (qualitative schematic, no numeric axes): three
      small panels — (a) METRIC-SCALE AMBIGUITY: the same reconstruction shown twice,
      once labeled "dollhouse" and once "real house", identical geometry, a ruler with a
-     "?" — a single image set can't pin absolute scale; (b) HALLUCINATION: an
+     "?" — a lone image set can't pin absolute scale; (b) HALLUCINATION: an
      out-of-distribution scene where the model emits a confident but wrong surface
-     (draw the predicted geometry in cyan diverging from a faint "true" surface in
-     red), captioned "no reprojection residual to warn you"; (c) COMPUTE: a small vs
-     huge model glyph (0.2B vs 10B) with the note that the best numbers need the big
-     one. Keep it honest and schematic. -->
-![VGGT-Ω's limitations: scale ambiguity, confident hallucination off-distribution, and the compute the best model needs](/img/vggt-omega/vggt-omega-limitations.png)
+     (predicted geometry in cyan diverging from a faint "true" surface in red),
+     captioned "no reprojection residual to warn you"; (c) THE PRECISION GAP: a target
+     with BA's grouping at "hundredths of a degree" vs the feed-forward grouping wider —
+     qualitative, no fabricated numbers beyond the paper's own characterization.
+     Keep it honest and schematic. -->
+![VGGT-Ω's limitations: scale ambiguity, confident hallucination off-distribution, and bundle adjustment's precision ceiling](/img/vggt-omega/vggt-omega-limitations.png)
 
 **The honest limitations:**
 
 - **Metric scale is still hard.** Like the rest of the pointmap family, absolute
-  real-world scale (is that a dollhouse or a real house?) isn't something a single image
+  real-world scale (is that a dollhouse or a real house?) isn't something a lone image
   set pins down reliably without extra cues.
-- **The biggest wins need a big model.** The 10B-parameter model is where the most
-  striking numbers come from; that's real compute, and the small models, while efficient,
-  give up some of the ceiling.
+- **Peak precision still belongs to the optimizer.** The paper says so itself: on
+  well-conditioned captures, bundle adjustment reaches angular errors of *hundredths of
+  a degree* — survey-grade territory feed-forward doesn't touch yet. The authors' own
+  framing is that the two aren't in conflict: a feed-forward pass makes an excellent
+  *initialization* for optimization when you need that last decimal. And if what you're
+  after is photoreal novel views rather than raw geometry, this output is exactly what a
+  [Gaussian-splatting](/blog/gaussian-splatting/) pipeline wants as input.
 - **It's a learned prior, so it can hallucinate.** On scenes far from its training
-  distribution it will still hand you a confident, plausible-looking geometry that may be
-  wrong — with no optimizer residual to warn you the way bundle adjustment's reprojection
-  error would.
-- **Not a drop-in for survey-grade metric accuracy** yet — classical photogrammetry still
-  wins where you need certified millimetre precision on well-textured, well-planned
-  captures.
+  distribution it will still hand you a confident, plausible-looking geometry that may
+  be wrong — with no optimizer residual to warn you the way bundle adjustment's
+  reprojection error would.
+- **Accuracy was deliberately left on the table.** The authors note that task-specific
+  add-ons they chose *not* to ship — iterative camera refinement, feeding RGB into the
+  depth head — buy another 4–6% on camera accuracy. They prioritized a simple, clean
+  backbone over squeezing the benchmark, betting the community builds on it. The best
+  numbers also come from the 10B model, which is real compute.
 
-<!-- FIGURE 11 — FUTURE / RECONSTRUCTION AS A SPATIAL FOUNDATION (concept-map
-     schematic, no numeric axes): a flow — [oceans of unlabeled video] → [VGGT-Ω:
-     predict the scene] → a highlighted block of REGISTER / SCENE tokens (gold, "a
-     compact spatial representation") → fanning out to three downstream uses:
-     (1) "aligns with language" (a text glyph), (2) "vision-language-action / robots"
-     (a robot-arm glyph), (3) "novel views / mapping". Tagline in the figure:
-     "reconstruction as a pretext task for spatial intelligence" — the 3D analogue of
-     next-word prediction. Purely conceptual, clearly not a data plot. -->
+**Where this is headed.** The most interesting results in the paper aren't about
+reconstruction at all. Those sixteen register tokens per frame — the couriers — turn
+out to be a compact, transferable **spatial representation of the scene**. Frozen and
+bolted onto a vision-language-action model, they lift the LIBERO robot-manipulation
+benchmark from 97.1% to **98.5%** average success. Aligned with a language model
+CLIP-style, they let text retrieve the right video with **97% top-3 accuracy** — the
+registers, which never see a pixel directly, carry enough scene-level meaning to match
+natural language. My favorite: cluster the model's internal features on a video of a
+dancer in a crowd, and one cluster **tracks the dancer** — motion segmentation nobody
+asked for, emerging from reconstruction training alone.
+
+<!-- FIGURE 12 — FUTURE / RECONSTRUCTION AS A SPATIAL FOUNDATION (concept-map
+     schematic, no numeric axes): a flow — [oceans of video] → [VGGT-Ω: predict the
+     scene] → a highlighted block of REGISTER / SCENE tokens (gold, "a compact spatial
+     representation") → fanning out to three downstream uses: (1) "language alignment"
+     (text glyph), (2) "vision-language-action / robots" (robot-arm glyph), (3) "motion
+     & mapping" (dancer/trajectory glyph). Tagline in the figure: "reconstruction as a
+     pretext task for spatial intelligence" — the 3D analogue of next-word prediction.
+     Purely conceptual, clearly not a data plot. -->
 ![Reconstruction as a pretext task: predicting the scene yields a spatial representation that transfers to language and action](/img/vggt-omega/future-spatial-foundation.png)
 
-**Where this is headed.** The most interesting claim in the paper isn't about
-reconstruction at all. The register tokens VGGT-Ω learns turn out to be a compact,
-useful **spatial representation of a scene** — and the authors show they can be aligned
-with language and used to improve vision-language-action models. The suggestion is that
-**reconstruction is becoming a pretext task for spatial intelligence**: you train a model
-to rebuild the 3D world from video, at scale, and what you get for free is a network that
-*understands* space — which is exactly the missing piece for robots and embodied agents.
-The same move that made language models good at everything by training them to predict
-the next word may be about to happen for 3D, by training models to predict the scene.
+The suggestion is that **reconstruction is becoming a pretext task for spatial
+intelligence**: train a model to rebuild the 3D world from video, at scale, and what
+you get for free is a network that *understands* space — the missing piece for robots
+and embodied agents. The authors go a step further and sketch the endgame: reconstruction
+as one capability inside future unified "omni-models," trained jointly with language and
+vision, where the geometry resolves what semantics can't and vice versa. The same move
+that made language models good at everything by training them to predict the next word
+may be about to happen for 3D, by training models to predict the scene.
 
 That's the arc worth sitting with. In a decade we went from *walking away while an
-optimizer grinds* to *one forward pass*, and the forward pass turned out to be the easy
-part — the real prize is that scaling it teaches the model something like a sense of
+optimizer grinds* to *one forward pass* — with the old optimizer's last job being to
+label the training data for its successor. The forward pass turned out to be the easy
+part; the real prize is that scaling it teaches the model something like a sense of
 space.
 
 ---
 
 *Sources: [VGGT-Ω (arXiv 2605.15195)](https://arxiv.org/abs/2605.15195) ·
+[project page](https://vggt-omega.github.io/) ·
 [VGGT (arXiv 2503.11651)](https://arxiv.org/abs/2503.11651) ·
 [DUSt3R](https://arxiv.org/abs/2312.14132) ·
 [MASt3R](https://arxiv.org/abs/2406.09756) ·
