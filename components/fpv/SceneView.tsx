@@ -1,13 +1,16 @@
+"use client";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { VideoRecord } from "../types";
-import { SCENE_BASE } from "../types";
-import { videoHref } from "../App";
+import Link from "next/link";
+import type { VideoRecord } from "@/lib/fpv/types";
+import { SCENE_BASE } from "@/lib/fpv/config";
+import { galleryHref, videoHref } from "@/lib/fpv/paths";
 import {
   ReadOnlySceneViewer,
   type SceneFrame,
   type SceneTimeline,
-} from "../three/sceneViewer";
-import { SceneCharts } from "../components/SceneCharts";
+} from "./sceneViewer";
+import { SceneCharts } from "./SceneCharts";
 
 type FrameMode = "overlay" | "render" | "actual";
 
@@ -237,7 +240,6 @@ export function SceneView({ video }: { video: VideoRecord }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Current VGGT frame (nearest by flight time). Used for the counter and to
@@ -250,9 +252,9 @@ export function SceneView({ video }: { video: VideoRecord }) {
   if (!video.scenePath) {
     return (
       <div>
-        <a className="back-link" href="#/">
+        <Link className="back-link" href={galleryHref()}>
           ← All videos
-        </a>
+        </Link>
         <p className="not-found">No 3D scene for this video.</p>
       </div>
     );
@@ -260,9 +262,9 @@ export function SceneView({ video }: { video: VideoRecord }) {
 
   return (
     <div className="scene-view">
-      <a className="back-link" href="#/">
+      <Link className="back-link" href={galleryHref()}>
         ← All videos
-      </a>
+      </Link>
       <h1>{video.description || video.videoFile}</h1>
       <p className="view-meta">
         {video.date}
@@ -369,7 +371,7 @@ export function SceneView({ video }: { video: VideoRecord }) {
       {timeline ? <SceneCharts timeline={timeline} currentT={currentT} onSeek={seek} /> : null}
 
       <div className="view-actions" style={{ marginTop: 14 }}>
-        <a href={videoHref(video.videoFile)}>← Watch the full video with annotations</a>
+        <Link href={videoHref(video.slug)}>← Watch the full video with annotations</Link>
       </div>
     </div>
   );

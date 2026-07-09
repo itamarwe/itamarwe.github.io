@@ -1,7 +1,10 @@
+"use client";
+
 import { useMemo, useState } from "react";
-import type { VideoRecord } from "../types";
-import { THUMB_BASE } from "../types";
-import { sceneHref, videoHref } from "../App";
+import Link from "next/link";
+import type { VideoRecord } from "@/lib/fpv/types";
+import { THUMB_BASE } from "@/lib/fpv/config";
+import { sceneHref, videoHref } from "@/lib/fpv/paths";
 
 const PlayIcon = () => (
   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
@@ -49,12 +52,13 @@ function Thumb({ video }: { video: VideoRecord }) {
     ? video.thumbWidths!.map((w) => `${THUMB_BASE}/${video.slug}/${w}.webp ${w}w`).join(", ")
     : undefined;
   return (
-    <a
+    <Link
       className="thumb"
-      href={videoHref(video.videoFile)}
+      href={videoHref(video.slug)}
       style={video.blur ? { backgroundImage: `url(${video.blur})` } : undefined}
     >
       {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           srcSet={srcSet}
@@ -66,7 +70,7 @@ function Thumb({ video }: { video: VideoRecord }) {
         />
       ) : null}
       {video.scenePath ? <span className="badge-3d">3D scene</span> : null}
-    </a>
+    </Link>
   );
 }
 
@@ -134,21 +138,21 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
         {filtered.map((v) => (
           <div className="video-card" key={v.videoFile}>
             <Thumb video={v} />
-            <a className="title" href={videoHref(v.videoFile)}>
+            <Link className="title" href={videoHref(v.slug)}>
               {v.description || v.videoFile}
-            </a>
+            </Link>
             <span className="meta">
               {v.date}
               {v.town ? ` · ${v.town}` : ""}
             </span>
             <div className="card-actions">
-              <a className="card-btn" href={videoHref(v.videoFile)}>
+              <Link className="card-btn" href={videoHref(v.slug)}>
                 <PlayIcon /> Video
-              </a>
+              </Link>
               {v.scenePath ? (
-                <a className="card-btn primary" href={sceneHref(v.videoFile)}>
+                <Link className="card-btn primary" href={sceneHref(v.slug)}>
                   <GlobeIcon /> 3D scene
-                </a>
+                </Link>
               ) : (
                 <span className="card-btn disabled" title="No reconstructed scene yet">
                   <GlobeIcon /> No scene

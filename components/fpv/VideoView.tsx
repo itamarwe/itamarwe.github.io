@@ -1,7 +1,10 @@
+"use client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { VideoRecord } from "../types";
-import { SEGMENT_TYPES } from "../types";
-import { sceneHref } from "../App";
+import Link from "next/link";
+import type { VideoRecord } from "@/lib/fpv/types";
+import { SEGMENT_TYPES } from "@/lib/fpv/types";
+import { galleryHref, sceneHref } from "@/lib/fpv/paths";
 
 const FPS = 30; // frame-step size for ,/. and the ±1f buttons
 
@@ -125,9 +128,9 @@ export function VideoView({ video }: { video: VideoRecord }) {
 
   return (
     <div className="video-view">
-      <a className="back-link" href="#/">
+      <Link className="back-link" href={galleryHref()}>
         ← All videos
-      </a>
+      </Link>
       <div className="video-stage">
         <video
           ref={videoRef}
@@ -207,7 +210,7 @@ export function VideoView({ video }: { video: VideoRecord }) {
           {video.town ? ` · ${video.town}` : ""}
         </p>
         <div className="view-actions">
-          {video.scenePath ? <a href={sceneHref(video.videoFile)}>View 3D scene →</a> : null}
+          {video.scenePath ? <Link href={sceneHref(video.slug)}>View 3D scene →</Link> : null}
           <a
             className="icon-link"
             href={video.videoUrl}

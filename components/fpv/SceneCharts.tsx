@@ -1,5 +1,7 @@
+"use client";
+
 import { useEffect, useRef } from "react";
-import type { SceneTimeline, TimelinePoint } from "../three/sceneViewer";
+import type { SceneTimeline, TimelinePoint } from "./sceneViewer";
 
 // Two stacked chart cards in the style of the full tool's plots:
 //   "Speed vs. Time"        — teal raw + amber smoothed + dashed average
@@ -142,7 +144,7 @@ function SeekableCanvas({
   t1,
   onSeek,
 }: {
-  chartRef: React.RefObject<HTMLCanvasElement>;
+  chartRef: React.RefObject<HTMLCanvasElement | null>;
   t0: number;
   t1: number;
   onSeek: (t: number) => void;

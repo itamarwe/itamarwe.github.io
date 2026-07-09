@@ -45,6 +45,3 @@ yarn-error.log*
 
 # FPV viewer demo capture scratch
 /research/fpv-viewer/capture/out/
-
-# Built by apps/fpv-viewer during the site build
-/public/fpv/

@@ -25,13 +25,6 @@ export type Dataset = {
   videos: VideoRecord[];
 };
 
-// Everything is fetched from CloudFront at runtime (published from the
-// dataset repo via `npm run publish-web`); env vars can override for testing.
-const CDN = "https://d2fioemadmrru3.cloudfront.net";
-export const SCENE_BASE = (import.meta.env.VITE_SCENE_BASE ?? `${CDN}/scenes`).replace(/\/$/, "");
-export const THUMB_BASE = (import.meta.env.VITE_THUMB_BASE ?? `${CDN}/thumbnails`).replace(/\/$/, "");
-export const DATA_URL = import.meta.env.VITE_DATA_URL ?? `${CDN}/data/videos.json`;
-
 // Segment marker colors — same legend as the annotator.
 export const SEGMENT_TYPES: Record<string, { label: string; color: string }> = {
   banner_start: { label: "Banner", color: "#4a9eff" },
