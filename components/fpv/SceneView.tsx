@@ -55,7 +55,11 @@ export function SceneView({ video }: { video: VideoRecord }) {
   const imgCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const [status, setStatus] = useState<string | null>("Loading 3D scene…");
-  const [stats, setStats] = useState<{ pointCount: number; frames: number } | null>(null);
+  const [stats, setStats] = useState<{
+    pointCount: number;
+    frames: number;
+    calibrated: boolean;
+  } | null>(null);
   const [timeline, setTimeline] = useState<SceneTimeline | null>(null);
   const [frames, setFrames] = useState<SceneFrame[]>([]);
   const [frameMode, setFrameMode] = useState<FrameMode>("overlay");
@@ -271,6 +275,9 @@ export function SceneView({ video }: { video: VideoRecord }) {
         {video.town ? ` · ${video.town}` : ""} · 3D reconstruction
         {stats ? ` · ${stats.pointCount.toLocaleString()} points · ${stats.frames} camera poses` : ""}
       </p>
+      {stats && !stats.calibrated ? (
+        <div className="scale-warning">⚠ Uncalibrated scale — relative units</div>
+      ) : null}
 
       <div className="scene-stage" ref={stageRef}>
         <div className="canvas-holder" ref={holderRef} />

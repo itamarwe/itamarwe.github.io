@@ -59,6 +59,7 @@ export type SceneTimeline = {
   t1: number;
   avgSpeedMs: number | null;
   points: TimelinePoint[];
+  calibrated: boolean; // false → scale is the generic default; units are relative
 };
 
 export type SceneFrame = {
@@ -122,7 +123,9 @@ export class ReadOnlySceneViewer {
 
   private resizeObserver: ResizeObserver;
 
-  async load(viewerBase: string): Promise<{ pointCount: number; frames: number }> {
+  async load(
+    viewerBase: string,
+  ): Promise<{ pointCount: number; frames: number; calibrated: boolean }> {
     const meta: SceneMeta = await fetch(`${viewerBase}/scene_meta.json`).then((r) => {
       if (!r.ok) throw new Error(`scene_meta.json: HTTP ${r.status}`);
       return r.json();
@@ -137,7 +140,7 @@ export class ReadOnlySceneViewer {
         return r.arrayBuffer();
       }),
     ]);
-    if (this.disposed) return { pointCount: 0, frames: 0 };
+    if (this.disposed) return { pointCount: 0, frames: 0, calibrated: false };
     this.meta = meta;
     this.viewerBase = viewerBase;
 
@@ -163,7 +166,11 @@ export class ReadOnlySceneViewer {
     this.buildFrusta(meta);
     const t = this.timeline();
     if (t) this.setTime(t.t0);
-    return { pointCount: positions.length / 3, frames: meta.path?.length ?? 0 };
+    return {
+      pointCount: positions.length / 3,
+      frames: meta.path?.length ?? 0,
+      calibrated: this.isCalibrated(),
+    };
   }
 
   // -- scale ---------------------------------------------------------------
@@ -173,6 +180,14 @@ export class ReadOnlySceneViewer {
     if (cal && cal > 0) return cal;
     const def = this.meta?.default_scale_m_per_unit;
     return def && def > 0 ? def : 117.6;
+  }
+
+  // True only when a real measurement calibrated the scale. Otherwise the
+  // viewer is on the generic default, so heights/speeds are relative, not
+  // absolute — the UI says so.
+  private isCalibrated(): boolean {
+    const cal = this.meta?.calibration?.scale_m_per_vggt_unit;
+    return typeof cal === "number" && cal > 0;
   }
 
   // -- playback ------------------------------------------------------------
@@ -230,7 +245,13 @@ export class ReadOnlySceneViewer {
     }
     const totalT = (points[points.length - 1].t ?? 0) - (points[0].t ?? 0);
     const avgSpeedMs = totalT > 1e-4 ? (dist * scale) / totalT : null;
-    return { t0: points[0].t, t1: points[points.length - 1].t, avgSpeedMs, points };
+    return {
+      t0: points[0].t,
+      t1: points[points.length - 1].t,
+      avgSpeedMs,
+      points,
+      calibrated: this.isCalibrated(),
+    };
   }
 
   /** Per-frame VGGT camera-view images (actual / render / overlay). */

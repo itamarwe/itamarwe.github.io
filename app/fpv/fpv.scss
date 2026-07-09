@@ -423,6 +423,18 @@
   .scene-view .back-link {
     margin-bottom: 10px;
   }
+  /* Uncalibrated scenes are on the generic default scale — flag that the
+     height/speed axes are relative, not absolute metres. */
+  .scale-warning {
+    display: inline-block;
+    margin: 2px 0 10px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 209, 102, 0.4);
+    border-radius: 999px;
+    background: rgba(255, 209, 102, 0.07);
+    color: #ffd166;
+    font: 500 12px var(--font-sans);
+  }
   .scene-stage {
     position: relative;
     height: clamp(300px, calc(100vh - 400px), 700px);

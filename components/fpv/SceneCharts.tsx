@@ -183,7 +183,7 @@ export function SceneCharts({
   currentT: number;
   onSeek: (t: number) => void;
 }) {
-  const { t0, t1, points, avgSpeedMs } = timeline;
+  const { t0, t1, points, avgSpeedMs, calibrated } = timeline;
   const span = Math.max(t1 - t0, 1e-6);
   const clampedT = Math.min(Math.max(currentT, t0), t1);
   const cur = valueAt(points, clampedT);
@@ -199,7 +199,7 @@ export function SceneCharts({
       const plotH = h - PAD_T - PAD_B;
       const x = (t: number) => PAD_L + ((t - t0) / span) * plotW;
       const y = (v: number) => PAD_T + plotH - (v / sMax) * plotH;
-      frame(ctx, w, h, t0, t1, sMax, (v) => v.toFixed(0));
+      frame(ctx, w, h, t0, t1, sMax, calibrated ? (v) => v.toFixed(0) : () => "");
       if (avgSpeedMs !== null) {
         ctx.strokeStyle = COLORS.avg;
         ctx.setLineDash([4, 4]);
@@ -222,7 +222,7 @@ export function SceneCharts({
       const plotH = h - PAD_T - PAD_B;
       const x = (t: number) => PAD_L + ((t - t0) / span) * plotW;
       const y = (v: number) => PAD_T + plotH - (v / hMax) * plotH;
-      frame(ctx, w, h, t0, t1, hMax, (v) => v.toFixed(0));
+      frame(ctx, w, h, t0, t1, hMax, calibrated ? (v) => v.toFixed(0) : () => "");
       line(ctx, points, (p) => p.heightM, x, y, COLORS.height, 2);
       playhead(ctx, h, x(clampedT), cur.heightM !== null ? y(cur.heightM) : null);
     },
@@ -233,21 +233,25 @@ export function SceneCharts({
     <div className="scene-charts">
       <div className="chart-card">
         <header>
-          <span>Speed vs. Time</span>
-          <span className="chart-readout">
-            {cur.speedMs !== null ? `${cur.speedMs.toFixed(1)} m/s` : "--"}
-            {avgSpeedMs !== null ? ` · avg ${avgSpeedMs.toFixed(1)}` : ""}
-          </span>
+          <span>{calibrated ? "Speed vs. Time" : "Speed (relative)"}</span>
+          {calibrated ? (
+            <span className="chart-readout">
+              {cur.speedMs !== null ? `${cur.speedMs.toFixed(1)} m/s` : "--"}
+              {avgSpeedMs !== null ? ` · avg ${avgSpeedMs.toFixed(1)}` : ""}
+            </span>
+          ) : null}
         </header>
         <SeekableCanvas chartRef={speedRef} t0={t0} t1={t1} onSeek={onSeek} />
       </div>
       <div className="chart-card">
         <header>
-          <span>Height Above Ground</span>
-          <span className="chart-readout">
-            {cur.heightM !== null ? `${cur.heightM.toFixed(1)}m AGL` : "--"}
-            {cur.distM !== null ? ` | ${cur.distM.toFixed(0)}m tgt` : ""}
-          </span>
+          <span>{calibrated ? "Height Above Ground" : "Height above ground (relative)"}</span>
+          {calibrated ? (
+            <span className="chart-readout">
+              {cur.heightM !== null ? `${cur.heightM.toFixed(1)}m AGL` : "--"}
+              {cur.distM !== null ? ` | ${cur.distM.toFixed(0)}m tgt` : ""}
+            </span>
+          ) : null}
         </header>
         <SeekableCanvas chartRef={heightRef} t0={t0} t1={t1} onSeek={onSeek} />
       </div>
