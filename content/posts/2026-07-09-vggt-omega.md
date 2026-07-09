@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "VGGT-Ω: How 3D Reconstruction Became a Single Forward Pass"
+title: "VGGT-Ω: 3D Reconstruction in a Single Forward Pass"
 date: 2026-07-09
 categories: vision
 image: /img/vggt-omega/social.png
@@ -81,7 +81,20 @@ optimizer, so it's slow — minutes to hours for a real scene — and it's only 
 its starting guess. Give it a textureless wall, a hall of repeated windows, or too few
 overlapping views, and the matches go wrong, the optimization walks into a bad local
 minimum, and the whole reconstruction collapses. For twenty years the research went
-into making that optimization more robust. VGGT-Ω's lineage went the other way: **what
+into making that optimization more robust.
+
+<!-- FIGURE 4 — LIMITATIONS OF CLASSICAL SfM (qualitative schematic, no numeric axes):
+     three small "failure case" panels in a row, each showing why bundle adjustment
+     breaks — (a) a textureless wall: no features to match, drawn as a blank surface
+     with a few failed match-crosses (red); (b) repeated structure: a row of identical
+     windows with mismatched correspondences crossing wrongly (red); (c) too few /
+     low-overlap views: two frustums barely overlapping, points ambiguous. Below them a
+     small "loss landscape" curve with a ball stuck in a local minimum (gold), labeled
+     "bundle adjustment converges to the wrong answer". Message: accurate WHEN it works,
+     but brittle and slow. -->
+![Where classical SfM breaks: textureless surfaces, repeated structure, too few views, and local minima](/img/vggt-omega/sfm-limitations.png)
+
+VGGT-Ω's lineage went the other way: **what
 if you never optimize at all, and just predict the answer?**
 
 ## DUSt3R's bet: regress the geometry instead of solving for it
@@ -93,7 +106,7 @@ holds its `(x, y, z)` position in a shared 3D frame. No feature matching, no bun
 adjustment, no camera intrinsics required as input. The network has seen enough scenes
 during training that it simply *regresses* plausible geometry.
 
-<!-- FIGURE 4 — POINTMAP + THE PAIRWISE EXPLOSION (two-panel schematic):
+<!-- FIGURE 5 — POINTMAP + THE PAIRWISE EXPLOSION (two-panel schematic):
      LEFT: two overlapping photos → two pointmaps rendered as the same colored grid
      of 3D points living in one shared frame (the key idea: matching falls out for
      free because both grids are in the same coordinates).
@@ -125,7 +138,7 @@ step, because there are no pairs to align — the whole scene is reasoned about 
 The architecture is worth seeing, because VGGT-Ω is best understood as a surgical edit
 of it:
 
-<!-- FIGURE 5 — VGGT ARCHITECTURE (clean block schematic):
+<!-- FIGURE 6 — VGGT ARCHITECTURE (clean block schematic):
      Input frames → [DINO encoder] → per-frame token grids (+ one CAMERA token per
      frame, drawn distinct/gold). Then a stack of "Alternating Attention" blocks,
      drawn as two alternating layers: FRAME attention (tokens attend within their own
@@ -162,7 +175,7 @@ hundreds. Stacked on top of that, the **DPT heads are heavy and can be unstable 
 train**, and the whole model is capped by how much *labeled* 3D data exists to train it
 on — which is not much, because ground-truth 3D geometry is expensive to capture.
 
-<!-- FIGURE 6 — THE STAR FIGURE — GLOBAL vs REGISTER ATTENTION (side-by-side, the
+<!-- FIGURE 7 — THE STAR FIGURE — GLOBAL vs REGISTER ATTENTION (side-by-side, the
      centerpiece of the post):
      LEFT ("VGGT: global attention"): several columns of frame tokens with dense
      all-to-all arrows between EVERY token across all frames — a visual thicket, cyan
@@ -204,7 +217,7 @@ video**, where there's no ground-truth 3D at all, by supervising itself on the g
 consistency between frames. The reported result: training on roughly **15–20× more
 labeled data and ~100× more unlabeled data** than prior work.
 
-<!-- FIGURE 7 — DATA SCALE (schematic, no fake numbers): a small labeled box
+<!-- FIGURE 8 — DATA SCALE (schematic, no fake numbers): a small labeled box
      ("ground-truth 3D datasets", drawn tiny) next to a vast field of video frames
      ("unlabeled internet video", drawn as an ocean of thumbnails) feeding into the
      model. The visual point: self-supervision unlocks a category of data that's
@@ -233,7 +246,7 @@ accuracy as the model grows from **0.2B to 10B parameters** and the training dat
 from a few thousand sequences to about two million. That's the tell of a method that
 isn't near its ceiling — the same shape of curve that drove the LLM scale-up.
 
-<!-- FIGURE 8 — SCALING LAW (qualitative log-log sketch, EXPLICITLY illustrative):
+<!-- FIGURE 9 — SCALING LAW (qualitative log-log sketch, EXPLICITLY illustrative):
      x-axis "model + data scale (log)" with tick LABELS ONLY at 0.2B and 10B (no
      invented accuracy values on y — label y as "reconstruction accuracy →" with no
      numbers). A straight-ish downward-error / upward-accuracy line to convey the
@@ -294,6 +307,17 @@ Let me lay out the ledger honestly.
   it doesn't collapse on textureless walls or repeated structure the way SfM does, and it
   now handles **dynamic** scenes, not just static ones.
 
+<!-- FIGURE 10 — VGGT-Ω LIMITATIONS (qualitative schematic, no numeric axes): three
+     small panels — (a) METRIC-SCALE AMBIGUITY: the same reconstruction shown twice,
+     once labeled "dollhouse" and once "real house", identical geometry, a ruler with a
+     "?" — a single image set can't pin absolute scale; (b) HALLUCINATION: an
+     out-of-distribution scene where the model emits a confident but wrong surface
+     (draw the predicted geometry in cyan diverging from a faint "true" surface in
+     red), captioned "no reprojection residual to warn you"; (c) COMPUTE: a small vs
+     huge model glyph (0.2B vs 10B) with the note that the best numbers need the big
+     one. Keep it honest and schematic. -->
+![VGGT-Ω's limitations: scale ambiguity, confident hallucination off-distribution, and the compute the best model needs](/img/vggt-omega/vggt-omega-limitations.png)
+
 **The honest limitations:**
 
 - **Metric scale is still hard.** Like the rest of the pointmap family, absolute
@@ -309,6 +333,16 @@ Let me lay out the ledger honestly.
 - **Not a drop-in for survey-grade metric accuracy** yet — classical photogrammetry still
   wins where you need certified millimetre precision on well-textured, well-planned
   captures.
+
+<!-- FIGURE 11 — FUTURE / RECONSTRUCTION AS A SPATIAL FOUNDATION (concept-map
+     schematic, no numeric axes): a flow — [oceans of unlabeled video] → [VGGT-Ω:
+     predict the scene] → a highlighted block of REGISTER / SCENE tokens (gold, "a
+     compact spatial representation") → fanning out to three downstream uses:
+     (1) "aligns with language" (a text glyph), (2) "vision-language-action / robots"
+     (a robot-arm glyph), (3) "novel views / mapping". Tagline in the figure:
+     "reconstruction as a pretext task for spatial intelligence" — the 3D analogue of
+     next-word prediction. Purely conceptual, clearly not a data plot. -->
+![Reconstruction as a pretext task: predicting the scene yields a spatial representation that transfers to language and action](/img/vggt-omega/future-spatial-foundation.png)
 
 **Where this is headed.** The most interesting claim in the paper isn't about
 reconstruction at all. The register tokens VGGT-Ω learns turn out to be a compact,
