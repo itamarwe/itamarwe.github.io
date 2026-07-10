@@ -10,14 +10,14 @@ const nextConfig: NextConfig = {
   // directory URL. The Sun–Earth WebGL demo (public/solar-system/) is
   // pre-built and committed; the photo-geolocation tool (public/photo-
   // geolocation/) is built from apps/photo-geolocation/ during the site build.
+  // The FPV viewer (/fpv) is now a native Next route group (app/fpv/), not a
+  // static embed, so it needs no rewrite.
   async rewrites() {
     return [
       { source: "/solar-system", destination: "/solar-system/index.html" },
       { source: "/solar-system/", destination: "/solar-system/index.html" },
       { source: "/photo-geolocation", destination: "/photo-geolocation/index.html" },
       { source: "/photo-geolocation/", destination: "/photo-geolocation/index.html" },
-      { source: "/fpv", destination: "/fpv/index.html" },
-      { source: "/fpv/", destination: "/fpv/index.html" },
     ];
   },
 

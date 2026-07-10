@@ -1,8 +1,10 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/posts";
 import { site } from "@/lib/site";
+import { getVideos } from "@/lib/fpv/data";
+import { sceneHref, videoHref } from "@/lib/fpv/paths";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${site.url}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${site.url}/about/`, changeFrequency: "monthly", priority: 0.7 },
@@ -19,5 +21,27 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticPages, ...posts];
+  // One entry per video, plus one per reconstructed 3D scene. Best-effort: if
+  // the published manifest can't be fetched at build time, still emit the rest.
+  let fpv: MetadataRoute.Sitemap = [];
+  try {
+    const videos = await getVideos();
+    fpv = videos.flatMap((v) => {
+      const entries: MetadataRoute.Sitemap = [
+        { url: `${site.url}${videoHref(v.slug)}`, changeFrequency: "monthly", priority: 0.5 },
+      ];
+      if (v.scenePath) {
+        entries.push({
+          url: `${site.url}${sceneHref(v.slug)}`,
+          changeFrequency: "monthly",
+          priority: 0.6,
+        });
+      }
+      return entries;
+    });
+  } catch {
+    fpv = [];
+  }
+
+  return [...staticPages, ...posts, ...fpv];
 }
