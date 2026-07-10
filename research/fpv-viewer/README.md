@@ -19,7 +19,8 @@ This directory only regenerates the post's **figures** (in
 sim/
   figures.py   tool_flow.png         qualitative schematic of the three views
                                      (gallery -> annotated player -> 3-D scene);
-                                     no numeric axes.
+                                     no numeric axes. The 3-D panel is a REAL
+                                     capture (assets/biranit_scene_capture.png).
                annotated_clip.png    REAL flight-annotation timeline of one clip
                                      (2026-06-06 Merkava tank, Blat), from its
                                      segment markers.
@@ -29,6 +30,14 @@ sim/
                                      boundaries; each clip's final open-ended
                                      segment is excluded (no clip-end time in the
                                      manifest).
+               scene_pipeline.png    qualitative schematic of the reconstruction
+                                     pipeline (raw clip -> extract flight ->
+                                     enhance -> select the run -> 3-D scene);
+                                     no numeric axes.
+               scale_ambiguity.png   qualitative schematic of monocular scale
+                                     ambiguity (small near house vs large far
+                                     house in the same view cone; a known-size
+                                     door anchors the scale); no numeric axes.
                social.png            1200x630 OpenGraph card, composited over a
                                      REAL capture of the viewer's 3-D scene
                                      (assets/biranit_scene_capture.png).
@@ -45,12 +54,23 @@ capture/
   build_demo.sh         Trim each recording to its action window, burn caption
                         pills, cross-fade -> public/img/fpv-viewer/viewer-demo.mp4
                         (the guided tour embedded in the post).
+  capture_social.mjs    Playwright: record the three social-media source takes
+                        (gallery scroll/search/filter, video playing, scene
+                        playing start->end TWICE — orbit sweeps on the first
+                        pass, untouched second pass), each at 16:9 AND a native
+                        square viewport. Defaults to the LIVE site (override
+                        BASE; ONLY=scene re-records one scenario).
+  build_social.sh       capture_social.mjs + trim + encode -> out/social/ with
+                        8 videos: {tour,gallery,video,scene} x {linkedin 1080sq,
+                        twitter 1280x720}. Tour = the three clips cross-faded
+                        with caption pills.
 ```
 
-The little gallery cards and point clouds drawn *inside* the schematics are
-illustrative stand-ins (not screenshots) — they say "this is what the view looks
-like," they don't plot data. The social card and the demo video, by contrast, are
-**real** captures of the running viewer (Biranit / Iron Dome scene).
+The little gallery cards and the pipeline boxes drawn *inside* the schematics
+are illustrative stand-ins (not screenshots) — they say "this is what the view
+looks like," they don't plot data. The tool_flow 3-D panel, the social card and
+the demo video, by contrast, are **real** captures of the running viewer
+(Biranit / Iron Dome scene).
 
 ## Rebuild the demo video / social capture
 
@@ -63,11 +83,23 @@ cd capture && ./build_demo.sh
 cp out/scene_still.png ../assets/biranit_scene_capture.png   # refresh social bg
 ```
 
+## Social-media videos
+
+`build_social.sh` produces the 8 share-ready clips under `capture/out/social/`
+({tour, gallery, video, scene} × {LinkedIn 1080×1080, Twitter 1280×720}). It
+records from the **live site** by default, so it only needs Playwright + ffmpeg
+— no dev server:
+
+```
+cd capture && ./build_social.sh                 # live site
+BASE=http://localhost:5185 ./build_social.sh    # or against the dev server
+```
+
 ## Regenerate
 
 ```
 python3 -m venv .venv          # gitignored (research/**/.venv/)
-.venv/bin/pip install numpy matplotlib
+.venv/bin/pip install numpy matplotlib pillow
 .venv/bin/python sim/figures.py
 ```
 
