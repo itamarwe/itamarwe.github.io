@@ -63,10 +63,14 @@
     padding-top: 8px;
     padding-bottom: 8px;
   }
+  /* Match the site header's "Itamar Weiss" title: Doto dot-matrix face,
+     same weight/tracking, one tier smaller for the sub-header. */
   .fpv-section-title {
-    font-weight: 600;
-    font-size: 15px;
-    color: #ffffff;
+    font-family: var(--font-doto), var(--font-sans);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #ededed;
     text-decoration: none;
     white-space: nowrap;
   }
