@@ -47,6 +47,48 @@
     text-decoration-thickness: 2px;
   }
 
+  /* Section sub-header: full-width hairline strip, content aligned to the
+     viewer column, muted section links that don't read as body links. */
+  .fpv-subheader {
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 24px;
+  }
+  .fpv-subheader-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 20px;
+    flex-wrap: wrap;
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .fpv-section-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #ffffff;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .fpv-section-title:hover {
+    color: #ffffff;
+    text-decoration: none;
+  }
+  .fpv-section-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 14px;
+  }
+  .fpv-section-nav a {
+    color: var(--grey);
+    text-decoration: none;
+  }
+  .fpv-section-nav a:hover {
+    color: #ffffff;
+    text-decoration: none;
+  }
+
   /* Gallery */
   .gallery-toolbar {
     display: flex;
