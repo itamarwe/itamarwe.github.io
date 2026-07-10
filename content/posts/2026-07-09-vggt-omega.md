@@ -6,12 +6,6 @@ categories: vision
 image: /img/vggt-omega/social.png
 ---
 
-<style>
-.viz-frame { width: 100%; aspect-ratio: 16/10; border: 0; border-radius: 8px;
-  margin: 1rem 0; background: #000; }
-@media (max-width: 600px) { .viz-frame { aspect-ratio: 3/4; } }
-</style>
-
 <!-- FIGURE 1 — SOCIAL / LEAD CARD (1200×630, #000 bg): post title + the
      register-attention motif (per-frame token columns whose register tokens meet in
      a central gold cluster — reflecting the TRUE mechanism: registers self-attend
@@ -37,15 +31,16 @@ Before the how, here's the whole shift in one clip — the old iterative loop gr
 toward an answer next to VGGT-Ω snapping the scene into place in one pass (a stylized
 re-enactment of both processes, not real solver output):
 
-<!-- VIDEO (Manim, public/img/vggt-omega/optimize-vs-predict.mp4, embedded as plain
-     autoplay/loop/muted <video>): split screen.
-     LEFT ("Bundle adjustment"): a point cloud + camera frustums that start scattered
-     and jitter, visibly nudging over many iterations, slowly converging (gold),
-     iteration counter ticking up.
-     RIGHT ("VGGT-Ω, one forward pass"): the same set of input photos flash in, and the
-     3D scene (cameras + points) snaps into place once, cleanly (cyan), a single "1 pass"
-     stamp. The contrast in *motion* is the message: iterate vs predict.
-     Both sides are illustrative animations, per the honesty note in the prose. -->
+<!-- VIDEO (matplotlib animation, public/img/vggt-omega/optimize-vs-predict.mp4,
+     embedded as plain autoplay/loop/muted <video>): split screen, using a real 3D
+     house model (KayKit Medieval Hexagon Pack, CC0).
+     LEFT ("Bundle adjustment"): the house's surfaces start scattered into shards and
+     jitter home over many iterations (gold), iteration counter ticking up.
+     RIGHT ("VGGT-Ω, one forward pass"): three real renders of the house from
+     different viewpoints appear as input photos, a sweep passes, and the whole model
+     snaps into place at once (cyan), "1 pass ✓" stamp. Motion is the message:
+     iterate vs predict. Both sides are illustrative animations, per the honesty
+     note in the prose. -->
 <video src="/img/vggt-omega/optimize-vs-predict.mp4" autoplay loop muted playsinline style="width:100%; border-radius:8px; margin:1rem 0;"></video>
 
 This post is the explanation I wish I'd had for how we got from one to the other: what
@@ -64,10 +59,11 @@ it. You have a handful of photos of a scene. You want two things back:
   depth map per image or a point cloud in one shared coordinate frame.
 
 <!-- FIGURE 2 — THE PROBLEM (schematic, no numeric axes): a few photo thumbnails on
-     the left; on the right the shared 3D frame with camera frustums (cyan) placed
-     around a point cloud (muted). Arrows: images → {cameras + points}. Caption that
-     this is the single output every method below is fighting to produce. -->
-![From a set of photos, recover camera poses and a shared 3D point cloud](/img/vggt-omega/problem.png)
+     the left; on the right the shared 3D frame with camera frustums (cyan) around a
+     shaded render of a real 3D house model (KayKit, CC0). Arrows: images →
+     {cameras + geometry}. This is the single output every method below fights to
+     produce. -->
+![From a set of photos, recover camera poses and the 3D geometry in one shared frame](/img/vggt-omega/problem.png)
 
 The catch is that these two unknowns are entangled. You can't place the points without
 knowing where the cameras were, and you can't pin down the cameras without knowing
@@ -269,26 +265,18 @@ of its memory. Swap *all* of them and FLOPs collapse to 6% of the original — a
 roughly original-VGGT level. The released model takes the free 25%; the all-register
 variant is there if you're running on a drone.
 
-To feel the difference, poke at it — toggle between full global attention and register
-attention, sweep the number of frames and registers, and watch the interaction count
-diverge:
+Here's the swap in numbers, at VGGT-Ω's real token counts (1,024 image tokens per
+512×512 frame, 16 registers). Both curves grow quadratically with the number of frames —
+the register layer is simply **about 4,200× lower at every F**, because sixteen couriers
+replace a thousand-token crowd:
 
-<!-- INTERACTIVE (Three.js, public/vggt-omega-viz/register-attention.html, embedded via
-     iframe.viz-frame): F frame-token columns (each T image tokens, cyan) + R register
-     tokens per frame (gold strip at top of each column).
-     Controls: slider F (2-12), slider R (1-32), toggle "global attention ↔ register
-     attention".
-     - Global mode: draw all-to-all edges across every token of every frame; live
-       counter of pairwise interactions ~ (F·T)².
-     - Register mode: TWO-STEP topology matching the paper — cross-frame edges ONLY
-       between register tokens of different frames ((F·R)² interactions, gold), then
-       within-column edges from each frame's registers to its own image tokens (frame
-       attention, dim cyan). Live counter shows the two terms and the total.
-     - A small footnote in the panel: "VGGT-Ω replaces 25% of global-attention layers
-       with this; replacing all of them trades accuracy for a ~20× FLOPs cut."
-     Pure-black bg, CSS2D labels, damped orbit or fixed 2.5D. Verify headlessly and
-     check the math in Node against a Python reference. -->
-<iframe class="viz-frame" loading="lazy" src="/vggt-omega-viz/register-attention.html" title="Interactive: global vs register attention"></iframe>
+<!-- FIGURE 8b — ATTENTION COST (exact arithmetic, log-log): interactions per layer vs
+     frames F. Red: global layer (F·N)²; gold: register layer (F·R)²; dashed muted:
+     frame layer F·N² (unchanged in both models). N = 1041 (1024 image tokens at
+     512×512 / 16px patches + 16 registers + 1 camera token), R = 16. Annotated
+     constant gap ≈4,233×. No fabricated data — pure computation from the
+     architecture's real token counts, stated in the figure footer. -->
+![Exact interaction counts per attention layer: the register layer is ~4,200× cheaper than the global layer at any frame count](/img/vggt-omega/attention-cost.png)
 
 **2. One lean dense head instead of many heavy ones.** VGGT predicted depth, pointmaps,
 and tracks each through its own DPT decoder, and the expensive part — high-resolution
@@ -474,4 +462,5 @@ space.
 [DUSt3R](https://arxiv.org/abs/2312.14132) ·
 [MASt3R](https://arxiv.org/abs/2406.09756) ·
 [COLMAP](https://colmap.github.io/) ·
-[facebookresearch/vggt-omega](https://github.com/facebookresearch/vggt-omega)*
+[facebookresearch/vggt-omega](https://github.com/facebookresearch/vggt-omega) ·
+3D house model in the figures: [KayKit Medieval Hexagon Pack](https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0) (CC0)*

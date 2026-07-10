@@ -89,25 +89,125 @@ def photo(ax, x, y, w, h, seed=0, ec=MUT, z=3):
     ax.add_patch(Circle((x+w*0.8, y+h*0.78), min(w,h)*0.075, facecolor=GOLD,
                  edgecolor="none", alpha=0.9, zorder=z+1))
 
-def house_cloud(n=170, seed=3):
-    """Point cloud tracing a little house + ground, used as 'the scene'."""
+# ---- real 3D house: KayKit Medieval Hexagon Pack (CC0), building_home_B ----
+HOUSE_OBJ = os.path.normpath(os.path.join(os.path.dirname(__file__),
+            "../assets/building_home_B_red.obj"))
+
+def load_obj(path):
+    """Vertices + triangulated faces from a Wavefront OBJ (v/f lines only)."""
+    verts, faces = [], []
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("v "):
+                verts.append([float(x) for x in line.split()[1:4]])
+            elif line.startswith("f "):
+                idx = [int(tok.split("/")[0]) - 1 for tok in line.split()[1:]]
+                for i in range(1, len(idx) - 1):        # fan-triangulate
+                    faces.append((idx[0], idx[i], idx[i+1]))
+    return np.array(verts), np.array(faces)
+
+def sample_mesh(n=700, seed=3):
+    """Area-weighted random points on the house surface (3D, y-up).
+    Returns (points, per-point face normals)."""
     rng = np.random.default_rng(seed)
-    pts = []
-    def seg(p0, p1, k):
-        t = rng.random(k)
-        for ti in t:
-            pts.append((p0[0]+(p1[0]-p0[0])*ti, p0[1]+(p1[1]-p0[1])*ti))
-    A, B, C, D = (0, 0), (10, 0), (10, 6), (0, 6)
-    R = (5, 10)
-    seg(A, B, int(n*0.14)); seg(B, C, int(n*0.10)); seg(D, A, int(n*0.10))
-    seg(C, R, int(n*0.12)); seg(D, R, int(n*0.12))
-    seg((3.8, 0), (3.8, 3.4), int(n*0.05)); seg((6.2, 0), (6.2, 3.4), int(n*0.05))
-    seg((3.8, 3.4), (6.2, 3.4), int(n*0.04))
-    g = rng.random((int(n*0.28), 2)) * np.array([26, 1.0]) + np.array([-8, -1.6])
-    pts.extend(map(tuple, g))
-    P = np.array(pts)
-    P += rng.normal(0, 0.12, P.shape)
-    return P
+    V, F = load_obj(HOUSE_OBJ)
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    nrm = np.cross(b - a, c - a)
+    area = 0.5 * np.linalg.norm(nrm, axis=1)
+    nrm = nrm / (np.linalg.norm(nrm, axis=1, keepdims=True) + 1e-12)
+    tri = rng.choice(len(F), size=n, p=area / area.sum())
+    u, v = rng.random(n), rng.random(n)
+    flip = u + v > 1; u[flip], v[flip] = 1 - u[flip], 1 - v[flip]
+    P = a[tri] + u[:, None]*(b[tri]-a[tri]) + v[:, None]*(c[tri]-a[tri])
+    return P, nrm[tri]
+
+def house_view(n=700, seed=3, az=32, el=16):
+    """Project the sampled house to 2D. Returns (pts, depth, shade):
+    pts in a unit-wide box, depth 0=near..1=far, shade = lambertian 0..1."""
+    P, Nrm = sample_mesh(n, seed)
+    ta, te = np.radians(az), np.radians(el)
+    def view(v3):
+        x = v3[:, 0]*np.cos(ta) + v3[:, 2]*np.sin(ta)
+        z = -v3[:, 0]*np.sin(ta) + v3[:, 2]*np.cos(ta)
+        y = v3[:, 1]*np.cos(te) - z*np.sin(te)
+        d = v3[:, 1]*np.sin(te) + z*np.cos(te)
+        return x, y, d
+    x, y, d = view(P)
+    nx, ny, nd = view(Nrm)
+    light = np.array([-0.35, 0.85, -0.4]); light /= np.linalg.norm(light)
+    shade = np.abs(nx*light[0] + ny*light[1] + nd*light[2])
+    x -= x.min(); y -= y.min()
+    s = x.max()
+    x, y = x/s, y/s
+    d = (d - d.min()) / (d.max() - d.min() + 1e-9)
+    # poor-man's z-buffer: drop points hidden behind nearer surfaces, else the
+    # cloud reads as an X-ray (interior/back faces bleed through the facade)
+    G = 72
+    gx = np.clip((x * G).astype(int), 0, G - 1)
+    gy = np.clip((y / max(y.max(), 1e-9) * G).astype(int), 0, G - 1)
+    key = gx * G + gy
+    dmin = np.full(G * G, np.inf)
+    np.minimum.at(dmin, key, d)
+    vis = d <= dmin[key] + 0.045
+    return np.c_[x, y][vis], d[vis], shade[vis]
+
+def house_mesh_2d(az=38, el=18):
+    """Project the house mesh: returns (tri_xy [n,3,2], depth [n], shade [n]),
+    triangles sorted far-to-near for painter's-algorithm rendering."""
+    V, F = load_obj(HOUSE_OBJ)
+    ta, te = np.radians(az), np.radians(el)
+    x = V[:, 0]*np.cos(ta) + V[:, 2]*np.sin(ta)
+    z = -V[:, 0]*np.sin(ta) + V[:, 2]*np.cos(ta)
+    y = V[:, 1]*np.cos(te) - z*np.sin(te)
+    d = V[:, 1]*np.sin(te) + z*np.cos(te)
+    x -= x.min(); y -= y.min(); s = x.max()
+    P2 = np.c_[x/s, y/s]
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    nrm = np.cross(b - a, c - a)
+    nrm /= (np.linalg.norm(nrm, axis=1, keepdims=True) + 1e-12)
+    def rot(v3):
+        rx = v3[:, 0]*np.cos(ta) + v3[:, 2]*np.sin(ta)
+        rz = -v3[:, 0]*np.sin(ta) + v3[:, 2]*np.cos(ta)
+        ry = v3[:, 1]*np.cos(te) - rz*np.sin(te)
+        rd = v3[:, 1]*np.sin(te) + rz*np.cos(te)
+        return np.c_[rx, ry, rd]
+    nv = rot(nrm)
+    light = np.array([-0.35, 0.85, -0.45]); light /= np.linalg.norm(light)
+    shade = np.abs(nv @ light)
+    td = d[F].mean(axis=1)
+    order = np.argsort(-td)                    # far first
+    tri = P2[F][order]
+    tdn = (td[order] - td.min()) / (td.max() - td.min() + 1e-9)
+    return tri, tdn, shade[order]
+
+def house_poly(ax, ox, oy, w, color, az=38, el=18, ar=1.0, zorder=4):
+    """Shaded solid render of the real house model (painter's algorithm)."""
+    from matplotlib.collections import PolyCollection
+    tri, d, shade = house_mesh_2d(az, el)
+    base = np.array(mcolors.to_rgb(color))
+    bright = (0.22 + 0.78*shade) * (1.0 - 0.18*d)
+    cols = np.clip(base[None, :] * bright[:, None] * 1.30, 0, 1)
+    T = tri.copy()
+    T[..., 0] = ox + T[..., 0]*w
+    T[..., 1] = oy + T[..., 1]*w*ar
+    ax.add_collection(PolyCollection(T, facecolors=cols, edgecolors="none",
+                                     zorder=zorder))
+
+def house_scatter(ax, ox, oy, w, color, n=700, seed=3, az=32, el=16, s=6,
+                  ar=1.0):
+    """Scatter the projected house at (ox, oy), width w. Points are shaded by
+    surface orientation (lambertian) and drawn far-to-near, so roof planes and
+    walls read as distinct surfaces. `ar` corrects for non-square axis units."""
+    pts, d, shade = house_view(n, seed, az, el)
+    order = np.argsort(-d)                      # far first
+    pts, d, shade = pts[order], d[order], shade[order]
+    base = np.array(mcolors.to_rgb(color))
+    bright = (0.30 + 0.70*shade) * (1.0 - 0.25*d)
+    rgba = np.empty((len(pts), 4))
+    rgba[:, :3] = np.clip(base[None, :] * bright[:, None] * 1.35, 0, 1)
+    rgba[:, 3] = 0.95
+    ax.scatter(ox + pts[:, 0]*w, oy + pts[:, 1]*w*ar, s=s, c=rgba,
+               edgecolors="none", zorder=4)
 
 def token_col(ax, x, y, cols, rows, s, gap, color=CYAN, alpha=0.9, z=4, ec="none"):
     """Grid of small square tokens; returns centers."""
@@ -132,16 +232,12 @@ def fig_problem():
     ax.text(16, 18, "input photos", color=MUT, fontsize=12, ha="center")
     arrow(ax, (33, 50), (44, 50), color=FG, lw=2.4, ms=20)
     ax.text(38.5, 54, "?", color=GOLD, fontsize=20, ha="center", weight="bold")
-    # right: shared 3D frame
-    P = house_cloud()
-    sx, sy = 2.15, 2.6
-    X = 60 + P[:, 0]*sx; Y = 26 + P[:, 1]*sy
-    ax.scatter(X, Y, s=7, c=MUT, alpha=0.85, zorder=4)
-    ax.scatter(X, Y, s=26, c=MUT, alpha=0.12, zorder=3)
-    cams = [(50, 24, 18), (58, 68, -46), (88, 74, -117), (95, 33, 158)]
+    # right: shared 3D frame — the real house model, shaded render
+    house_poly(ax, 58, 13, 19, "#b9c4d4", az=38, el=18, ar=12.3/5.6)
+    cams = [(50, 20, 14), (52, 74, -32), (88, 76, -137), (94, 30, 158)]
     for cx, cy, a in cams:
         camera(ax, cx, cy, a, CYAN, s=1.5)
-    ax.text(73, 10, "camera poses  +  3D points, in one shared frame",
+    ax.text(73, 10, "camera poses  +  3D geometry, in one shared frame",
             color=FG, fontsize=12.5, ha="center")
     ax.text(73, 4.5, "every method below is a different way to produce this",
             color=MUT, fontsize=10.5, ha="center")
@@ -198,9 +294,8 @@ def fig_sfm_pipeline():
     # stage 3
     box(ax, 71, y0, 26, h, ec=MUT)
     ax.text(84, y0+h+5, "3 · dense multi-view stereo", color=FG, fontsize=12.5, ha="center")
-    P = house_cloud(n=380, seed=8)
-    X = 78.5 + P[:, 0]*0.9; Y = y0 + 9 + P[:, 1]*2.4
-    ax.scatter(X, Y, s=3.5, c=CYAN, alpha=0.8, zorder=6)
+    house_scatter(ax, 79, y0+3, 10, CYAN, n=2000, seed=8, s=2.2, az=38, el=18,
+                  ar=12.3/4.9)
     ax.text(84, y0-6.5, "sparse points → dense surface", color=MUT, fontsize=10, ha="center")
     save(fig, "sfm-pipeline.png")
 
@@ -466,6 +561,47 @@ def fig_register_relay():
             color=MUT, fontsize=10, ha="center")
     save(fig, "register-attention.png")
 
+# ---------------------------------------- fig 8b: attention cost (exact)
+def fig_attention_cost():
+    """Exact interaction counts per attention layer.
+    T = 1024 image tokens (a 512x512 input at VGGT-Omega's 16px patches),
+    R = 16 registers, +1 camera token -> N = 1041 tokens per frame."""
+    T, R = 1024, 16
+    N = T + R + 1
+    F = np.geomspace(2, 1000, 200)
+    fig = plt.figure(figsize=(12.3, 4.9)); fig.patch.set_facecolor(BG)
+    ax = fig.add_axes([0.09, 0.16, 0.60, 0.68]); ax.set_facecolor(BG)
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.plot(F, (F*N)**2, color=RED, lw=2.4, zorder=4)
+    ax.plot(F, (F*R)**2, color=GOLD, lw=2.4, zorder=4)
+    ax.plot(F, F*(N**2), color=MUT, lw=1.6, ls="--", zorder=3)
+    fig.text(0.09, 0.93, "swap a global layer for a register layer — exact counts",
+             fontsize=16, weight="bold", color=FG)
+    ax.set_xlabel("frames F  (log)", color=MUT, fontsize=11.5)
+    ax.set_ylabel("token–token interactions\nper layer  (log)", color=MUT, fontsize=11.5)
+    ax.tick_params(labelsize=10)
+    for s in ["top", "right"]: ax.spines[s].set_visible(False)
+    for s in ["left", "bottom"]: ax.spines[s].set_color(MUT)
+    ax.grid(True, which="major", color="#1a2029", lw=0.7, zorder=0)
+    # constant vertical gap between the two quadratic curves: (N/R)^2
+    gap = (N / R) ** 2
+    fx = 30
+    ax.annotate("", (fx, (fx*R)**2), (fx, (fx*N)**2),
+                arrowprops=dict(arrowstyle="<->", color=FG, lw=1.4))
+    ax.text(fx*1.3, np.sqrt((fx*N)**2 * (fx*R)**2),
+            f"≈{gap:,.0f}× fewer,\nat any F", color=FG, fontsize=11.5, va="center")
+    # right-side legend text
+    fig.text(0.72, 0.72, "global attention layer", color=RED, fontsize=12.5, weight="bold")
+    fig.text(0.72, 0.66, "(F·N)² — every token ↔ every token", color=MUT, fontsize=10)
+    fig.text(0.72, 0.56, "register attention layer", color=GOLD, fontsize=12.5, weight="bold")
+    fig.text(0.72, 0.50, "(F·R)² — only registers meet", color=MUT, fontsize=10)
+    fig.text(0.72, 0.40, "frame attention layer", color=MUT, fontsize=12.5)
+    fig.text(0.72, 0.34, "F·N² — unchanged in both models", color=MUT, fontsize=10)
+    fig.text(0.09, 0.03, "exact arithmetic, N = 1041 tokens per frame "
+             "(1024 image tokens at 512×512 / 16px patches + 16 registers + 1 camera token), R = 16",
+             fontsize=9, color=MUT)
+    save(fig, "attention-cost.png")
+
 # --------------------------------------------------- fig 9: data engine
 def fig_data_engine():
     fig, ax = newfig(12.3, 5.2)
@@ -561,11 +697,9 @@ def fig_limitations():
         box(ax, x, y0, w, h, ec=MUT)
     # (a) scale ambiguity
     x = xs[0]
-    P = house_cloud(n=90, seed=3)
-    for sc, ox, lab in [(0.55, 7.5, "dollhouse?"), (1.05, 17.5, "real house?")]:
-        X = x + ox + P[:, 0]*sc*0.55; Y = y0 + 14 + P[:, 1]*sc*1.6
-        ax.scatter(X, Y, s=2.5, c=CYAN, alpha=0.8, zorder=4)
-        ax.text(x+ox+3*sc, y0+7, lab, color=MUT, fontsize=9.5, ha="center")
+    for w_, ox, lab in [(4.5, 4.5, "dollhouse?"), (9, 14.5, "real house?")]:
+        house_poly(ax, x+ox, y0+12, w_, CYAN, az=38, el=18, ar=12.3/5.4)
+        ax.text(x+ox+w_/2, y0+8, lab, color=MUT, fontsize=9.5, ha="center")
     ax.text(x+w/2, y0+h-7, "same pixels, either answer", color=FG, fontsize=10.5, ha="center")
     ax.text(x+w/2, y0+h-13, "scale needs outside cues", color=GOLD, fontsize=10, ha="center")
     ax.text(x+w/2, y0-6, "a · metric scale", color=FG, fontsize=12, ha="center")
@@ -669,4 +803,5 @@ def fig_social():
 if __name__ == "__main__":
     fig_social(); fig_problem(); fig_sfm_pipeline(); fig_sfm_limitations()
     fig_dust3r(); fig_vggt_arch(); fig_global_wall(); fig_register_relay()
-    fig_data_engine(); fig_scaling(); fig_limitations(); fig_future()
+    fig_attention_cost(); fig_data_engine(); fig_scaling(); fig_limitations()
+    fig_future()
