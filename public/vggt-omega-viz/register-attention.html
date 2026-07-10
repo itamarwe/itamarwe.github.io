@@ -33,18 +33,29 @@
     .modes button.on-register { background: #241d0b; color: #ffd166; border-color: #ffd166; }
     .row { margin: 8px 0 2px; display: flex; justify-content: space-between; color: #8b95a5; }
     input[type=range] { width: 100%; accent-color: #3fc1ff; }
-    #counts { margin-top: 10px; border-top: 1px solid #232a35; padding-top: 8px; line-height: 1.5; }
-    #counts b { font-weight: 600; }
+    #stats {
+      position: fixed; left: 12px; bottom: 10px; max-width: 46vw;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: rgba(11, 14, 19, 0.92); border: 1px solid #232a35;
+      border-radius: 10px; padding: 10px 12px; color: #ededed;
+      font-size: 12.5px; line-height: 1.55;
+    }
+    #stats b { font-weight: 600; }
     .g { color: #ff5a5a; } .r { color: #ffd166; } .c { color: #3fc1ff; }
-    #note { margin-top: 8px; color: #6b7280; font-size: 10.5px; line-height: 1.45; }
+    #note { margin-top: 7px; border-top: 1px solid #232a35; padding-top: 7px;
+      color: #6b7280; font-size: 10.5px; line-height: 1.45; }
     #hint {
-      position: fixed; left: 12px; bottom: 10px;
+      position: fixed; right: 12px; bottom: 10px;
       font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
       font-size: 12px; color: #6b7280; pointer-events: none; user-select: none;
     }
     @media (max-width: 600px) {
-      #panel { width: 180px; padding: 9px 10px; font-size: 11.5px; }
-      #counts { font-size: 11px; }
+      #panel { max-width: 47vw; width: auto; padding: 8px 9px; font-size: 11px; }
+      #panel h3 { font-size: 11.5px; margin-bottom: 6px; }
+      .modes button { padding: 4px 3px; font-size: 10px; }
+      .row { margin: 5px 0 1px; }
+      #stats { font-size: 10.5px; padding: 7px 9px; max-width: 60vw; line-height: 1.45; }
+      #note, #hint { display: none; }
     }
   </style>
   <!-- Three.js vendored under ./vendor/ — no runtime CDN dependency. -->
@@ -69,6 +80,8 @@
     <input id="sF" type="range" min="2" max="8" step="1" value="4" />
     <div class="row"><span>registers per frame R</span><span id="vR"></span></div>
     <input id="sR" type="range" min="2" max="16" step="1" value="8" />
+  </div>
+  <div id="stats">
     <div id="counts"></div>
     <div id="note">Tokens per frame shown: T = 48 (real models: thousands — the gap grows
       with T²). Lines are a sampled subset when dense; the counts are exact.
@@ -232,11 +245,16 @@
       const regCross = Math.pow(state.F * state.R, 2); // one register layer
       const frameLocal = state.F * N * N;            // one frame layer (both models)
       const ratio = global / (regCross + frameLocal);
-      document.getElementById('counts').innerHTML =
-        `<b class="g">global layer:</b> (F·(T+R))² = <b>${fmt(global)}</b><br/>` +
-        `<b class="r">register layer:</b> (F·R)² = <b>${fmt(regCross)}</b><br/>` +
-        `<b class="c">frame layer (both):</b> F·(T+R)² = <b>${fmt(frameLocal)}</b><br/>` +
-        `register + frame vs global: <b>${ratio.toFixed(1)}× cheaper</b>`;
+      const compact = matchMedia('(max-width: 600px)').matches;
+      document.getElementById('counts').innerHTML = compact
+        ? `<b class="g">global:</b> <b>${fmt(global)}</b><br/>` +
+          `<b class="r">register:</b> <b>${fmt(regCross)}</b> ` +
+          `+ <b class="c">frame:</b> <b>${fmt(frameLocal)}</b><br/>` +
+          `→ <b>${ratio.toFixed(1)}× cheaper</b>`
+        : `<b class="g">global layer:</b> (F·(T+R))² = <b>${fmt(global)}</b><br/>` +
+          `<b class="r">register layer:</b> (F·R)² = <b>${fmt(regCross)}</b><br/>` +
+          `<b class="c">frame layer (both):</b> F·(T+R)² = <b>${fmt(frameLocal)}</b><br/>` +
+          `register + frame vs global: <b>${ratio.toFixed(1)}× cheaper</b>`;
     }
 
     // ---------- ui ---------------------------------------------------------
@@ -262,8 +280,11 @@
       const w = app.clientWidth, h = app.clientHeight;
       renderer.setSize(w, h); labelRenderer.setSize(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
+      // pull back on narrow/tall viewports so all frames stay in view
+      const fit = 26 * Math.max(1, 1.25 / camera.aspect);
+      camera.position.setLength(fit);
     }
-    addEventListener('resize', resize);
+    addEventListener('resize', () => { resize(); updateCounts(); });
 
     onSlider();
     const urlMode = new URLSearchParams(location.search).get('mode');
