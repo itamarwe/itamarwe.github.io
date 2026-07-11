@@ -15,7 +15,7 @@ image: /img/fpv-viewer/social.png
 
 A few weeks ago I [opened up a dataset of Hezbollah FPV drone-strike videos](/blog/fpv-drone-strikes-open-dataset/) — every clip I could pull out of OSINT, labelled and kept in one place so anyone building a defense could start from real footage instead of a press release. It worked as a *dataset*, but it was miserable as something to actually *look at*. To answer a simple question — "show me the strikes on air-defense sites near the border" — you were downloading MP4s and scrubbing through them by hand.
 
-So I built the thing that was missing: **a viewer that makes the dataset accessible to the community — something you can browse, read, and learn from, right in the browser.** It's live at **[itamar-weiss.com/fpv](/fpv)**. This post is what it does and the two ideas behind it that I think are worth stealing for any video-forensics collection.
+So I built the thing that was missing: **a viewer that makes the dataset accessible to the community — something you can browse, read, and learn from, right in the browser.** It's live at **[itamarweiss.com/fpv](/fpv)**. This post is what it does and the two ideas behind it that I think are worth stealing for any video-forensics collection.
 
 ## Three ways to look at the same clip
 
@@ -29,7 +29,7 @@ Here's the whole thing in one pass — browsing the gallery, reading a clip's fl
 
 <video src="/img/fpv-viewer/viewer-demo.mp4" class="demo-video" autoplay loop muted playsinline></video>
 
-It's the same catalog as the repo, just alive — and it grows as new footage surfaces. It's best experienced full-screen at **[itamar-weiss.com/fpv](/fpv)**.
+It's the same catalog as the repo, just alive — and it grows as new footage surfaces. It's best experienced full-screen at **[itamarweiss.com/fpv](/fpv)**.
 
 ## Annotations: extracting the flight segments
 
@@ -65,4 +65,4 @@ Not every clip has a scene yet, and quality varies — compressed footage, sky a
 
 I could have left it as a repo. But a dataset you can't *see* barely gets used, and the whole reason I opened this one up was for it to get used — by anyone trying to understand how the threat behaves, or to build and evaluate the sensors and algorithms that stop it. It's the same instinct behind [designing a microphone array to hear these drones](/blog/designing-a-mic-array-for-acoustic-drone-detection/): the tools only get you so far without representative data you can actually put your hands on.
 
-So the viewer is live and it tracks the dataset as it grows: **[itamar-weiss.com/fpv](/fpv)**. The underlying collection — clips, labels, manifest — stays open at **[github.com/itamarwe/fpv-drone-strikes-lebanon-dataset](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)**. Browse it, learn from it, and if you have footage that belongs in it, send it my way.
+So the viewer is live and it tracks the dataset as it grows: **[itamarweiss.com/fpv](/fpv)**. The underlying collection — clips, labels, manifest — stays open at **[github.com/itamarwe/fpv-drone-strikes-lebanon-dataset](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset)**. Browse it, learn from it, and if you have footage that belongs in it, send it my way.
