@@ -46,9 +46,9 @@ def newfig(w, h, xlim=(0, 100), ylim=(0, 100)):
     for s in ax.spines.values(): s.set_visible(False)
     return fig, ax
 
-def save(fig, name):
+def save(fig, name, dpi=130):
     p = os.path.join(OUT, name)
-    fig.savefig(p, facecolor=BG, dpi=130)
+    fig.savefig(p, facecolor=BG, dpi=dpi)
     plt.close(fig)
     print("wrote", p)
 
@@ -494,8 +494,8 @@ def fig_global_wall():
     ax.add_collection(LineCollection(segs, colors=colors, lw=0.35, alpha=0.16, zorder=2))
     ax.text(28, 22, "global attention: every token ↔ every token", color=FG,
             fontsize=12, ha="center")
-    ax.text(28, 15.5, "cost ~ (F·T)²  —  double the frames, quadruple the bill",
-            color=RED, fontsize=11, ha="center")
+    ax.text(28, 15.5, "cost ~ (F·T)²\ndouble the frames → roughly 4× work",
+            color=RED, fontsize=10.5, ha="center", linespacing=1.35)
     # RIGHT: sparse attention heatmap
     n = 64
     rng = np.random.default_rng(7)
@@ -546,7 +546,7 @@ def fig_register_relay():
                 ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle="-",
                              connectionstyle=f"arc3,rad={rad}",
                              color=GOLD, lw=1.0, alpha=0.55, zorder=5))
-    ax.text(48, 88.5, "① register attention — only the 16 registers per frame meet across frames",
+    ax.text(48, 88.5, "① register attention — only the tiny scene-token set meets across frames",
             color=GOLD, fontsize=12.5, ha="center")
     # STEP 2: within-frame briefing (registers → their own tokens)
     for x, tp, rp in zip(xs, tok_pts, reg_pts):
@@ -556,7 +556,7 @@ def fig_register_relay():
                     alpha=0.5, zorder=3)
     ax.text(48, 31, "② frame attention — each frame’s registers brief their own tokens, locally",
             color=CYAN, fontsize=12.5, ha="center")
-    ax.text(48, 24.5, "cross-frame cost now scales with F·R (R = 16), not F·T (T ≈ thousands)   ·   "
+    ax.text(48, 24.5, "cross-frame cost now scales with F·S (S = 17 in the released code), not F·T   ·   "
             "VGGT-Ω swaps 25% of global layers for this — accuracy unchanged",
             color=MUT, fontsize=10, ha="center")
     save(fig, "register-attention.png")
@@ -565,15 +565,17 @@ def fig_register_relay():
 def fig_attention_cost():
     """Exact interaction counts per attention layer.
     T = 1024 image tokens (a 512x512 input at VGGT-Omega's 16px patches),
-    R = 16 registers, +1 camera token -> N = 1041 tokens per frame."""
-    T, R = 1024, 16
-    N = T + R + 1
+    R = 16 registers, +1 camera token. The released implementation sends the
+    camera token through register attention with the registers, so S = 17."""
+    T, R, C = 1024, 16, 1
+    S = R + C
+    N = T + S
     F = np.geomspace(2, 1000, 200)
     fig = plt.figure(figsize=(12.3, 4.9)); fig.patch.set_facecolor(BG)
     ax = fig.add_axes([0.09, 0.16, 0.60, 0.68]); ax.set_facecolor(BG)
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.plot(F, (F*N)**2, color=RED, lw=2.4, zorder=4)
-    ax.plot(F, (F*R)**2, color=GOLD, lw=2.4, zorder=4)
+    ax.plot(F, (F*S)**2, color=GOLD, lw=2.4, zorder=4)
     ax.plot(F, F*(N**2), color=MUT, lw=1.6, ls="--", zorder=3)
     fig.text(0.09, 0.93, "swap a global layer for a register layer — exact counts",
              fontsize=16, weight="bold", color=FG)
@@ -583,22 +585,22 @@ def fig_attention_cost():
     for s in ["top", "right"]: ax.spines[s].set_visible(False)
     for s in ["left", "bottom"]: ax.spines[s].set_color(MUT)
     ax.grid(True, which="major", color="#1a2029", lw=0.7, zorder=0)
-    # constant vertical gap between the two quadratic curves: (N/R)^2
-    gap = (N / R) ** 2
+    # constant vertical gap between the two quadratic curves: (N/S)^2
+    gap = (N / S) ** 2
     fx = 30
-    ax.annotate("", (fx, (fx*R)**2), (fx, (fx*N)**2),
+    ax.annotate("", (fx, (fx*S)**2), (fx, (fx*N)**2),
                 arrowprops=dict(arrowstyle="<->", color=FG, lw=1.4))
-    ax.text(fx*1.3, np.sqrt((fx*N)**2 * (fx*R)**2),
+    ax.text(fx*1.3, np.sqrt((fx*N)**2 * (fx*S)**2),
             f"≈{gap:,.0f}× fewer,\nat any F", color=FG, fontsize=11.5, va="center")
     # right-side legend text
     fig.text(0.72, 0.72, "global attention layer", color=RED, fontsize=12.5, weight="bold")
     fig.text(0.72, 0.66, "(F·N)² — every token ↔ every token", color=MUT, fontsize=10)
     fig.text(0.72, 0.56, "register attention layer", color=GOLD, fontsize=12.5, weight="bold")
-    fig.text(0.72, 0.50, "(F·R)² — only registers meet", color=MUT, fontsize=10)
+    fig.text(0.72, 0.50, "(F·S)² — registers + camera token", color=MUT, fontsize=10)
     fig.text(0.72, 0.40, "frame attention layer", color=MUT, fontsize=12.5)
     fig.text(0.72, 0.34, "F·N² — unchanged in both models", color=MUT, fontsize=10)
-    fig.text(0.09, 0.03, "exact arithmetic, N = 1041 tokens per frame "
-             "(1024 image tokens at 512×512 / 16px patches + 16 registers + 1 camera token), R = 16",
+    fig.text(0.09, 0.03, "exact arithmetic from the released implementation: N = 1041 tokens per frame "
+             "(1024 image tokens + 16 registers + 1 camera token), S = 17 cross-frame tokens",
              fontsize=9, color=MUT)
     save(fig, "attention-cost.png")
 
@@ -798,7 +800,7 @@ def fig_social():
                 ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle="-",
                              connectionstyle=f"arc3,rad={0.22+0.06*a}",
                              color=GOLD, lw=1.3, alpha=0.6, zorder=5))
-    save(fig, "social.png")
+    save(fig, "social.png", dpi=100)
 
 if __name__ == "__main__":
     fig_social(); fig_problem(); fig_sfm_pipeline(); fig_sfm_limitations()
