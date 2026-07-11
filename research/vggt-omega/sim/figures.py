@@ -779,27 +779,20 @@ def fig_social():
     ax.text(6, 74, "VGGT-Ω", color=FG, fontsize=44, weight="bold")
     ax.text(6, 58, "3D reconstruction in a", color=MUT, fontsize=19)
     ax.text(6, 48, "single forward pass", color=CYAN, fontsize=19, weight="bold")
+    ax.text(6, 36, "photos → cameras + dense 3D", color=FG, fontsize=13)
     ax.text(6, 22, "COLMAP → DUSt3R → VGGT → VGGT-Ω", color=MUT, fontsize=12)
     ax.text(6, 13, "itamar-weiss.com", color=MUT, fontsize=11)
-    # register-attention motif on the right
-    xs = [60, 74, 88]
-    regs = []
-    for x in xs:
-        rp = []
-        for k in range(3):
-            px = x - 3.6 + k*3.0
-            ax.add_patch(Rectangle((px, 62), 2.3, 3.6, facecolor=GOLD,
-                         edgecolor="none", zorder=6))
-            rp.append((px+1.15, 63.8))
-        regs.append(rp)
-        token_col(ax, x-5.5, 55, 5, 8, 2.0, 0.55, color=CYAN, alpha=0.75, z=4)
-    for i in range(3):
-        for j in range(i+1, 3):
-            for a in range(3):
-                p0 = regs[i][a]; p1 = regs[j][2-a]
-                ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle="-",
-                             connectionstyle=f"arc3,rad={0.22+0.06*a}",
-                             color=GOLD, lw=1.3, alpha=0.6, zorder=5))
+    # reconstruction motif: photos become camera poses and a dense point cloud
+    for i, (dx, dy) in enumerate([(0, 0), (2.0, -4.2), (4.0, -8.4)]):
+        photo(ax, 48 + dx, 60 + dy, 13, 14, seed=9 + i, z=3 + i)
+    ax.text(55, 43, "input photos", color=MUT, fontsize=9.5, ha="center")
+    arrow(ax, (66, 55), (73, 55), color=FG, lw=2.1, ms=16)
+    ax.text(69.5, 59.5, "1 pass", color=CYAN, fontsize=10, ha="center", weight="bold")
+    house_scatter(ax, 76, 25, 17, CYAN, n=1400, seed=8, az=38, el=18, s=6,
+                  ar=12.0/6.3)
+    for cx, cy, ang in [(70, 29, 10), (73, 70, -35), (95, 68, -140), (97, 33, 162)]:
+        camera(ax, cx, cy, ang, CYAN, s=1.05, z=5)
+    ax.text(84.5, 18, "poses + point cloud", color=MUT, fontsize=10, ha="center")
     save(fig, "social.png", dpi=100)
 
 if __name__ == "__main__":
