@@ -13,10 +13,11 @@ Outputs are committed under `public/img/vggt-omega/`.
     between the reported 2K → 2M endpoints (noted in the figure caption and
     the post);
   - `attention-cost.png`, exact arithmetic — interaction counts per attention
-    layer at the architecture's real token counts (N = 1041 per frame, R = 16).
+    layer at the released implementation's token counts (N = 1041 per frame,
+    S = 17 cross-frame register/camera tokens).
 - `sim/optimize_vs_predict.py` — the split-screen MP4 (bundle adjustment
-  jitter-converging vs one-pass snap). A stylized re-enactment, not real
-  solver output — stated in its docstring and in the post.
+  jitter-converging vs one-pass point-cloud snap). A stylized re-enactment, not
+  real solver output — stated in its docstring and in the post.
 - `assets/building_home_B_red.obj` — the real 3D house model used across the
   figures and the video: `building_home_B_red` from the
   [KayKit Medieval Hexagon Pack](https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0)

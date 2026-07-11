@@ -4,7 +4,8 @@
 STYLIZED RE-ENACTMENT (stated in the post): the left panel imitates the look of
 an iterative optimizer converging — the real house model's surfaces start
 scattered and jitter into place; it is not real solver output. Right panel:
-input views appear, one sweep, and the same model snaps in whole.
+input views appear, one sweep, and the same model snaps in as a dense point
+cloud.
 The 3D house is `building_home_B` from the KayKit Medieval Hexagon Pack (CC0).
 Output: public/img/vggt-omega/optimize-vs-predict.mp4 (1600x900, h264, loopable).
 """
@@ -35,6 +36,19 @@ def shaded_colors(hexcolor):
     base = np.array(mcolors.to_rgb(hexcolor))
     bright = (0.22 + 0.78*TSHADE) * (1.0 - 0.18*TDEPTH)
     return np.clip(base[None, :] * bright[:, None] * 1.30, 0, 1)
+
+def point_colors(hexcolor, shade, depth):
+    base = np.array(mcolors.to_rgb(hexcolor))
+    bright = (0.32 + 0.68*shade) * (1.0 - 0.24*depth)
+    rgba = np.empty((len(shade), 4))
+    rgba[:, :3] = np.clip(base[None, :] * bright[:, None] * 1.35, 0, 1)
+    rgba[:, 3] = 1.0
+    return rgba
+
+P_R, D_R, S_R = house_view(n=2600, seed=8, az=34, el=16)
+ORDER_R = np.argsort(-D_R)
+P_R, D_R, S_R = P_R[ORDER_R], D_R[ORDER_R], S_R[ORDER_R]
+P0_R = P_R * np.array([24.0, 24.0 * AR_Y]) + np.array([-2.0, -3.5])
 
 CAMS = [(-6, 12, -35), (24, 13, 218), (-5.5, -3, 25), (22, -2.5, 155)]
 
@@ -81,10 +95,9 @@ for _ in CAMS:
     camL.append((l1, l2))
 iterTxt = axL.text(0.03, 0.04, "", transform=axL.transAxes, color=GOLD, fontsize=13)
 
-# ---- right panel: inputs, one sweep, the model snaps in whole
-meshR = PolyCollection(T0, facecolors=shaded_colors(CYAN), edgecolors="none",
-                       zorder=4, alpha=0.0)
-axR.add_collection(meshR)
+# ---- right panel: inputs, one sweep, the model snaps in as a point cloud
+cloudR = axR.scatter(P0_R[:, 0], P0_R[:, 1], s=8, c=point_colors(CYAN, S_R, D_R),
+                     edgecolors="none", zorder=4, alpha=0.0)
 camR = []
 for _ in CAMS:
     l1, = axR.plot([], [], color=CYAN, lw=1.4, alpha=0.0, zorder=5)
@@ -142,7 +155,7 @@ def update(k):
     else:
         sweep.set_alpha(0.0)
     snap = np.clip((ts - 2.35) / 0.35, 0, 1)
-    meshR.set_alpha(float(snap))
+    cloudR.set_alpha(float(snap))
     for (l1, l2), (cx, cy, ca) in zip(camR, CAMS):
         x1, y1, x2, y2 = frustum_lines(cx, cy, ca)
         l1.set_data(x1, y1); l2.set_data(x2, y2)
