@@ -776,23 +776,22 @@ def fig_future():
 # ------------------------------------------------------------ fig 1: social
 def fig_social():
     fig, ax = newfig(12.0, 6.3)
-    ax.text(6, 77, "VGGT-Ω", color=FG, fontsize=56, weight="bold")
-    ax.text(6, 60.5, "3D reconstruction", color=MUT, fontsize=25)
-    ax.text(6, 49.5, "in one forward pass", color=CYAN, fontsize=25, weight="bold")
-    ax.text(6, 36.5, "photos → cameras + dense 3D", color=FG, fontsize=17)
-    ax.text(6, 22, "COLMAP → DUSt3R → VGGT → VGGT-Ω", color=MUT, fontsize=13.5)
-    ax.text(6, 12.5, "itamar-weiss.com", color=MUT, fontsize=12.5)
+    ax.text(6, 78, "VGGT-Ω", color=FG, fontsize=62, weight="bold")
+    ax.text(6, 60.5, "3D reconstruction", color=MUT, fontsize=30)
+    ax.text(6, 47.5, "in one forward pass", color=CYAN, fontsize=30, weight="bold")
+    ax.text(6, 32.5, "photos → cameras + dense 3D", color=FG, fontsize=23)
+    ax.text(6, 17.5, "itamar-weiss.com", color=MUT, fontsize=18.5)
     # reconstruction motif: photos become camera poses and a dense point cloud
     for i, (dx, dy) in enumerate([(0, 0), (2.0, -4.2), (4.0, -8.4)]):
         photo(ax, 48 + dx, 60 + dy, 13, 14, seed=9 + i, z=3 + i)
-    ax.text(55, 41, "input photos", color=MUT, fontsize=12.5, ha="center")
+    ax.text(55, 38.5, "input photos", color=MUT, fontsize=20, ha="center")
     arrow(ax, (66, 55), (73, 55), color=FG, lw=2.8, ms=20)
-    ax.text(69.5, 61, "1 PASS", color=CYAN, fontsize=13.5, ha="center", weight="bold")
+    ax.text(69.5, 62, "1 PASS", color=CYAN, fontsize=20, ha="center", weight="bold")
     house_scatter(ax, 75, 24, 18.5, CYAN, n=1700, seed=8, az=38, el=18, s=6.5,
                   ar=12.0/6.3)
     for cx, cy, ang in [(69, 29, 10), (73, 70, -35), (95, 68, -140), (97, 33, 162)]:
         camera(ax, cx, cy, ang, CYAN, s=1.15, z=5)
-    ax.text(84.5, 16.5, "poses + point cloud", color=MUT, fontsize=12.5, ha="center")
+    ax.text(84.5, 14.5, "poses + point cloud", color=MUT, fontsize=20, ha="center")
     save(fig, "social.png", dpi=100)
 
 if __name__ == "__main__":
