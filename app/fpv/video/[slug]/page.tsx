@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import {
   getVideos,
   getVideoBySlug,
+  resolveLegacySlug,
   videoSubtitle,
   videoTitle,
 } from "@/lib/fpv/data";
@@ -38,6 +39,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function VideoPage({ params }: Params) {
   const { slug } = await params;
   const v = await getVideoBySlug(slug);
-  if (!v) notFound();
+  if (!v) {
+    const currentSlug = await resolveLegacySlug(slug);
+    if (currentSlug) permanentRedirect(videoHref(currentSlug));
+    notFound();
+  }
   return <VideoView video={v} />;
 }
