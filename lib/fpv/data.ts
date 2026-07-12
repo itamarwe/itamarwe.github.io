@@ -1,6 +1,6 @@
 import "server-only";
-import { DATA_URL } from "./config";
-import type { Dataset, VideoRecord } from "./types";
+import { DATA_URL, REDIRECTS_URL } from "./config";
+import type { Dataset, RedirectManifest, VideoRecord } from "./types";
 
 // Fetch the published manifest server-side. Cached for 5 minutes so new videos
 // / scenes show up within minutes of a `publish-web` without a redeploy, and so
@@ -18,9 +18,33 @@ export async function getVideos(): Promise<VideoRecord[]> {
   );
 }
 
-export async function getVideoBySlug(slug: string): Promise<VideoRecord | null> {
+export async function getVideoBySlug(
+  slug: string,
+): Promise<VideoRecord | null> {
   const videos = await getVideos();
   return videos.find((v) => v.slug === slug) ?? null;
+}
+
+export async function resolveLegacySlug(slug: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(REDIRECTS_URL, { next: { revalidate: 300 } });
+  } catch {
+    return null;
+  }
+  // This permits the website to deploy before the registry is first published.
+  if (!res.ok) return null;
+  const payload = (await res.json()) as RedirectManifest;
+  const redirects = new Map(
+    payload.redirects.map((item) => [item.from, item.to]),
+  );
+  const visited = new Set<string>();
+  let current = slug;
+  while (redirects.has(current) && !visited.has(current)) {
+    visited.add(current);
+    current = redirects.get(current)!;
+  }
+  return current === slug ? null : current;
 }
 
 export async function getSceneVideos(): Promise<VideoRecord[]> {

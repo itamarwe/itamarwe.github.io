@@ -25,6 +25,19 @@ export type Dataset = {
   videos: VideoRecord[];
 };
 
+export type DatasetRedirect = {
+  from: string;
+  to: string;
+  created_at: string;
+  review_after?: string;
+  reason: string;
+};
+
+export type RedirectManifest = {
+  schema_version: 1;
+  redirects: DatasetRedirect[];
+};
+
 // Segment marker colors — same legend as the annotator.
 export const SEGMENT_TYPES: Record<string, { label: string; color: string }> = {
   banner_start: { label: "Banner", color: "#4a9eff" },
