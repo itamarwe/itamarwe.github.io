@@ -16,8 +16,14 @@ const nextConfig: NextConfig = {
     return [
       { source: "/solar-system", destination: "/solar-system/index.html" },
       { source: "/solar-system/", destination: "/solar-system/index.html" },
-      { source: "/photo-geolocation", destination: "/photo-geolocation/index.html" },
-      { source: "/photo-geolocation/", destination: "/photo-geolocation/index.html" },
+      {
+        source: "/photo-geolocation",
+        destination: "/photo-geolocation/index.html",
+      },
+      {
+        source: "/photo-geolocation/",
+        destination: "/photo-geolocation/index.html",
+      },
     ];
   },
 
@@ -28,6 +34,16 @@ const nextConfig: NextConfig = {
     return [
       ...legacyRedirects,
       { source: "/portfolio", destination: "/about/", permanent: true },
+      {
+        source: "/fpv/video/2026-05-26_anti_drone_platform_barashit",
+        destination: "/fpv/video/2026-05-26_anti_drone_platform_biranit/",
+        permanent: true,
+      },
+      {
+        source: "/fpv/scene/2026-05-26_anti_drone_platform_barashit",
+        destination: "/fpv/scene/2026-05-26_anti_drone_platform_biranit/",
+        permanent: true,
+      },
     ];
   },
 };
