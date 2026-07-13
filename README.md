@@ -92,7 +92,6 @@ npm run start    # serve the production build
 | --- | --- |
 | Site title / URL / socials | `lib/site.ts` |
 | Google Analytics 4 ID | `NEXT_PUBLIC_GA_ID` env var (see `.env.example`) |
-| FPV publish revalidation | `FPV_REVALIDATE_TOKEN` env var (see below) |
 | Legacy URL redirects | generated in `lib/redirects.ts` from each post |
 
 ## Deploying to Vercel
@@ -104,14 +103,6 @@ npm run start    # serve the production build
    attached so it 301-redirects to the new domain (preserving SEO).
 
 Every push to `master` triggers a Vercel production deploy.
-
-## FPV Dataset Revalidation
-
-The FPV dataset publisher calls `POST /api/fpv/revalidate` after uploading the
-new CloudFront manifest. Set `FPV_REVALIDATE_TOKEN` in Vercel's Production and
-Preview environments, then store the same value as `FPV_REVALIDATE_TOKEN` in
-the dataset repository's GitHub Actions secrets. This invalidates the tagged
-manifest fetch and the FPV gallery, video, and scene pages without a redeploy.
 
 ## Google Analytics 4
 
