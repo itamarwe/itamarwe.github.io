@@ -2,11 +2,13 @@ import "server-only";
 import { DATA_URL, REDIRECTS_URL } from "./config";
 import type { Dataset, RedirectManifest, VideoRecord } from "./types";
 
+export const FPV_DATA_TAG = "fpv-dataset";
+
 // Fetch the published manifest server-side. Cached for 5 minutes so new videos
 // / scenes show up within minutes of a `publish-web` without a redeploy, and so
 // generateMetadata / the page / the OG image share one request per revalidation.
 export async function getDataset(): Promise<Dataset> {
-  const res = await fetch(DATA_URL, { next: { revalidate: 300 } });
+  const res = await fetch(DATA_URL, { next: { revalidate: 300, tags: [FPV_DATA_TAG] } });
   if (!res.ok) throw new Error(`FPV manifest HTTP ${res.status}`);
   return (await res.json()) as Dataset;
 }
