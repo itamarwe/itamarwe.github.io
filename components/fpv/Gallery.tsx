@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { VideoRecord } from "@/lib/fpv/types";
 import { THUMB_BASE } from "@/lib/fpv/config";
 import { sceneHref, videoHref } from "@/lib/fpv/paths";
@@ -77,11 +78,25 @@ function Thumb({ video }: { video: VideoRecord }) {
 type SceneFilter = "all" | "with";
 type SortDir = "desc" | "asc";
 
-export function Gallery({ videos }: { videos: VideoRecord[] }) {
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortDir>("desc");
-  const [sceneFilter, setSceneFilter] = useState<SceneFilter>("all");
+type GalleryContentsProps = {
+  videos: VideoRecord[];
+  query: string;
+  sort: SortDir;
+  sceneFilter: SceneFilter;
+  onQueryChange?: (query: string) => void;
+  onSortChange?: () => void;
+  onSceneFilterChange?: () => void;
+};
 
+function GalleryContents({
+  videos,
+  query,
+  sort,
+  sceneFilter,
+  onQueryChange,
+  onSortChange,
+  onSceneFilterChange,
+}: GalleryContentsProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = videos.filter((v) => {
@@ -103,7 +118,8 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
           type="search"
           name="site-search-query"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => onQueryChange?.(e.target.value)}
+          readOnly={!onQueryChange}
           placeholder="Search by description, town, date…"
           aria-label="Search videos"
           autoComplete="off"
@@ -113,7 +129,7 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
         <button
           type="button"
           className="toolbar-btn"
-          onClick={() => setSort((s) => (s === "desc" ? "asc" : "desc"))}
+          onClick={onSortChange}
           aria-label={`Sort by date, ${sort === "desc" ? "newest" : "oldest"} first`}
           title={sort === "desc" ? "Newest first" : "Oldest first"}
         >
@@ -122,7 +138,7 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
         <button
           type="button"
           className={`toolbar-btn${sceneFilter === "with" ? " active" : ""}`}
-          onClick={() => setSceneFilter((f) => (f === "with" ? "all" : "with"))}
+          onClick={onSceneFilterChange}
           aria-pressed={sceneFilter === "with"}
           title="Only videos with a reconstructed 3D scene"
         >
@@ -165,4 +181,63 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
       {filtered.length === 0 ? <p className="not-found">No videos match your filters.</p> : null}
     </div>
   );
+}
+
+export function Gallery({ videos }: { videos: VideoRecord[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const paramQuery = searchParams.get("q") ?? "";
+  const paramSort: SortDir = searchParams.get("sort") === "asc" ? "asc" : "desc";
+  const paramSceneFilter: SceneFilter =
+    searchParams.get("scene") === "with" ? "with" : "all";
+  const [query, setQuery] = useState(paramQuery);
+  const [sort, setSort] = useState<SortDir>(paramSort);
+  const [sceneFilter, setSceneFilter] = useState<SceneFilter>(paramSceneFilter);
+
+  useEffect(() => {
+    setQuery(paramQuery);
+    setSort(paramSort);
+    setSceneFilter(paramSceneFilter);
+  }, [paramQuery, paramSceneFilter, paramSort]);
+
+  const updateParam = useCallback(
+    (key: "q" | "sort" | "scene", value?: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) params.set(key, value);
+      else params.delete(key);
+
+      const queryString = params.toString();
+      const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  return (
+    <GalleryContents
+      videos={videos}
+      query={query}
+      sort={sort}
+      sceneFilter={sceneFilter}
+      onQueryChange={(value) => {
+        setQuery(value);
+        updateParam("q", value);
+      }}
+      onSortChange={() => {
+        const nextSort = sort === "desc" ? "asc" : "desc";
+        setSort(nextSort);
+        updateParam("sort", nextSort === "asc" ? "asc" : undefined);
+      }}
+      onSceneFilterChange={() => {
+        const nextSceneFilter = sceneFilter === "all" ? "with" : "all";
+        setSceneFilter(nextSceneFilter);
+        updateParam("scene", nextSceneFilter === "with" ? "with" : undefined);
+      }}
+    />
+  );
+}
+
+export function GalleryFallback({ videos }: { videos: VideoRecord[] }) {
+  return <GalleryContents videos={videos} query="" sort="desc" sceneFilter="all" />;
 }
