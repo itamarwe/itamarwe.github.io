@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { getVideos } from "@/lib/fpv/data";
-import { Gallery } from "@/components/fpv/Gallery";
+import { Gallery, GalleryFallback } from "@/components/fpv/Gallery";
 
 export const revalidate = 300;
 
@@ -17,5 +18,9 @@ export const metadata: Metadata = {
 
 export default async function FpvGalleryPage() {
   const videos = await getVideos();
-  return <Gallery videos={videos} />;
+  return (
+    <Suspense fallback={<GalleryFallback videos={videos} />}>
+      <Gallery videos={videos} />
+    </Suspense>
+  );
 }
