@@ -235,8 +235,11 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
         updateParam("sort", nextSort === "asc" ? "asc" : undefined);
       }}
       onSceneFilterChange={(nextSceneFilter) => {
-        setSceneFilter(nextSceneFilter);
-        updateParam("scene", nextSceneFilter === "all" ? undefined : nextSceneFilter);
+        const resolvedSceneFilter = nextSceneFilter === sceneFilter && nextSceneFilter !== "all"
+          ? "all"
+          : nextSceneFilter;
+        setSceneFilter(resolvedSceneFilter);
+        updateParam("scene", resolvedSceneFilter === "all" ? undefined : resolvedSceneFilter);
       }}
     />
   );
