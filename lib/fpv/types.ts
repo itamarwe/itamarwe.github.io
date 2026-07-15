@@ -16,6 +16,7 @@ export type VideoRecord = {
   blur: string | null;
   scenePath: string | null; // "<stem>/<sceneId>" under the scenes base
   scenePaths: string[] | null; // all scene variants for this video (canonical first)
+  sceneStarred: boolean;
   segments: SegmentMarker[] | null;
   annotationAuto: boolean | null;
 };

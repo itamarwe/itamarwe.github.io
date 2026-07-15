@@ -164,6 +164,34 @@
     padding: 2px 6px;
     border-radius: 4px;
   }
+  .scene-star-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #f3c654;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .scene-star-badge svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+  .scene-star-badge.compact {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 25px;
+    height: 25px;
+    justify-content: center;
+    border: 1px solid rgba(243, 198, 84, 0.7);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.76);
+  }
+  .scene-star-badge.compact svg {
+    width: 15px;
+    height: 15px;
+  }
   .video-card .title {
     font-size: 14.5px;
     font-weight: 500;
@@ -246,6 +274,37 @@
   .toolbar-btn.active {
     border-color: var(--brand);
     color: var(--brand);
+  }
+  .scene-filter {
+    display: inline-flex;
+    min-height: 36px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    background: var(--surface);
+  }
+  .scene-filter button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 10px;
+    border: 0;
+    border-right: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--grey);
+    font: 500 13px var(--font-sans);
+    cursor: pointer;
+  }
+  .scene-filter button:last-child { border-right: 0; }
+  .scene-filter button:hover { color: #fff; }
+  .scene-filter button.active { background: #222; color: #fff; }
+  .scene-filter .scene-star-badge.compact {
+    position: static;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   /* Video view — YouTube-mobile-style: player first, compact headline below. */
@@ -347,6 +406,10 @@
   }
   .video-headline .view-meta {
     margin: 0 0 8px;
+  }
+  .video-headline > .scene-star-badge,
+  .scene-view > .scene-star-badge {
+    margin: 0 0 10px;
   }
   .icon-link {
     display: inline-flex;

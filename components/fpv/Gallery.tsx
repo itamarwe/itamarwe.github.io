@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { VideoRecord } from "@/lib/fpv/types";
 import { THUMB_BASE } from "@/lib/fpv/config";
 import { sceneHref, videoHref } from "@/lib/fpv/paths";
+import { SceneStarBadge } from "./SceneStarBadge";
 
 const PlayIcon = () => (
   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
@@ -71,11 +72,12 @@ function Thumb({ video }: { video: VideoRecord }) {
         />
       ) : null}
       {video.scenePath ? <span className="badge-3d">3D scene</span> : null}
+      {video.sceneStarred ? <SceneStarBadge compact /> : null}
     </Link>
   );
 }
 
-type SceneFilter = "all" | "with";
+type SceneFilter = "all" | "with" | "starred";
 type SortDir = "desc" | "asc";
 
 type GalleryContentsProps = {
@@ -85,7 +87,7 @@ type GalleryContentsProps = {
   sceneFilter: SceneFilter;
   onQueryChange?: (query: string) => void;
   onSortChange?: () => void;
-  onSceneFilterChange?: () => void;
+  onSceneFilterChange?: (filter: SceneFilter) => void;
 };
 
 function GalleryContents({
@@ -101,6 +103,7 @@ function GalleryContents({
     const q = query.trim().toLowerCase();
     const list = videos.filter((v) => {
       if (sceneFilter === "with" && !v.scenePath) return false;
+      if (sceneFilter === "starred" && !v.sceneStarred) return false;
       if (!q) return true;
       return `${v.description} ${v.town} ${v.date} ${v.videoFile}`.toLowerCase().includes(q);
     });
@@ -135,15 +138,17 @@ function GalleryContents({
         >
           Date <ArrowIcon dir={sort} />
         </button>
-        <button
-          type="button"
-          className={`toolbar-btn${sceneFilter === "with" ? " active" : ""}`}
-          onClick={onSceneFilterChange}
-          aria-pressed={sceneFilter === "with"}
-          title="Only videos with a reconstructed 3D scene"
-        >
-          <GlobeIcon /> 3D scenes
-        </button>
+        <div className="scene-filter" aria-label="Scene filter">
+          <button type="button" className={sceneFilter === "all" ? "active" : ""} onClick={() => onSceneFilterChange?.("all")}>
+            All
+          </button>
+          <button type="button" className={sceneFilter === "with" ? "active" : ""} onClick={() => onSceneFilterChange?.("with")}>
+            <GlobeIcon /> 3D
+          </button>
+          <button type="button" className={sceneFilter === "starred" ? "active" : ""} onClick={() => onSceneFilterChange?.("starred")}>
+            <SceneStarBadge compact /> Starred
+          </button>
+        </div>
         <span className="gallery-count">
           {filtered.length === videos.length
             ? `${videos.length} videos`
@@ -190,7 +195,7 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
   const paramQuery = searchParams.get("q") ?? "";
   const paramSort: SortDir = searchParams.get("sort") === "asc" ? "asc" : "desc";
   const paramSceneFilter: SceneFilter =
-    searchParams.get("scene") === "with" ? "with" : "all";
+    searchParams.get("scene") === "starred" ? "starred" : searchParams.get("scene") === "with" ? "with" : "all";
   const [query, setQuery] = useState(paramQuery);
   const [sort, setSort] = useState<SortDir>(paramSort);
   const [sceneFilter, setSceneFilter] = useState<SceneFilter>(paramSceneFilter);
@@ -229,10 +234,9 @@ export function Gallery({ videos }: { videos: VideoRecord[] }) {
         setSort(nextSort);
         updateParam("sort", nextSort === "asc" ? "asc" : undefined);
       }}
-      onSceneFilterChange={() => {
-        const nextSceneFilter = sceneFilter === "all" ? "with" : "all";
+      onSceneFilterChange={(nextSceneFilter) => {
         setSceneFilter(nextSceneFilter);
-        updateParam("scene", nextSceneFilter === "with" ? "with" : undefined);
+        updateParam("scene", nextSceneFilter === "all" ? undefined : nextSceneFilter);
       }}
     />
   );
