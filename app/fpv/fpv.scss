@@ -168,13 +168,13 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: #f3c654;
+    color: #fff;
     font-size: 12px;
     font-weight: 600;
   }
   .scene-star-badge svg {
-    width: 14px;
-    height: 14px;
+    width: 17px;
+    height: 17px;
     fill: currentColor;
   }
   .scene-star-badge.compact {
@@ -184,13 +184,13 @@
     width: 25px;
     height: 25px;
     justify-content: center;
-    border: 1px solid rgba(243, 198, 84, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.72);
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.76);
   }
   .scene-star-badge.compact svg {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
   }
   .video-card .title {
     font-size: 14.5px;
