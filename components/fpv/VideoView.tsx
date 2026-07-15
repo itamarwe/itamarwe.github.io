@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { VideoRecord } from "@/lib/fpv/types";
 import { SEGMENT_TYPES } from "@/lib/fpv/types";
 import { galleryHref, sceneHref } from "@/lib/fpv/paths";
+import { SceneStarBadge } from "./SceneStarBadge";
 
 const FPS = 30; // frame-step size for ,/. and the ±1f buttons
 
@@ -209,6 +210,7 @@ export function VideoView({ video }: { video: VideoRecord }) {
           {video.date}
           {video.town ? ` · ${video.town}` : ""}
         </p>
+        {video.sceneStarred ? <SceneStarBadge /> : null}
         <div className="view-actions">
           {video.scenePath ? <Link href={sceneHref(video.slug)}>View 3D scene →</Link> : null}
           <a

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { VideoRecord } from "@/lib/fpv/types";
 import { SCENE_BASE } from "@/lib/fpv/config";
 import { galleryHref, videoHref } from "@/lib/fpv/paths";
+import { SceneStarBadge } from "./SceneStarBadge";
 import {
   ReadOnlySceneViewer,
   type SceneFrame,
@@ -275,6 +276,7 @@ export function SceneView({ video }: { video: VideoRecord }) {
         {video.town ? ` · ${video.town}` : ""} · 3D reconstruction
         {stats ? ` · ${stats.pointCount.toLocaleString()} points · ${stats.frames} camera poses` : ""}
       </p>
+      {video.sceneStarred ? <SceneStarBadge /> : null}
       {stats && !stats.calibrated ? (
         <div className="scale-warning">⚠ Uncalibrated scale — relative units</div>
       ) : null}
