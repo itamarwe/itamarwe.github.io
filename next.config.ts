@@ -6,6 +6,17 @@ const nextConfig: NextConfig = {
   // Keep that behaviour so canonical URLs stay consistent.
   trailingSlash: true,
 
+  // `lib/posts.ts` reads content/posts/*.md with fs.readdirSync at request
+  // time, but Next's build tracer can't see through a runtime readdir, so the
+  // markdown never lands in the serverless bundle. Routes that are fully
+  // prerendered don't care; /sitemap.xml does, because fetching the FPV
+  // manifest gives it a 5-minute revalidate and it re-runs in the Lambda
+  // (ENOENT scandir '/var/task/content/posts'). Ship the content directory
+  // with every function so any route can read it at runtime.
+  outputFileTracingIncludes: {
+    "/**": ["./content/**/*"],
+  },
+
   // Embedded static apps living under public/<name>/ are served at their
   // directory URL. The Sun–Earth WebGL demo (public/solar-system/) is
   // pre-built and committed; the photo-geolocation tool (public/photo-
