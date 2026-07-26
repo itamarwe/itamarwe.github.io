@@ -41,20 +41,16 @@ const nextConfig: NextConfig = {
   // Permanent (301/308) redirects from every legacy Jekyll URL to the new
   // clean URL, so existing links and search-engine results keep working.
   // The Portfolio page was merged into About, so /portfolio/ now redirects there.
+  //
+  // Renamed FPV slugs are deliberately absent: they are served by
+  // resolveLegacySlug from the dataset's own data/redirects.json, so a rename
+  // takes effect on the next publish without redeploying this site. Hardcoding
+  // them here too meant every rename needed a matching entry in two places, and
+  // a forgotten one is a dead URL.
   async redirects() {
     return [
       ...legacyRedirects,
       { source: "/portfolio", destination: "/about/", permanent: true },
-      {
-        source: "/fpv/video/2026-05-26_anti_drone_platform_barashit",
-        destination: "/fpv/video/2026-05-26_anti_drone_platform_biranit/",
-        permanent: true,
-      },
-      {
-        source: "/fpv/scene/2026-05-26_anti_drone_platform_barashit",
-        destination: "/fpv/scene/2026-05-26_anti_drone_platform_biranit/",
-        permanent: true,
-      },
     ];
   },
 };
