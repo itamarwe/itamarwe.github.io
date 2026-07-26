@@ -8,3 +8,6 @@ export const SCENE_BASE = `${CDN}/scenes`;
 export const THUMB_BASE = `${CDN}/thumbnails`;
 export const DATA_URL = `${CDN}/data/videos.json`;
 export const REDIRECTS_URL = `${CDN}/data/redirects.json`;
+// IDs withdrawn from the dataset with no successor. Superseded IDs live in
+// REDIRECTS_URL and 301 instead; these 410 so crawlers drop them.
+export const REMOVED_URL = `${CDN}/data/removed.json`;

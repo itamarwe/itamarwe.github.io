@@ -39,6 +39,17 @@ export type RedirectManifest = {
   redirects: DatasetRedirect[];
 };
 
+export type DatasetRemoval = {
+  id: string;
+  removed_at: string;
+  reason: string;
+};
+
+export type RemovedManifest = {
+  schema_version: 1;
+  removed: DatasetRemoval[];
+};
+
 // Segment marker colors — same legend as the annotator.
 export const SEGMENT_TYPES: Record<string, { label: string; color: string }> = {
   banner_start: { label: "Banner", color: "#4a9eff" },
