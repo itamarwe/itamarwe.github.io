@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { VideoRecord } from "@/lib/fpv/types";
 import { THUMB_BASE } from "@/lib/fpv/config";
 import { sceneHref, videoHref } from "@/lib/fpv/paths";
@@ -79,6 +79,31 @@ function Thumb({ video }: { video: VideoRecord }) {
 
 type SceneFilter = "all" | "with" | "starred";
 type SortDir = "desc" | "asc";
+type GalleryState = {
+  query: string;
+  sort: SortDir;
+  sceneFilter: SceneFilter;
+};
+
+function galleryStateFromParams(params: Pick<URLSearchParams, "get">): GalleryState {
+  return {
+    query: params.get("q") ?? "",
+    sort: params.get("sort") === "asc" ? "asc" : "desc",
+    sceneFilter:
+      params.get("scene") === "starred" ? "starred" : params.get("scene") === "with" ? "with" : "all",
+  };
+}
+
+function writeGalleryState(params: URLSearchParams, state: GalleryState) {
+  if (state.query) params.set("q", state.query);
+  else params.delete("q");
+
+  if (state.sort === "asc") params.set("sort", "asc");
+  else params.delete("sort");
+
+  if (state.sceneFilter !== "all") params.set("scene", state.sceneFilter);
+  else params.delete("scene");
+}
 
 type GalleryContentsProps = {
   videos: VideoRecord[];
@@ -189,58 +214,60 @@ function GalleryContents({
 }
 
 export function Gallery({ videos }: { videos: VideoRecord[] }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const paramQuery = searchParams.get("q") ?? "";
-  const paramSort: SortDir = searchParams.get("sort") === "asc" ? "asc" : "desc";
-  const paramSceneFilter: SceneFilter =
-    searchParams.get("scene") === "starred" ? "starred" : searchParams.get("scene") === "with" ? "with" : "all";
-  const [query, setQuery] = useState(paramQuery);
-  const [sort, setSort] = useState<SortDir>(paramSort);
-  const [sceneFilter, setSceneFilter] = useState<SceneFilter>(paramSceneFilter);
+  const [state, setState] = useState<GalleryState>(() => galleryStateFromParams(searchParams));
+  const stateRef = useRef(state);
 
   useEffect(() => {
-    setQuery(paramQuery);
-    setSort(paramSort);
-    setSceneFilter(paramSceneFilter);
-  }, [paramQuery, paramSceneFilter, paramSort]);
+    const syncFromUrl = () => {
+      const nextState = galleryStateFromParams(new URLSearchParams(window.location.search));
+      stateRef.current = nextState;
+      setState(nextState);
+    };
 
-  const updateParam = useCallback(
-    (key: "q" | "sort" | "scene", value?: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value) params.set(key, value);
-      else params.delete(key);
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
 
+  const updateState = useCallback(
+    (getNextState: (current: GalleryState) => GalleryState) => {
+      const nextState = getNextState(stateRef.current);
+      stateRef.current = nextState;
+      setState(nextState);
+
+      const params = new URLSearchParams(window.location.search);
+      writeGalleryState(params, nextState);
       const queryString = params.toString();
       const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
-      router.replace(nextUrl, { scroll: false });
+      window.history.replaceState(null, "", nextUrl);
     },
-    [pathname, router, searchParams],
+    [pathname],
   );
 
   return (
     <GalleryContents
       videos={videos}
-      query={query}
-      sort={sort}
-      sceneFilter={sceneFilter}
-      onQueryChange={(value) => {
-        setQuery(value);
-        updateParam("q", value);
-      }}
-      onSortChange={() => {
-        const nextSort = sort === "desc" ? "asc" : "desc";
-        setSort(nextSort);
-        updateParam("sort", nextSort === "asc" ? "asc" : undefined);
-      }}
-      onSceneFilterChange={(nextSceneFilter) => {
-        const resolvedSceneFilter = nextSceneFilter === sceneFilter && nextSceneFilter !== "all"
-          ? "all"
-          : nextSceneFilter;
-        setSceneFilter(resolvedSceneFilter);
-        updateParam("scene", resolvedSceneFilter === "all" ? undefined : resolvedSceneFilter);
-      }}
+      query={state.query}
+      sort={state.sort}
+      sceneFilter={state.sceneFilter}
+      onQueryChange={(query) => updateState((current) => ({ ...current, query }))}
+      onSortChange={() =>
+        updateState((current) => ({
+          ...current,
+          sort: current.sort === "desc" ? "asc" : "desc",
+        }))
+      }
+      onSceneFilterChange={(nextSceneFilter) =>
+        updateState((current) => ({
+          ...current,
+          // Re-picking the active filter clears it back to "all".
+          sceneFilter:
+            nextSceneFilter === current.sceneFilter && nextSceneFilter !== "all"
+              ? "all"
+              : nextSceneFilter,
+        }))
+      }
     />
   );
 }
