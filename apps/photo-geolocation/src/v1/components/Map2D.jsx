@@ -334,6 +334,12 @@ export default function Map2D() {
 
   const dragRef = useRef({ id: null })
   const panRef = useRef({ active: false, startX: 0, startY: 0, panX: 0, panY: 0, moved: false, pointerId: null })
+  // Live touch points (pointerId → client x/y) for multi-touch gestures, the
+  // in-flight pinch state, and a flag so the final lift of a two-finger gesture
+  // isn't mistaken for a tap that would drop an anchor.
+  const pointersRef = useRef(new Map())
+  const pinchRef = useRef({ active: false, dist: 0, midX: 0, midY: 0 })
+  const multiTouchRef = useRef(false)
   const viewRef = useRef({ centerX: 0, centerZ: 0, panX: 0, panY: 0, zoom: 1 })
   const autoFitKeyRef = useRef(null)
   const loadTimerRef = useRef(0)
@@ -517,14 +523,32 @@ export default function Map2D() {
     const canvas = canvasRef.current
     const width = canvas.clientWidth
     const height = canvas.clientHeight
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    canvas.setPointerCapture?.(event.pointerId)
+
+    // Second finger down → start a pinch, dropping any anchor drag or pan that
+    // was in progress with the first finger.
+    if (pointersRef.current.size === 2) {
+      multiTouchRef.current = true
+      panRef.current.active = false
+      dragRef.current = { id: null }
+      const [a, b] = [...pointersRef.current.values()]
+      pinchRef.current = {
+        active: true,
+        dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+      }
+      return
+    }
+
     const { px, py } = getLocalPoint(event)
     const hit = anchorAtPixel(anchors, px, py, width, height, viewRef.current, worldHalf)
     if (hit) {
       dragRef.current = { id: hit.id }
-      canvas.setPointerCapture?.(event.pointerId)
       return
     }
-    if (event.button !== 0 && event.button !== 1) return
+    if (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 1) return
     panRef.current = {
       active: true,
       startX: event.clientX,
@@ -534,13 +558,41 @@ export default function Map2D() {
       moved: false,
       pointerId: event.pointerId,
     }
-    canvas.setPointerCapture?.(event.pointerId)
   }
 
   const onPointerMove = (event) => {
     const canvas = canvasRef.current
     const width = canvas.clientWidth
     const height = canvas.clientHeight
+
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    }
+
+    // Two-finger pinch: zoom around the gesture midpoint (keeping the world
+    // point under it fixed, like the ctrl+wheel path) and pan with its drift.
+    if (pinchRef.current.active && pointersRef.current.size >= 2) {
+      const rect = canvas.getBoundingClientRect()
+      const [a, b] = [...pointersRef.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      const midX = (a.x + b.x) / 2
+      const midY = (a.y + b.y) / 2
+      const mx = midX - rect.left
+      const my = midY - rect.top
+      const before = makeTransform(width, height, viewRef.current, worldHalf).toWorld(mx, my)
+      viewRef.current.zoom *= dist / pinchRef.current.dist
+      if (viewRef.current.zoom <= 1e-6) viewRef.current.zoom = 1e-6
+      const after = makeTransform(width, height, viewRef.current, worldHalf).toWorld(mx, my)
+      viewRef.current.centerX += before.x - after.x
+      viewRef.current.centerZ += before.z - after.z
+      viewRef.current.panX += midX - pinchRef.current.midX
+      viewRef.current.panY += midY - pinchRef.current.midY
+      pinchRef.current = { active: true, dist, midX, midY }
+      setCursor('grabbing')
+      loaderRef.current()
+      return
+    }
+
     const { px, py } = getLocalPoint(event)
 
     // Live cursor readout: lat/lon + the height an anchor here would take
@@ -579,8 +631,26 @@ export default function Map2D() {
   }
 
   const onPointerUp = (event) => {
+    pointersRef.current.delete(event.pointerId)
+    try { canvasRef.current?.releasePointerCapture?.(event.pointerId) } catch { /* ignore */ }
+
+    // Winding down a pinch. If one finger is still down, hand the gesture back
+    // to single-finger panning without a jump (and not as a tap).
+    if (pinchRef.current.active) {
+      if (pointersRef.current.size < 2) {
+        pinchRef.current.active = false
+        const [id, p] = [...pointersRef.current.entries()][0] ?? []
+        if (id !== undefined) {
+          panRef.current = { active: true, startX: p.x, startY: p.y, panX: viewRef.current.panX, panY: viewRef.current.panY, moved: true, pointerId: id }
+        }
+      }
+      if (pointersRef.current.size === 0) { multiTouchRef.current = false; scheduleViewportLoad() }
+      return
+    }
+
     const pan = panRef.current
-    if (pan.active && !pan.moved && event.button === 0 && activeAnchorId !== null) {
+    const wasMulti = multiTouchRef.current
+    if (pan.active && !pan.moved && !wasMulti && event.button === 0 && activeAnchorId !== null) {
       const canvas = canvasRef.current
       const width = canvas.clientWidth
       const height = canvas.clientHeight
@@ -588,11 +658,10 @@ export default function Map2D() {
       const { toWorld } = makeTransform(width, height, viewRef.current, worldHalf)
       setAnchorMapPoint(activeAnchorId, toWorld(px, py))
     }
-    if (pan.pointerId !== null) canvasRef.current.releasePointerCapture?.(pan.pointerId)
     const wasPan = pan.active && pan.moved
     panRef.current = { active: false, startX: 0, startY: 0, panX: viewRef.current.panX, panY: viewRef.current.panY, moved: false, pointerId: null }
-    if (dragRef.current.id !== null) canvasRef.current.releasePointerCapture?.(event.pointerId)
     dragRef.current = { id: null }
+    if (pointersRef.current.size === 0) multiTouchRef.current = false
     if (wasPan) scheduleViewportLoad()
   }
 
@@ -611,10 +680,11 @@ export default function Map2D() {
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#e8e6e1' }}>
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', display: 'block', cursor }}
+        style={{ width: '100%', height: '100%', display: 'block', cursor, touchAction: 'none' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onPointerLeave={(e) => { onPointerUp(e); setReadout(null) }}
         onDoubleClick={onDoubleClick}
       />

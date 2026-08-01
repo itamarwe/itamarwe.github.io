@@ -46,6 +46,12 @@ export default function PhotoUpload() {
   const fileInputRef = useRef(null)
   const viewRef = useRef({ zoom: 1, panX: 0, panY: 0 })
   const panRef = useRef({ active: false, startX: 0, startY: 0, panX: 0, panY: 0, moved: false, pointerId: null })
+  // Live touch points (pointerId → client x/y) for multi-touch gestures, the
+  // in-flight pinch state, and a flag so the final lift of a two-finger gesture
+  // isn't mistaken for a tap that would drop an anchor.
+  const pointersRef = useRef(new Map())
+  const pinchRef = useRef({ active: false, dist: 0, midX: 0, midY: 0 })
+  const multiTouchRef = useRef(false)
   const [, rerender] = useState(0)
 
   const hasPhoto = Boolean(photoUrl)
@@ -134,12 +140,31 @@ export default function PhotoUpload() {
 
   const handlePointerDown = (event) => {
     if (!hasPhoto) return
-    if (event.button !== 0 && event.button !== 1) return
     // Don't hijack pointer-downs that land on the overlay controls (Remove
     // button, etc.). Capturing the pointer on the frame here would redirect the
     // pointerup and swallow the control's click, so those buttons would appear
     // dead.
     if (event.target.closest?.('button, input, label, select, a')) return
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    frameRef.current?.setPointerCapture?.(event.pointerId)
+
+    // Second finger down → start a pinch, abandoning any single-finger pan so
+    // the view doesn't lurch as the gesture changes character.
+    if (pointersRef.current.size === 2) {
+      multiTouchRef.current = true
+      panRef.current.active = false
+      const [a, b] = [...pointersRef.current.values()]
+      pinchRef.current = {
+        active: true,
+        dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+      }
+      return
+    }
+
+    // Single pointer → pan. For a mouse, only the left/middle buttons pan.
+    if (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 1) return
     panRef.current = {
       active: true,
       startX: event.clientX,
@@ -149,10 +174,38 @@ export default function PhotoUpload() {
       moved: false,
       pointerId: event.pointerId,
     }
-    frameRef.current?.setPointerCapture?.(event.pointerId)
   }
 
   const handlePointerMove = (event) => {
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    }
+
+    // Two-finger pinch: scale around the gesture midpoint (same anchor-point
+    // math as the ctrl+wheel zoom) and pan along with the midpoint's drift.
+    if (pinchRef.current.active && pointersRef.current.size >= 2) {
+      const [a, b] = [...pointersRef.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      const midX = (a.x + b.x) / 2
+      const midY = (a.y + b.y) / 2
+      const prev = viewRef.current.zoom
+      const next = Math.max(0.05, prev * (dist / pinchRef.current.dist))
+      const ratio = next / prev
+      viewRef.current.zoom = next
+      const rect = stageRef.current?.getBoundingClientRect()
+      if (rect && rect.width > 0 && rect.height > 0) {
+        const fx = (midX - rect.left) / rect.width - 0.5
+        const fy = (midY - rect.top) / rect.height - 0.5
+        viewRef.current.panX -= fx * rect.width * (ratio - 1)
+        viewRef.current.panY -= fy * rect.height * (ratio - 1)
+      }
+      viewRef.current.panX += midX - pinchRef.current.midX
+      viewRef.current.panY += midY - pinchRef.current.midY
+      pinchRef.current = { active: true, dist, midX, midY }
+      rerender((v) => v + 1)
+      return
+    }
+
     if (panRef.current.active) {
       const dx = event.clientX - panRef.current.startX
       const dy = event.clientY - panRef.current.startY
@@ -171,12 +224,29 @@ export default function PhotoUpload() {
   const handlePointerLeave = () => setHoverPos(null)
 
   const handlePointerUp = (event) => {
-    const pointerId = panRef.current.pointerId
+    pointersRef.current.delete(event.pointerId)
+    try { frameRef.current?.releasePointerCapture?.(event.pointerId) } catch { /* ignore */ }
+
+    // Winding down a pinch. If one finger is still down, hand the gesture back
+    // to single-finger panning without a jump (and not as a tap).
+    if (pinchRef.current.active) {
+      if (pointersRef.current.size < 2) {
+        pinchRef.current.active = false
+        const [id, p] = [...pointersRef.current.entries()][0] ?? []
+        if (id !== undefined) {
+          panRef.current = { active: true, startX: p.x, startY: p.y, panX: viewRef.current.panX, panY: viewRef.current.panY, moved: true, pointerId: id }
+        }
+      }
+      if (pointersRef.current.size === 0) multiTouchRef.current = false
+      return
+    }
+
     const panned = panRef.current.moved
     const wasActive = panRef.current.active
+    const wasMulti = multiTouchRef.current
     panRef.current = { active: false, startX: 0, startY: 0, panX: viewRef.current.panX, panY: viewRef.current.panY, moved: false, pointerId: null }
-    if (pointerId !== null) frameRef.current?.releasePointerCapture?.(pointerId)
-    if (!wasActive || panned || !canPlaceAnchor) return
+    if (pointersRef.current.size === 0) multiTouchRef.current = false
+    if (!wasActive || panned || wasMulti || !canPlaceAnchor) return
     const p = stagePointFromClient(event)
     if (!p) return
     setAnchorPhotoPixel(activeAnchorId, { x: p.x, y: p.y })
@@ -270,6 +340,7 @@ export default function PhotoUpload() {
         overflow: 'hidden',
         background: '#0a0a0a',
         cursor: canPlaceAnchor ? 'crosshair' : 'auto',
+        touchAction: 'none',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
