@@ -1,0 +1,38 @@
+/* itamar-weiss.com design tokens.
+   Values mirror styles/globals.scss (SCSS variables, compile-time) and the
+   figure accent palette documented in CLAUDE.md, exposed here as CSS custom
+   properties so designs built with this system can reference them directly.
+   The site is always-dark: pure-black canvas, Geist type. */
+:root {
+  color-scheme: dark;
+
+  /* Core palette (globals.scss) */
+  --background: #000000;      /* pure black canvas */
+  --foreground: #ededed;      /* body text */
+  --heading: #ffffff;         /* h1–h6 */
+  --brand: #3291ff;           /* links — Geist blue (dark) */
+  --brand-hover: #ffffff;
+  --muted: #a1a1a1;           /* secondary text, post meta */
+  --border: #333333;          /* hairlines, blockquote rule */
+  --code-bg: #111111;
+  --selection: rgba(50, 145, 255, 0.3);
+
+  /* Figure / illustration accent palette (CLAUDE.md house style) */
+  --accent-cyan: #3fc1ff;
+  --accent-gold: #ffd166;
+  --accent-green: #7CFC8A;
+  --accent-red: #ff5a5a;
+  --accent-purple: #b48cff;
+
+  /* Typography */
+  --font-geist-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-geist-mono: 'Geist Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-doto: 'Doto', var(--font-geist-sans); /* dot-matrix display font — site title only */
+  --font-size-base: 17px;
+  --font-size-small: 14.875px;
+  --line-height-base: 1.65;
+
+  /* Layout */
+  --spacing-unit: 30px;
+  --content-width: 800px;
+}
