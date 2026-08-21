@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { REMOVED_URL } from "@/lib/fpv/config";
 import type { RemovedManifest } from "@/lib/fpv/types";
+import { prefersMarkdown } from "@/lib/accept";
+import { hasMarkdownVariant } from "@/lib/markdown-paths";
 
 // Videos withdrawn from the dataset are gone for good — there is no successor to
 // redirect to (that is what data/redirects.json is for). Next has no way to set a
@@ -29,22 +31,45 @@ async function removedIds(): Promise<Set<string>> {
 }
 
 export async function middleware(request: NextRequest) {
-  // /fpv/{video,scene}/<slug>/ — and /<slug>/opengraph-image, which shares it.
-  const slug = request.nextUrl.pathname.split("/").filter(Boolean)[2];
-  if (!slug) return NextResponse.next();
+  const { pathname } = request.nextUrl;
 
-  const removed = await removedIds();
-  if (!removed.has(slug)) return NextResponse.next();
+  if (pathname.startsWith("/fpv/")) {
+    // /fpv/{video,scene}/<slug>/ — and /<slug>/opengraph-image, which shares it.
+    const slug = pathname.split("/").filter(Boolean)[2];
+    if (!slug) return NextResponse.next();
 
-  return new NextResponse("410 Gone — this entry was removed from the dataset.\n", {
-    status: 410,
-    headers: {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "public, max-age=3600",
-    },
-  });
+    const removed = await removedIds();
+    if (!removed.has(slug)) return NextResponse.next();
+
+    return new NextResponse("410 Gone — this entry was removed from the dataset.\n", {
+      status: 410,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600",
+      },
+    });
+  }
+
+  // Agents asking for markdown get the markdown variant at the same URL.
+  // (The matching HTML responses get `Vary: Accept` from headers() in
+  // next.config.ts — Next ignores a Vary set here on page responses.)
+  if (hasMarkdownVariant(pathname) && prefersMarkdown(request.headers.get("accept"))) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? "/md" : `/md${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/fpv/video/:path*", "/fpv/scene/:path*"],
+  matcher: [
+    "/",
+    "/about",
+    "/contact",
+    "/privacy",
+    "/blog/:path*",
+    "/fpv/video/:path*",
+    "/fpv/scene/:path*",
+  ],
 };
