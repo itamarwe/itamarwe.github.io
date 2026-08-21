@@ -38,6 +38,29 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // The HTML variant of every markdown-negotiable URL (see middleware.ts and
+  // app/md/[[...path]]/route.ts) must carry `Vary: Accept`: the same URL
+  // serves text/html or text/markdown depending on the Accept header, and
+  // without Vary a CDN could hand the cached HTML variant to a markdown
+  // client (or vice versa). Next's renderer hardcodes the Vary it emits (a
+  // value set from middleware or here is ignored by `next start`), but on
+  // Vercel these headers are applied by the edge routing layer on top of the
+  // response — the documented way to set Vary (vercel.com/docs/caching/
+  // cdn-cache). The value spells out Next's own entries too so nothing is
+  // lost if the routing layer replaces rather than merges.
+  async headers() {
+    const vary = {
+      key: "Vary",
+      value:
+        "Accept, rsc, next-router-state-tree, next-router-prefetch, " +
+        "next-router-segment-prefetch, Accept-Encoding",
+    };
+    return [
+      { source: "/(about|contact|privacy)?", headers: [vary] },
+      { source: "/blog/:slug", headers: [vary] },
+    ];
+  },
+
   // Permanent (301/308) redirects from every legacy Jekyll URL to the new
   // clean URL, so existing links and search-engine results keep working.
   // The Portfolio page was merged into About, so /portfolio/ now redirects there.

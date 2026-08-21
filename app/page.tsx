@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAllPosts, formatDate } from "@/lib/posts";
+import { getAllPosts, getExcerpt, formatDate, DEFAULT_OG_IMAGE } from "@/lib/posts";
+import { homeJsonLd } from "@/lib/structured-data";
 
 const HOME_TITLE = "Itamar Weiss — Hands-on AI & Data Consultant";
 const HOME_DESCRIPTION =
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     url: "/",
     type: "website",
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 
@@ -23,13 +25,19 @@ export default function Home() {
 
   return (
     <div className="home">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd()) }}
+      />
       <header className="home-intro">
         <h1 className="post-title">Itamar Weiss — Hands-on AI &amp; Data Consultant</h1>
         <p>
           I help teams design and ship AI agents, data platforms, and production
           AI features. I write about AI systems, software engineering, data
           infrastructure, and the practical work of turning technical ideas into
-          reliable products.
+          reliable products. Read about my background and selected work on the{" "}
+          <Link href="/about/">About page</Link>, or{" "}
+          <Link href="/contact/">get in touch</Link> about a project.
         </p>
       </header>
 
@@ -44,6 +52,7 @@ export default function Home() {
                 {post.title}
               </Link>
             </h2>
+            <p className="post-excerpt">{getExcerpt(post.body)}</p>
           </li>
         ))}
       </ul>

@@ -8,6 +8,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${site.url}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${site.url}/about/`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${site.url}/contact/`, changeFrequency: "yearly", priority: 0.5 },
+    { url: `${site.url}/privacy/`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${site.url}/solar-system/`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${site.url}/photo-geolocation/`, changeFrequency: "yearly", priority: 0.3 },
     // The FPV viewer tracks a dataset that keeps growing, so it changes often.

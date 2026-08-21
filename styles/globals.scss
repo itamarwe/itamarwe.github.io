@@ -365,6 +365,14 @@ pre {
   }
 }
 
+// One-line teaser under each title on the homepage post list.
+.post-excerpt {
+  margin: 4px 0 0;
+  font-size: $small-font-size;
+  color: $grey-color;
+  max-width: 640px;
+}
+
 .post-header {
   margin-bottom: $spacing-unit;
 }
