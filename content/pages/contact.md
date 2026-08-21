@@ -13,6 +13,7 @@ See the [About page](/about/) for the kinds of problems I work on and selected p
 ## Elsewhere
 
 - **Email**: [weiss.itamar@gmail.com](mailto:weiss.itamar@gmail.com)
+- **LinkedIn**: [linkedin.com/in/itamarweiss](https://www.linkedin.com/in/itamarweiss/)
 - **GitHub**: [github.com/itamarwe](https://github.com/itamarwe)
 - **X (Twitter)**: [x.com/itamarwe](https://x.com/itamarwe)
 - **RSS**: subscribe to new posts at [/feed.xml](/feed.xml)

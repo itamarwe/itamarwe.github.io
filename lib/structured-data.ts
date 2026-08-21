@@ -25,6 +25,7 @@ export function homeJsonLd(): Record<string, unknown> {
           `https://github.com/${site.githubUsername}`,
           `https://x.com/${site.twitterUsername}`,
           `https://twitter.com/${site.twitterUsername}`,
+          "https://www.linkedin.com/in/itamarweiss/",
         ],
         knowsAbout: [
           "AI agents",
