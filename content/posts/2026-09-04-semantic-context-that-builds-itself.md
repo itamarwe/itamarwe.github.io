@@ -13,17 +13,19 @@ image: /img/semantic-context/social.png
 Over the past few months I've been helping several data-heavy organizations build
 the context layer that lets AI agents actually work with their data. The problem
 sounds simple. Give the agent access to the database. Give it the schema. Explain
-the organization's terminology. Maybe add a semantic layer. Now it should be able
-to answer questions.
+the organization's terminology. Now it should be able to answer questions.
 
-Except it doesn't work that way. Because **data has a history, and that history
-usually isn't in the data.**
+And it does work, if you do it right. The catch is what "right" takes. Every
+analyst team has to build its part carefully, not everyone knows how, and the
+moment you finish, it starts going stale. Because **data has a history, and that
+history usually isn't in the data.**
 
 ## The things your analysts just know
 
 Imagine asking an experienced analyst to calculate a business metric. They don't
 simply look at the schema, find a promising table and write a query. They know
-things like:
+which tables to query in the first place, and which ones to trust. And then they
+know things like:
 
 - There was an ingestion failure for three days in March, so that period needs
   special handling.
@@ -91,9 +93,21 @@ context layer at the top of that stack gets built*, rather than what it is.)
 
 Start with what you can learn directly from the data platform. Tables, columns,
 types, cardinality, value distributions, partitions, freshness, foreign keys where
-they exist, lineage. And relationships that can be inferred even when they haven't
-been declared.
+they exist, lineage. Whatever metadata and comments people bothered to leave in
+the catalog.
 
+More than you'd expect can be inferred from that alone. Sample a column and you
+can usually tell what it is: an identifier, a timestamp, an amount, a country
+code, an email. Look at which columns are unique and which repeat, and you get the
+table's grain: one row per order, per customer per day, per event. Combine the
+name, the columns and a few sampled rows and you can draft a description of the
+table that's often better than the one nobody wrote. It also catches a pattern
+that trips up every naive schema dump: rolling tables. `events_2026_01`,
+`events_2026_02`, `events_2026_03` are one logical table with a monthly partition,
+not thirty separate tables, and grouping them is a matter of noticing the shared
+structure and the naming pattern.
+
+The most valuable inference, though, is relationships that were never declared.
 Suppose we have a `users` table and an `addresses` table. There may be no
 foreign-key constraint between them. But if `addresses.user_id` has the same type
 as `users.id`, and almost every value in `addresses.user_id` appears in
@@ -179,6 +193,12 @@ neither physical inspection nor usage can tell us.
 reporting." "This customer type is called an account internally." "Exclude these
 transactions when calculating this metric." "This field changed meaning after the
 migration."
+
+In practice, curation is the layer that can override everything below it: a table
+or column description, the grain of a table, a comment on a join ("valid, but
+normalize case first"), a recipe for a metric, a gold question with the query that
+answers it, a semantic-layer definition, a deprecation date. The lower layers
+propose all of these. Curation gets the final word on any of them.
 
 This is the expensive context. So we should treat human attention as the scarce
 resource and reserve it for information that actually requires human knowledge.
