@@ -1,0 +1,11 @@
+{
+  "projectId": "5f9c96d6-df67-4345-b47e-965f1ffe0384",
+  "shape": "package",
+  "pkg": "itamar-weiss-blog",
+  "globalName": "ItamarWeiss",
+  "entry": ".design-sync/ds-entry.mjs",
+  "buildCmd": "npx sass styles/globals.scss .design-sync/.cache/globals.css --no-source-map --style=expanded && cat .design-sync/tokens.css .design-sync/.cache/globals.css > .design-sync/.cache/site.css",
+  "cssEntry": ".design-sync/.cache/site.css",
+  "extraFonts": [".design-sync/fonts.css"],
+  "readmeHeader": ".design-sync/conventions.md"
+}
