@@ -147,7 +147,8 @@ class Process(Scene):
         e = edges["cust-ev1"]
         q = Text("JOIN events_v1 e ON e.customer_id = c.id  →  0 rows", font=MONO,
                  font_size=13, color=RED).next_to(abox, RIGHT, buff=0.3)
-        self.play(FadeIn(q), e.animate.set_opacity(1).set_stroke(color=RED, width=4),
+        self.play(FadeIn(q), e[1].animate.set_opacity(1),
+                  e[0].animate.set_opacity(1).set_stroke(color=RED, width=4),
                   run_time=0.6)
         self.wait(0.5)
         finding = Text("found: lowercase ids on one side, mixed-case on the other",
@@ -156,7 +157,7 @@ class Process(Scene):
         self.wait(0.6)
         prop = Text("proposed: normalize case before joining", font_size=16, color=GREEN
                     ).next_to(e[1], RIGHT, buff=0.15)
-        self.play(FadeIn(prop), e.animate.set_stroke(color=GREEN, width=3), run_time=0.6)
+        self.play(FadeIn(prop), e[0].animate.set_stroke(color=GREEN, width=3), run_time=0.6)
 
         # a human promotes
         human = Text("analyst", font_size=20, color=PURPLE).move_to(LEFT * 5.4 + DOWN * 2.6)
