@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
   // static embed, so it needs no rewrite.
   async rewrites() {
     return [
+      { source: "/tiny-tlv", destination: "/tiny-tlv/index.html" },
+      { source: "/tiny-tlv/", destination: "/tiny-tlv/index.html" },
       { source: "/solar-system", destination: "/solar-system/index.html" },
       { source: "/solar-system/", destination: "/solar-system/index.html" },
       {
