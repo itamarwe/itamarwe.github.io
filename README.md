@@ -74,6 +74,13 @@ npm run dev      # http://localhost:5173
 > at the repo root once before `npm run dev` (Next) if you want the embedded
 > app reachable at `/photo-geolocation/` during local Next.js development.
 
+Tiny Tel Aviv lives directly in `public/tiny-tlv/` and is served at `/tiny-tlv/`
+via a rewrite, without the blog layout. Its HTML, model, Draco decoder, and
+Three.js 0.162.0 modules are committed together; no build step is needed. The
+Claude artifact export is preserved apart from removing the branding, adding
+page metadata, and serving Three.js locally. Google Fonts supplies the original
+typefaces; the model and rendering code load from this site.
+
 The Sun–Earth WebGL demo at `public/solar-system/` predates this layout: its
 build output is committed directly (its source lives in a separate repo).
 

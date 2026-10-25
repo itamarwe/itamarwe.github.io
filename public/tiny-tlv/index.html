@@ -1,0 +1,222 @@
+<!doctype html><html lang="en"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<title>Tiny Tel Aviv</title>
+<meta name="description" content="Explore a miniature 3D model of central Tel Aviv around Shalom Meir Tower, with orbit controls and red-cyan 3D glasses mode.">
+<link rel="canonical" href="https://www.itamarweiss.com/tiny-tlv/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: full-bleed model stage; title top-left, data caption bottom-left, controls bottom-right.
+     A dark look (ink ground, paper type); red / cyan only for the anaglyph data channel. */
+  :root {
+    --ink: #141414; --paper: #faf8f2; --muted: #a9a597; --rule: #30302f;
+    --red: #e5484d; --cyan: #36c5d6; --amber: #f0a43a;
+    --display: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ink); color: var(--paper); font-family: var(--display); overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; outline: none; cursor: grab; }
+  #stage canvas:active { cursor: grabbing; }
+
+  .hud { position: fixed; pointer-events: none; display: flex; flex-direction: column; gap: 10px; }
+  .hud > * { pointer-events: auto; }
+  header.hud { top: calc(env(safe-area-inset-top, 0px) + 18px); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { margin: 4px 0 0; font-weight: 700; font-size: clamp(30px, 5vw, 52px); line-height: 1; letter-spacing: -0.02em; text-wrap: balance; }
+  .sub { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+  footer.hud { bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); left: max(16px, env(safe-area-inset-left, 0px)); max-width: min(440px, calc(100vw - 32px)); }
+  .stats { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 18px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .stats dt { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .stats dd { margin: 0; font-size: 15px; color: var(--paper); }
+  .stats div { display: flex; flex-direction: column-reverse; gap: 2px; }
+  .credits { margin: 0; font-size: 11px; line-height: 1.45; color: var(--muted); font-weight: 300; }
+
+  .controls { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  button { font: 500 13px/1 var(--display); color: var(--paper); background: rgba(20,20,20,0.72); border: 1px solid var(--rule); border-radius: 999px; padding: 10px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 9px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+  #anaglyph { font-size: 15px; padding: 13px 20px; }
+  .glasses { display: inline-flex; gap: 3px; }
+  .glasses i { width: 13px; height: 9px; border-radius: 3px; display: block; }
+  .glasses i:first-child { background: var(--red); } .glasses i:last-child { background: var(--cyan); }
+  .hint { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: right; }
+
+  #loader { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; }
+  #loader div { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  #loader b { color: var(--paper); font-weight: 500; }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, auto); }
+    .credits { display: none; }
+    footer.hud { bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); }
+    .hint { display: none; }
+  }
+</style>
+
+</head>
+<body>
+<div id="stage" aria-label="Interactive 3D model of central Tel Aviv around Shalom Meir Tower"></div>
+
+<header class="hud">
+  <h1>Tiny Tel Aviv</h1>
+  <p class="sub">Shalom Meir Tower · 460 × 460 m · 49 blocks with LOD2 facades</p>
+</header>
+
+<footer class="hud">
+  <dl class="stats">
+    <div><dt>Buildings</dt><dd>281</dd></div>
+    <div><dt>Landmarks</dt><dd>9</dd></div>
+    <div><dt>Trees</dt><dd>627</dd></div>
+    <div><dt>Triangles</dt><dd id="s-tri">—</dd></div>
+  </dl>
+  <p class="credits">Footprints and streets © OpenStreetMap contributors (ODbL). Heights, trees and canopy: Tel Aviv-Yafo municipal GIS. Tower facade textures from Wikimedia Commons photos (CC BY-SA). Window grids on ordinary blocks are flattened in this web export.</p>
+</footer>
+
+<div class="controls">
+  <span class="hint">Drag to orbit · scroll or pinch to zoom · right-drag to pan</span>
+  <button id="spin" type="button" aria-pressed="true">Auto-rotate</button>
+  <button id="reset" type="button">Reset view</button>
+  <button id="anaglyph" type="button" aria-pressed="false"><span class="glasses" aria-hidden="true"><i></i><i></i></span><span id="ana-label">3D glasses: off</span></button>
+</div>
+
+<div id="loader"><div>Loading model <b id="pct">0%</b></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/addons/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { AnaglyphEffect } from 'three/addons/effects/AnaglyphEffect.js';
+
+// The model is in metres; it is shown at 1:250 (1 unit = 250 m) so the anaglyph's fixed 6.4 cm eye separation is
+// ~2.5% of the viewing distance: a miniature-like stereo depth (the "tiny" in Tiny Tel Aviv).
+const SCALE = 0.004;
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#141414');
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.02, 80);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 0.25; controls.maxDistance = 12;
+controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+controls.autoRotateSpeed = 0.5;
+
+scene.add(new THREE.HemisphereLight('#eef3ff', '#5d564c', 1.4));
+const sun = new THREE.DirectionalLight('#fff3e2', 2.6);
+sun.position.set(-1.2, 2.4, 1.6); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.01;
+Object.assign(sun.shadow.camera, { left: -1.45, right: 1.45, top: 1.45, bottom: -1.45, near: 0.05, far: 8 });
+scene.add(sun, sun.target);
+
+const anaglyph = new AnaglyphEffect(renderer);
+anaglyph.setSize(innerWidth, innerHeight);
+let useAnaglyph = false;
+
+const home = { pos: new THREE.Vector3(), target: new THREE.Vector3() };
+function goHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
+
+const draco = new DRACOLoader();
+draco.setDecoderPath('./draco/');
+draco.setDecoderConfig({ type: 'js' });
+const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
+const pct = document.getElementById('pct');
+// the GLB ships base64-encoded as text (artifact hosting serves no binary model types)
+async function fetchModel() {
+  const res = await fetch('./tiny_tel_aviv.glb.b64.txt');
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const total = +res.headers.get('content-length') || 5537000;
+  const reader = res.body.getReader(); const parts = []; let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value); got += value.length;
+    pct.textContent = Math.min(99, Math.round(100 * got / total)) + '%';
+  }
+  const b64 = new TextDecoder().decode(await new Blob(parts).arrayBuffer()).replace(/\s+/g, '');
+  const bin = atob(b64); const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+const onError = (err) => {
+  document.querySelector('#loader div').textContent = 'The model could not load. Reload the page to try again.';
+  console.error(err);
+};
+fetchModel().then((buf) => loader.parse(buf, './', onModel, onError)).catch(onError);
+function onModel(gltf) {
+  const root = gltf.scene;
+  root.scale.setScalar(SCALE);
+  let tris = 0;
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = true;
+    tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+    const m = o.material;
+    if (m && m.transparent && m.opacity > 0.95) m.transparent = false;
+  });
+  // centre on the model's footprint; keep the ground at y = 0
+  const box = new THREE.Box3().setFromObject(root);
+  const c = box.getCenter(new THREE.Vector3());
+  root.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
+  scene.add(root);
+  const r = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
+  home.target.set(0, 0.1, 0);
+  home.pos.set(-r * 1.55, r * 1.45, r * 1.55);
+  goHome();
+  document.getElementById('s-tri').textContent = Math.round(tris).toLocaleString('en-US');
+  document.getElementById('loader').hidden = true;
+}
+
+const btnA = document.getElementById('anaglyph'), lblA = document.getElementById('ana-label');
+btnA.addEventListener('click', () => {
+  useAnaglyph = !useAnaglyph;
+  btnA.setAttribute('aria-pressed', String(useAnaglyph));
+  lblA.textContent = useAnaglyph ? '3D glasses: on' : '3D glasses: off';
+});
+const btnS = document.getElementById('spin');
+btnS.setAttribute('aria-pressed', String(controls.autoRotate));
+btnS.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  btnS.setAttribute('aria-pressed', String(controls.autoRotate));
+});
+document.getElementById('reset').addEventListener('click', goHome);
+renderer.domElement.addEventListener('pointerdown', () => {
+  if (controls.autoRotate) { controls.autoRotate = false; btnS.setAttribute('aria-pressed', 'false'); }
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); anaglyph.setSize(innerWidth, innerHeight);
+});
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  if (useAnaglyph) {
+    camera.focus = camera.position.distanceTo(controls.target);  // zero parallax at the orbit target
+    anaglyph.render(scene, camera);
+  } else {
+    renderer.render(scene, camera);
+  }
+});
+</script>
+
+</body></html>
