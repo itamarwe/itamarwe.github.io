@@ -77,9 +77,11 @@ npm run dev      # http://localhost:5173
 Tiny Tel Aviv lives directly in `public/tiny-tlv/` and is served at `/tiny-tlv/`
 via a rewrite, without the blog layout. Its HTML, model, Draco decoder, and
 Three.js 0.162.0 modules are committed together; no build step is needed. The
-Claude artifact export is preserved apart from removing the branding, adding
-page metadata, and serving Three.js locally. Google Fonts supplies the original
-typefaces; the model and rendering code load from this site.
+Claude viewer layout is preserved without the branding or procedural-model
+notice. The updated Blender scene is exported as binary GLB; sharing images
+and OpenGraph/Twitter metadata are included. See `research/tiny-tlv/README.md`
+for model provenance, export, validation, and social-card capture commands.
+Google Fonts supplies the original typefaces; the model and rendering code load from this site.
 
 The Sun–Earth WebGL demo at `public/solar-system/` predates this layout: its
 build output is committed directly (its source lives in a separate repo).
