@@ -2,6 +2,22 @@
 <title>Tiny Tel Aviv</title>
 <meta name="description" content="Explore a miniature 3D model of central Tel Aviv around Shalom Meir Tower, with orbit controls and red-cyan 3D glasses mode.">
 <link rel="canonical" href="https://www.itamarweiss.com/tiny-tlv/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tiny Tel Aviv">
+<meta property="og:description" content="Explore central Tel Aviv in miniature. Orbit Shalom Meir Tower and the surrounding streets, or switch on red-cyan 3D glasses mode.">
+<meta property="og:url" content="https://www.itamarweiss.com/tiny-tlv/">
+<meta property="og:site_name" content="Itamar Weiss">
+<meta property="og:image" content="https://www.itamarweiss.com/img/tiny-tlv/social.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Tiny Tel Aviv — a miniature 3D view of Shalom Meir Tower and the surrounding city blocks.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@itamarwe">
+<meta name="twitter:title" content="Tiny Tel Aviv">
+<meta name="twitter:description" content="Explore central Tel Aviv in miniature, with orbit controls and red-cyan 3D glasses mode.">
+<meta name="twitter:image" content="https://www.itamarweiss.com/img/tiny-tlv/social.png">
+<meta name="twitter:image:alt" content="Tiny Tel Aviv — a miniature 3D view of Shalom Meir Tower and the surrounding city blocks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Geist+Mono:wght@400;500&display=swap">
 <style>
@@ -62,14 +78,14 @@
 
 <header class="hud">
   <h1>Tiny Tel Aviv</h1>
-  <p class="sub">Shalom Meir Tower · 460 × 460 m · 49 blocks with LOD2 facades</p>
+  <p class="sub">Shalom Meir Tower · 460 × 460 m · 47 blocks with LOD2 facades</p>
 </header>
 
 <footer class="hud">
   <dl class="stats">
     <div><dt>Buildings</dt><dd>281</dd></div>
-    <div><dt>Landmarks</dt><dd>9</dd></div>
-    <div><dt>Trees</dt><dd>627</dd></div>
+    <div><dt>Landmarks</dt><dd>20</dd></div>
+    <div><dt>Trees</dt><dd>615</dd></div>
     <div><dt>Triangles</dt><dd id="s-tri">—</dd></div>
   </dl>
   <p class="credits">Footprints and streets © OpenStreetMap contributors (ODbL). Heights, trees and canopy: Tel Aviv-Yafo municipal GIS. Tower facade textures from Wikimedia Commons photos (CC BY-SA). Window grids on ordinary blocks are flattened in this web export.</p>
@@ -132,6 +148,18 @@ anaglyph.setSize(innerWidth, innerHeight);
 let useAnaglyph = false;
 
 const home = { pos: new THREE.Vector3(), target: new THREE.Vector3() };
+let modelRadius = 0, homeDistance = 0;
+function fitHome() {
+  if (!modelRadius) return;
+  // Fit the model's bounding sphere to the narrower screen dimension.
+  const halfFov = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.min(1, camera.aspect));
+  const distance = 1.1 * modelRadius / Math.sin(halfFov);
+  home.pos.copy(home.target).addScaledVector(new THREE.Vector3(-1.55, 1.45, 1.55).normalize(), distance);
+  controls.maxDistance = Math.max(12, distance * 2);
+  // Preserve the reader's relative zoom and orbit when the screen rotates.
+  if (homeDistance) camera.position.sub(controls.target).multiplyScalar(distance / homeDistance).add(controls.target);
+  homeDistance = distance;
+}
 function goHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
 
 const draco = new DRACOLoader();
@@ -140,11 +168,11 @@ draco.setDecoderConfig({ type: 'js' });
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
 const pct = document.getElementById('pct');
-// the GLB ships base64-encoded as text (artifact hosting serves no binary model types)
+// Serve the compact binary GLB directly; no base64 decoding or extra text copy.
 async function fetchModel() {
-  const res = await fetch('./tiny_tel_aviv.glb.b64.txt');
+  const res = await fetch('./tiny_tel_aviv.glb');
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  const total = +res.headers.get('content-length') || 5537000;
+  const total = +res.headers.get('content-length') || 5843944;
   const reader = res.body.getReader(); const parts = []; let got = 0;
   for (;;) {
     const { done, value } = await reader.read();
@@ -152,10 +180,7 @@ async function fetchModel() {
     parts.push(value); got += value.length;
     pct.textContent = Math.min(99, Math.round(100 * got / total)) + '%';
   }
-  const b64 = new TextDecoder().decode(await new Blob(parts).arrayBuffer()).replace(/\s+/g, '');
-  const bin = atob(b64); const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
+  return new Blob(parts).arrayBuffer();
 }
 const onError = (err) => {
   document.querySelector('#loader div').textContent = 'The model could not load. Reload the page to try again.';
@@ -178,9 +203,9 @@ function onModel(gltf) {
   const c = box.getCenter(new THREE.Vector3());
   root.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
   scene.add(root);
-  const r = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
+  modelRadius = box.getSize(new THREE.Vector3()).length() / 2;
   home.target.set(0, 0.1, 0);
-  home.pos.set(-r * 1.55, r * 1.45, r * 1.55);
+  fitHome();
   goHome();
   document.getElementById('s-tri').textContent = Math.round(tris).toLocaleString('en-US');
   document.getElementById('loader').hidden = true;
@@ -205,6 +230,7 @@ renderer.domElement.addEventListener('pointerdown', () => {
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  fitHome();
   renderer.setSize(innerWidth, innerHeight); anaglyph.setSize(innerWidth, innerHeight);
 });
 

@@ -1,0 +1,23 @@
+{
+  "source_project": "tiny-tel-aviv",
+  "source_commit": "98ca75c",
+  "source_scene": "out/orbit_final/tiny_tel_aviv_pilot_day.blend",
+  "source_blend_sha256": "4b729907d2f2e13b17a3b2d40441a6375617ed1c97273758c928188aba21d03b",
+  "model_sha256": "12fd57f5af5ca35d6461838ae73d737c18b8b7e2609c91ff1e0d6fe6e8b39355",
+  "model_bytes": 5843944,
+  "buildings": 281,
+  "landmarks": 20,
+  "lod2_blocks": 47,
+  "trees": 615,
+  "triangles": 3305009,
+  "embedded_images": [
+    "endwall",
+    "crown_plain",
+    "fascia",
+    "glazed",
+    "south_office",
+    "podium_south",
+    "crown_south"
+  ],
+  "export_notes": "Orthophoto roof textures replaced with a plain roof material. Commons facade images retained; procedural material shaders flattened as in the original web export."
+}
