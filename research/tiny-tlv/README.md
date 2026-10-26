@@ -1,9 +1,10 @@
 # Tiny Tel Aviv web export and sharing assets
 
 The viewer uses the latest scene from the local Tiny Tel Aviv Claude session,
-`out/orbit_final/tiny_tel_aviv_pilot_day.blend`. `model-source.json` records the
+`out/rbvd_views/tiny_tel_aviv_pilot_day.blend`. `model-source.json` records the
 source commit, scene hash, export hash, and real counts from its Blender metadata.
-This scene adds the osm2streets roads, detailed trees, and Rothschild buildings.
+This scene updates Rothschild Boulevard with measured paths, kerbs, crossings,
+trees, the sand promenade, grey sidewalks, and the octagonal first kiosk.
 The source project and large Blender inputs remain in the separate Tiny Tel Aviv
 project/data directories; they are not needed to build or serve this website.
 
@@ -90,8 +91,8 @@ the loop boundary. A video player must still have looping enabled.
 ## LinkedIn feed loop
 
 The `--linkedin` preset captures a 1080×1080, 30 fps, 13-second MP4 from the same
-live viewer. The camera holds an angled view for 3 seconds, rises to 85° over
-2.5 seconds, holds overhead for 5 seconds, and returns over 2.5 seconds. Quintic
+viewer (live by default, or a local preview via `TINY_TLV_CAPTURE_URL`). The camera
+holds an angled view for 3 seconds, rises to 85° over 2.5 seconds, holds overhead for 5 seconds, and returns over 2.5 seconds. Quintic
 smootherstep easing gives each transition zero velocity and acceleration at its
 ends. One full 360° orbit continues at constant angular speed through every phase,
 including the overhead hold. Camera distance (6.5 scene units), target, and field
@@ -137,3 +138,8 @@ resolution, duration, aspect ratio, frame rate, bitrate, and file size:
 [Share videos on LinkedIn](https://www.linkedin.com/help/linkedin/answer/a7494039)
 (checked 2026-10-26). Square framing is a design choice for this asset, not a
 LinkedIn requirement.
+
+To capture the updated model before deployment, serve `public` locally and set
+`TINY_TLV_CAPTURE_URL=http://127.0.0.1:3018/tiny-tlv/` when invoking the video
+script. Capture provenance records both the source HTML and model SHA-256, so a
+local export can be verified against the committed model.

@@ -11,7 +11,7 @@ const { once } = require('node:events');
 const path = require('node:path');
 const repo = path.resolve(__dirname, '../..');
 const { chromium } = createRequire(path.join(repo, 'apps/photo-geolocation/package.json'))('playwright');
-const sourceUrl = 'https://www.itamarweiss.com/tiny-tlv/';
+const sourceUrl = process.env.TINY_TLV_CAPTURE_URL || 'https://www.itamarweiss.com/tiny-tlv/';
 const linkedin = process.argv.includes('--linkedin');
 const width = linkedin ? 1080 : 1920, height = 1080, fps = 30;
 const duration = linkedin ? 13 : 36, frames = fps * duration;
@@ -26,6 +26,9 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
   const response = await fetch(sourceUrl);
   if (!response.ok) throw new Error(`Website returned ${response.status}`);
   const html = await response.text();
+  const modelResponse = await fetch(new URL('tiny_tel_aviv.glb', sourceUrl));
+  if (!modelResponse.ok) throw new Error(`Model returned ${modelResponse.status}`);
+  const sourceModelSha256 = sha(Buffer.from(await modelResponse.arrayBuffer()));
   const hook = 'renderer.setAnimationLoop(() => {';
   if (!html.includes(hook)) throw new Error('Live viewer capture hook changed.');
   const browser = await chromium.launch({
@@ -150,7 +153,7 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       const [code] = await finished;
       if (code !== 0) throw new Error(`ffmpeg exited with code ${code}`);
       await writeFile(path.join(scratch, 'capture.json'), JSON.stringify({
-        sourceUrl, sourceHtmlSha256: sha(html), width, height, fps, duration, frames,
+        sourceUrl, sourceHtmlSha256: sha(html), sourceModelSha256, width, height, fps, duration, frames,
         orbits: linkedin ? 1 : 3, fixedZoom: linkedin,
         ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35],
           motion: { angledHoldSeconds: 3, riseSeconds: 2.5, overheadHoldSeconds: 5,
