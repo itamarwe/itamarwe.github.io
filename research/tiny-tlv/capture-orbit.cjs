@@ -14,7 +14,7 @@ const { chromium } = createRequire(path.join(repo, 'apps/photo-geolocation/packa
 const sourceUrl = 'https://www.itamarweiss.com/tiny-tlv/';
 const linkedin = process.argv.includes('--linkedin');
 const width = linkedin ? 1080 : 1920, height = 1080, fps = 30;
-const duration = linkedin ? 24 : 36, frames = fps * duration;
+const duration = linkedin ? 13 : 36, frames = fps * duration;
 const basename = linkedin ? 'tiny-tlv-linkedin-loop' : 'tiny-tlv-orbit';
 const preview = process.argv.includes('--preview');
 const out = path.join(repo, `public/img/tiny-tlv/${basename}.mp4`);
@@ -82,14 +82,26 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       address.textContent = 'itamarweiss.com/tiny-tlv';
       document.body.append(address);
       document.getElementById('spin').setAttribute('aria-pressed', 'true');
+      // The reference's repeat cycle: 3 s angled, 2.5 s rise, 5 s overhead,
+      // 2.5 s return. Quintic easing stops smoothly at both ends of each tilt.
+      const smootherstep = x => x ** 3 * (x * (6 * x - 15) + 10);
+      const topBlend = seconds => seconds < 3 ? 0
+        : seconds < 5.5 ? smootherstep((seconds - 3) / 2.5)
+        : seconds < 10.5 ? 1
+        : 1 - smootherstep((seconds - 10.5) / 2.5);
       window.__orbitFrame = t => {
         const { camera, scene } = window.__capture;
         const zoom = Math.sin(Math.PI * t) ** 2;
         // LinkedIn keeps both distance and field of view fixed. The periodic
         // tilt reaches 85 degrees, avoiding the camera up-vector singularity.
         const distance = linkedin ? 6.5 : 4.1 + 2.4 * zoom;
-        const elevation = (35 + (linkedin ? 50 : 6) * zoom) * Math.PI / 180;
-        const azimuth = -Math.PI / 4 + (linkedin ? 2 : 6) * Math.PI * t;
+        const tilt = linkedin ? topBlend(t * 13) : zoom;
+        const elevation = (35 + (linkedin ? 50 : 6) * tilt) * Math.PI / 180;
+        // A small periodic sideways drift settles to a fixed heading overhead.
+        // This replaces the full spin, which competed with the reference's pause.
+        const azimuth = -Math.PI / 4 + (linkedin
+          ? 12 * Math.PI / 180 * Math.sin(2 * Math.PI * t) * (1 - tilt)
+          : 6 * Math.PI * t);
         camera.position.set(
           distance * Math.cos(elevation) * Math.sin(azimuth),
           0.16 + distance * Math.sin(elevation),
@@ -116,7 +128,7 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       await writeFile(path.join(repo, 'public/img/tiny-tlv/tiny-tlv-linkedin-thumbnail.png'), first);
     }
     if (preview) {
-      for (const [i, t] of [1/6, 1/3, 1/2, 2/3, 5/6].entries()) {
+      for (const [i, t] of (linkedin ? [3/13, 4.25/13, 5.5/13, 10.5/13, 11.75/13] : [1/6, 1/3, 1/2, 2/3, 5/6]).entries()) {
         await writeFile(path.join(scratch, `preview-${i + 1}.png`), await render(t));
       }
       console.log('Preview frames captured; loop endpoint is pixel-identical.');
@@ -141,8 +153,11 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       if (code !== 0) throw new Error(`ffmpeg exited with code ${code}`);
       await writeFile(path.join(scratch, 'capture.json'), JSON.stringify({
         sourceUrl, sourceHtmlSha256: sha(html), width, height, fps, duration, frames,
-        orbits: linkedin ? 1 : 3, fixedZoom: linkedin,
-        ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35] } : {}),
+        orbits: linkedin ? 0 : 3, fixedZoom: linkedin,
+        ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35],
+          motion: { angledHoldSeconds: 3, riseSeconds: 2.5, overheadHoldSeconds: 5,
+            returnSeconds: 2.5, easing: 'quintic smootherstep', yawAmplitudeDegrees: 12 },
+          motionReference: 'https://mappalabs.com/?drape=alpine&stereo=off' } : {}),
         audio: false, loopEndpointIdentical: true,
         sourceTriangles: await page.locator('#s-tri').textContent(),
       }, null, 2) + '\n');

@@ -4,9 +4,9 @@
   "width": 1080,
   "height": 1080,
   "fps": 30,
-  "duration": 24,
-  "frames": 720,
-  "orbits": 1,
+  "duration": 13,
+  "frames": 390,
+  "orbits": 0,
   "fixedZoom": true,
   "cameraDistance": 6.5,
   "fieldOfView": 34,
@@ -15,6 +15,15 @@
     85,
     35
   ],
+  "motion": {
+    "angledHoldSeconds": 3,
+    "riseSeconds": 2.5,
+    "overheadHoldSeconds": 5,
+    "returnSeconds": 2.5,
+    "easing": "quintic smootherstep",
+    "yawAmplitudeDegrees": 12
+  },
+  "motionReference": "https://mappalabs.com/?drape=alpine&stereo=off",
   "audio": false,
   "loopEndpointIdentical": true,
   "sourceTriangles": "3,305,009"

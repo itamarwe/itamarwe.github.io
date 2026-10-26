@@ -89,12 +89,22 @@ the loop boundary. A video player must still have looping enabled.
 
 ## LinkedIn feed loop
 
-The `--linkedin` preset captures a 1080×1080, 30 fps, 24-second MP4 from the same
-live viewer. One full orbit tilts from 35° elevation to 85° and back, keeping
-camera distance (6.5 scene units), target, and field of view (34°) fixed. There
-is no zoom animation. The elevation follows `sin(pi*t)^2`, so position and
-velocity are continuous across the loop boundary. The same pixel-identical
-endpoint check runs before encoding.
+The `--linkedin` preset captures a 1080×1080, 30 fps, 13-second MP4 from the same
+live viewer. The camera holds an angled view for 3 seconds, rises to 85° over
+2.5 seconds, holds overhead for 5 seconds, and returns over 2.5 seconds. Quintic
+smootherstep easing gives each transition zero velocity and acceleration at its
+ends. A gentle 12° sideways drift settles to a fixed heading overhead. Camera
+distance (6.5 scene units), target, and field of view (34°) stay fixed, with no
+zoom animation. The same pixel-identical endpoint check runs before encoding.
+
+This pacing follows the repeating map transition on the
+[Mappa reference](https://mappalabs.com/?drape=alpine&stereo=off), inspected on
+2026-10-26. Its published animation uses the same 3 / 2.5 / 5 / 2.5-second phases
+and quintic easing, followed by frame-dependent camera smoothing. This capture
+uses deterministic easing directly, adapts the view angles and sideways drift
+to the city, and omits the reference's zoom and initial reveal delay. The 13-second
+path and its derivatives close at the loop boundary. No reference branding or
+scene assets are included.
 
 ```sh
 CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
