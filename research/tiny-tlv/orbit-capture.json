@@ -1,0 +1,13 @@
+{
+  "sourceUrl": "https://www.itamarweiss.com/tiny-tlv/",
+  "sourceHtmlSha256": "2a59ae56d4568c2018d834b6a0e8535a81de75bb8cea86bf17ec50050a60b678",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "duration": 36,
+  "frames": 1080,
+  "orbits": 3,
+  "audio": false,
+  "loopEndpointIdentical": true,
+  "sourceTriangles": "3,305,009"
+}
