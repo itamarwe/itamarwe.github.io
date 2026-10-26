@@ -1,7 +1,7 @@
 /** Record the actual Tiny TLV website with a deterministic, seamless camera path.
  * Captures real browser frames (not a rebuilt scene); no server files are patched.
  * Frame-by-frame capture keeps 30 fps even when rendering is slower than real time.
- * Usage: CHROME_BIN=/path/to/chrome node research/tiny-tlv/capture-orbit.cjs [--preview]
+ * Usage: CHROME_BIN=/path/to/chrome node research/tiny-tlv/capture-orbit.cjs [--linkedin] [--preview]
  */
 const { createRequire } = require('node:module');
 const { mkdir, writeFile } = require('node:fs/promises');
@@ -11,11 +11,14 @@ const { once } = require('node:events');
 const path = require('node:path');
 const repo = path.resolve(__dirname, '../..');
 const { chromium } = createRequire(path.join(repo, 'apps/photo-geolocation/package.json'))('playwright');
-const sourceUrl = 'https://www.itamarweiss.com/tiny-tlv/';
-const width = 1920, height = 1080, fps = 30, duration = 36, frames = fps * duration;
+const sourceUrl = process.env.TINY_TLV_CAPTURE_URL || 'https://www.itamarweiss.com/tiny-tlv/';
+const linkedin = process.argv.includes('--linkedin');
+const width = linkedin ? 1080 : 1920, height = 1080, fps = 30;
+const duration = linkedin ? 13 : 36, frames = fps * duration;
+const basename = linkedin ? 'tiny-tlv-linkedin-loop' : 'tiny-tlv-orbit';
 const preview = process.argv.includes('--preview');
-const out = path.join(repo, 'public/img/tiny-tlv/tiny-tlv-orbit.mp4');
-const scratch = path.join(__dirname, 'out/orbit');
+const out = path.join(repo, `public/img/tiny-tlv/${basename}.mp4`);
+const scratch = path.join(__dirname, linkedin ? 'out/linkedin' : 'out/orbit');
 const sha = buffer => createHash('sha256').update(buffer).digest('hex');
 
 (async () => {
@@ -23,6 +26,9 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
   const response = await fetch(sourceUrl);
   if (!response.ok) throw new Error(`Website returned ${response.status}`);
   const html = await response.text();
+  const modelResponse = await fetch(new URL('tiny_tel_aviv.glb', sourceUrl));
+  if (!modelResponse.ok) throw new Error(`Model returned ${modelResponse.status}`);
+  const sourceModelSha256 = sha(Buffer.from(await modelResponse.arrayBuffer()));
   const hook = 'renderer.setAnimationLoop(() => {';
   if (!html.includes(hook)) throw new Error('Live viewer capture hook changed.');
   const browser = await chromium.launch({
@@ -53,9 +59,19 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       .hint { display: none; }
       #capture-url { position: fixed; top: 37px; right: 32px; font: 400 20px var(--mono); color: var(--paper); }
     ` });
-    await page.evaluate(() => {
+    if (linkedin) await page.addStyleTag({ content: `
+      header.hud { top: 56px; left: 64px; right: 64px; gap: 16px; }
+      header.hud h1 { font-size: 72px; }
+      .sub { font-size: 18px; letter-spacing: 0.03em; }
+      .stats, .controls { display: none; }
+      footer.hud { left: 64px; right: 64px; bottom: 36px; max-width: none; }
+      .credits { font-size: 12px; }
+      #capture-url { top: auto; bottom: 108px; left: 64px; right: auto; font-size: 28px; }
+    ` });
+    await page.evaluate(linkedin => {
       const { renderer, controls, camera } = window.__capture;
-      camera.setViewOffset(innerWidth, innerHeight, 0, 70, innerWidth, innerHeight);
+      camera.setViewOffset(innerWidth, innerHeight, 0, linkedin ? 0 : 70, innerWidth, innerHeight);
+      if (linkedin) camera.fov = 34;
       camera.updateProjectionMatrix();
       renderer.setAnimationLoop(null);
       controls.autoRotate = false;
@@ -69,12 +85,24 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       address.textContent = 'itamarweiss.com/tiny-tlv';
       document.body.append(address);
       document.getElementById('spin').setAttribute('aria-pressed', 'true');
+      // The reference's repeat cycle: 3 s angled, 2.5 s rise, 5 s overhead,
+      // 2.5 s return. Quintic easing stops smoothly at both ends of each tilt.
+      const smootherstep = x => x ** 3 * (x * (6 * x - 15) + 10);
+      const topBlend = seconds => seconds < 3 ? 0
+        : seconds < 5.5 ? smootherstep((seconds - 3) / 2.5)
+        : seconds < 10.5 ? 1
+        : 1 - smootherstep((seconds - 10.5) / 2.5);
       window.__orbitFrame = t => {
         const { camera, scene } = window.__capture;
         const zoom = Math.sin(Math.PI * t) ** 2;
-        const distance = 4.1 + 2.4 * zoom;
-        const elevation = (35 + 6 * zoom) * Math.PI / 180;
-        const azimuth = -Math.PI / 4 + 6 * Math.PI * t;
+        // LinkedIn keeps both distance and field of view fixed. The periodic
+        // tilt reaches 85 degrees, avoiding the camera up-vector singularity.
+        const distance = linkedin ? 6.5 : 4.1 + 2.4 * zoom;
+        const tilt = linkedin ? topBlend(t * 13) : zoom;
+        const elevation = (35 + (linkedin ? 50 : 6) * tilt) * Math.PI / 180;
+        // Complete one continuous turn, including the overhead hold. The final
+        // heading is equivalent to the first, with the same angular velocity.
+        const azimuth = -Math.PI / 4 + (linkedin ? 2 : 6) * Math.PI * t;
         camera.position.set(
           distance * Math.cos(elevation) * Math.sin(azimuth),
           0.16 + distance * Math.sin(elevation),
@@ -85,7 +113,7 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
         renderer.render(scene, camera);
         return camera.position.toArray();
       };
-    });
+    }, linkedin);
     const render = async t => {
       await page.evaluate(t => window.__orbitFrame(t), t);
       return page.screenshot({ type: 'png' });
@@ -97,8 +125,11 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
     if (sha(first) !== sha(endpoint)) throw new Error('Loop endpoint does not match the opening frame.');
     await writeFile(path.join(scratch, 'start.png'), first);
     await writeFile(path.join(scratch, 'endpoint.png'), endpoint);
+    if (linkedin && !preview) {
+      await writeFile(path.join(repo, 'public/img/tiny-tlv/tiny-tlv-linkedin-thumbnail.png'), first);
+    }
     if (preview) {
-      for (const [i, t] of [1/6, 1/3, 1/2, 2/3, 5/6].entries()) {
+      for (const [i, t] of (linkedin ? [3/13, 4.25/13, 5.5/13, 10.5/13, 11.75/13] : [1/6, 1/3, 1/2, 2/3, 5/6]).entries()) {
         await writeFile(path.join(scratch, `preview-${i + 1}.png`), await render(t));
       }
       console.log('Preview frames captured; loop endpoint is pixel-identical.');
@@ -122,8 +153,13 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       const [code] = await finished;
       if (code !== 0) throw new Error(`ffmpeg exited with code ${code}`);
       await writeFile(path.join(scratch, 'capture.json'), JSON.stringify({
-        sourceUrl, sourceHtmlSha256: sha(html), width, height, fps, duration, frames,
-        orbits: 3, audio: false, loopEndpointIdentical: true,
+        sourceUrl, sourceHtmlSha256: sha(html), sourceModelSha256, width, height, fps, duration, frames,
+        orbits: linkedin ? 1 : 3, fixedZoom: linkedin,
+        ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35],
+          motion: { angledHoldSeconds: 3, riseSeconds: 2.5, overheadHoldSeconds: 5,
+            returnSeconds: 2.5, easing: 'quintic smootherstep', azimuthDegrees: 360, angularSpeedDegreesPerSecond: 360 / 13 },
+          motionReference: 'https://mappalabs.com/?drape=alpine&stereo=off' } : {}),
+        audio: false, loopEndpointIdentical: true,
         sourceTriangles: await page.locator('#s-tri').textContent(),
       }, null, 2) + '\n');
       console.log(`Created ${out}`);

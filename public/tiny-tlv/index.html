@@ -85,7 +85,7 @@
   <dl class="stats">
     <div><dt>Buildings</dt><dd>281</dd></div>
     <div><dt>Landmarks</dt><dd>20</dd></div>
-    <div><dt>Trees</dt><dd>615</dd></div>
+    <div><dt>Trees</dt><dd>603</dd></div>
     <div><dt>Triangles</dt><dd id="s-tri">—</dd></div>
   </dl>
   <p class="credits">Footprints and streets © OpenStreetMap contributors (ODbL). Heights, trees and canopy: Tel Aviv-Yafo municipal GIS. Tower facade textures from Wikimedia Commons photos (CC BY-SA). Window grids on ordinary blocks are flattened in this web export.</p>
@@ -170,9 +170,9 @@ loader.setDRACOLoader(draco);
 const pct = document.getElementById('pct');
 // Serve the compact binary GLB directly; no base64 decoding or extra text copy.
 async function fetchModel() {
-  const res = await fetch('./tiny_tel_aviv.glb');
+  const res = await fetch('./tiny_tel_aviv.glb?v=5f8dd3b03db5');
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  const total = +res.headers.get('content-length') || 5843944;
+  const total = +res.headers.get('content-length') || 5731496;
   const reader = res.body.getReader(); const parts = []; let got = 0;
   for (;;) {
     const { done, value } = await reader.read();

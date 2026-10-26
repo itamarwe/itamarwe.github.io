@@ -1,0 +1,32 @@
+{
+  "sourceUrl": "http://127.0.0.1:3018/tiny-tlv/",
+  "sourceHtmlSha256": "4bb58010b8d727a7bd40479c6de5d1d6f89d5dc43312a73737cf37d9b34eaf75",
+  "sourceModelSha256": "5f8dd3b03db5a617149572a0bc3a9485aeddd2ec6105f87fb138cb9edc59b0c6",
+  "width": 1080,
+  "height": 1080,
+  "fps": 30,
+  "duration": 13,
+  "frames": 390,
+  "orbits": 1,
+  "fixedZoom": true,
+  "cameraDistance": 6.5,
+  "fieldOfView": 34,
+  "elevationDegrees": [
+    35,
+    85,
+    35
+  ],
+  "motion": {
+    "angledHoldSeconds": 3,
+    "riseSeconds": 2.5,
+    "overheadHoldSeconds": 5,
+    "returnSeconds": 2.5,
+    "easing": "quintic smootherstep",
+    "azimuthDegrees": 360,
+    "angularSpeedDegreesPerSecond": 27.692307692307693
+  },
+  "motionReference": "https://mappalabs.com/?drape=alpine&stereo=off",
+  "audio": false,
+  "loopEndpointIdentical": true,
+  "sourceTriangles": "3,251,138"
+}
