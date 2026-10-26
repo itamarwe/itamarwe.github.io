@@ -86,3 +86,42 @@ and elevation follow `sin(pi*t)^2`. The virtual endpoint must be pixel-identical
 to the first frame before rendering can continue. That duplicate endpoint is
 excluded from the encoded clip, leaving a normal single-frame motion step across
 the loop boundary. A video player must still have looping enabled.
+
+## LinkedIn feed loop
+
+The `--linkedin` preset captures a 1080×1080, 30 fps, 24-second MP4 from the same
+live viewer. One full orbit tilts from 35° elevation to 85° and back, keeping
+camera distance (6.5 scene units), target, and field of view (34°) fixed. There
+is no zoom animation. The elevation follows `sin(pi*t)^2`, so position and
+velocity are continuous across the loop boundary. The same pixel-identical
+endpoint check runs before encoding.
+
+```sh
+CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  node research/tiny-tlv/capture-orbit.cjs --linkedin --preview
+CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  node research/tiny-tlv/capture-orbit.cjs --linkedin
+```
+
+Outputs in `public/img/tiny-tlv/`:
+
+- `tiny-tlv-linkedin-loop.mp4`: square H.264/yuv420p video, silent, with fast-start
+  metadata and an 8 Mbps peak bitrate cap.
+- `tiny-tlv-linkedin-thumbnail.png`: matching square opening frame for the upload
+  thumbnail.
+
+The square composition, larger heading, and persistent URL are designed for
+mobile feed viewing without sound. Statistics and inactive controls are hidden
+in the capture; the website's title, subtitle, and source credits remain. No
+public viewer code is modified. Keep `linkedin-capture.json` with the recorded
+source hash and settings. Scratch captures live in `out/linkedin/`.
+
+Upload the MP4 as a native LinkedIn video and optionally select the accompanying
+thumbnail. The file has a seamless loop boundary; whether it repeats automatically
+is controlled by the platform/player, not an MP4 flag.
+
+Export settings fall within LinkedIn's published native-video limits for
+resolution, duration, aspect ratio, frame rate, bitrate, and file size:
+[Share videos on LinkedIn](https://www.linkedin.com/help/linkedin/answer/a7494039)
+(checked 2026-10-26). Square framing is a design choice for this asset, not a
+LinkedIn requirement.

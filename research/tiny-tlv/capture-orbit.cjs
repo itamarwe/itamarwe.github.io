@@ -1,7 +1,7 @@
 /** Record the actual Tiny TLV website with a deterministic, seamless camera path.
  * Captures real browser frames (not a rebuilt scene); no server files are patched.
  * Frame-by-frame capture keeps 30 fps even when rendering is slower than real time.
- * Usage: CHROME_BIN=/path/to/chrome node research/tiny-tlv/capture-orbit.cjs [--preview]
+ * Usage: CHROME_BIN=/path/to/chrome node research/tiny-tlv/capture-orbit.cjs [--linkedin] [--preview]
  */
 const { createRequire } = require('node:module');
 const { mkdir, writeFile } = require('node:fs/promises');
@@ -12,10 +12,13 @@ const path = require('node:path');
 const repo = path.resolve(__dirname, '../..');
 const { chromium } = createRequire(path.join(repo, 'apps/photo-geolocation/package.json'))('playwright');
 const sourceUrl = 'https://www.itamarweiss.com/tiny-tlv/';
-const width = 1920, height = 1080, fps = 30, duration = 36, frames = fps * duration;
+const linkedin = process.argv.includes('--linkedin');
+const width = linkedin ? 1080 : 1920, height = 1080, fps = 30;
+const duration = linkedin ? 24 : 36, frames = fps * duration;
+const basename = linkedin ? 'tiny-tlv-linkedin-loop' : 'tiny-tlv-orbit';
 const preview = process.argv.includes('--preview');
-const out = path.join(repo, 'public/img/tiny-tlv/tiny-tlv-orbit.mp4');
-const scratch = path.join(__dirname, 'out/orbit');
+const out = path.join(repo, `public/img/tiny-tlv/${basename}.mp4`);
+const scratch = path.join(__dirname, linkedin ? 'out/linkedin' : 'out/orbit');
 const sha = buffer => createHash('sha256').update(buffer).digest('hex');
 
 (async () => {
@@ -53,9 +56,19 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       .hint { display: none; }
       #capture-url { position: fixed; top: 37px; right: 32px; font: 400 20px var(--mono); color: var(--paper); }
     ` });
-    await page.evaluate(() => {
+    if (linkedin) await page.addStyleTag({ content: `
+      header.hud { top: 56px; left: 64px; right: 64px; gap: 16px; }
+      header.hud h1 { font-size: 72px; }
+      .sub { font-size: 18px; letter-spacing: 0.03em; }
+      .stats, .controls { display: none; }
+      footer.hud { left: 64px; right: 64px; bottom: 36px; max-width: none; }
+      .credits { font-size: 12px; }
+      #capture-url { top: auto; bottom: 108px; left: 64px; right: auto; font-size: 28px; }
+    ` });
+    await page.evaluate(linkedin => {
       const { renderer, controls, camera } = window.__capture;
-      camera.setViewOffset(innerWidth, innerHeight, 0, 70, innerWidth, innerHeight);
+      camera.setViewOffset(innerWidth, innerHeight, 0, linkedin ? 0 : 70, innerWidth, innerHeight);
+      if (linkedin) camera.fov = 34;
       camera.updateProjectionMatrix();
       renderer.setAnimationLoop(null);
       controls.autoRotate = false;
@@ -72,9 +85,11 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       window.__orbitFrame = t => {
         const { camera, scene } = window.__capture;
         const zoom = Math.sin(Math.PI * t) ** 2;
-        const distance = 4.1 + 2.4 * zoom;
-        const elevation = (35 + 6 * zoom) * Math.PI / 180;
-        const azimuth = -Math.PI / 4 + 6 * Math.PI * t;
+        // LinkedIn keeps both distance and field of view fixed. The periodic
+        // tilt reaches 85 degrees, avoiding the camera up-vector singularity.
+        const distance = linkedin ? 6.5 : 4.1 + 2.4 * zoom;
+        const elevation = (35 + (linkedin ? 50 : 6) * zoom) * Math.PI / 180;
+        const azimuth = -Math.PI / 4 + (linkedin ? 2 : 6) * Math.PI * t;
         camera.position.set(
           distance * Math.cos(elevation) * Math.sin(azimuth),
           0.16 + distance * Math.sin(elevation),
@@ -85,7 +100,7 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
         renderer.render(scene, camera);
         return camera.position.toArray();
       };
-    });
+    }, linkedin);
     const render = async t => {
       await page.evaluate(t => window.__orbitFrame(t), t);
       return page.screenshot({ type: 'png' });
@@ -97,6 +112,9 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
     if (sha(first) !== sha(endpoint)) throw new Error('Loop endpoint does not match the opening frame.');
     await writeFile(path.join(scratch, 'start.png'), first);
     await writeFile(path.join(scratch, 'endpoint.png'), endpoint);
+    if (linkedin && !preview) {
+      await writeFile(path.join(repo, 'public/img/tiny-tlv/tiny-tlv-linkedin-thumbnail.png'), first);
+    }
     if (preview) {
       for (const [i, t] of [1/6, 1/3, 1/2, 2/3, 5/6].entries()) {
         await writeFile(path.join(scratch, `preview-${i + 1}.png`), await render(t));
@@ -123,7 +141,9 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       if (code !== 0) throw new Error(`ffmpeg exited with code ${code}`);
       await writeFile(path.join(scratch, 'capture.json'), JSON.stringify({
         sourceUrl, sourceHtmlSha256: sha(html), width, height, fps, duration, frames,
-        orbits: 3, audio: false, loopEndpointIdentical: true,
+        orbits: linkedin ? 1 : 3, fixedZoom: linkedin,
+        ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35] } : {}),
+        audio: false, loopEndpointIdentical: true,
         sourceTriangles: await page.locator('#s-tri').textContent(),
       }, null, 2) + '\n');
       console.log(`Created ${out}`);
