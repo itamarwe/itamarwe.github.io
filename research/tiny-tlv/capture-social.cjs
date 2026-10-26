@@ -31,6 +31,8 @@ if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname)) {
     }));
     await page.goto(`${origin}/tiny-tlv/`);
     await page.locator('#loader').waitFor({ state: 'hidden', timeout: 60000 });
+    // The city streams in tiles after the base model; capture only the complete scene.
+    await page.waitForFunction(() => document.documentElement.dataset.model === 'complete', null, { timeout: 180000 });
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: `
       body { background: #000; }

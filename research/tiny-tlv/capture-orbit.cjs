@@ -26,7 +26,8 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
   const response = await fetch(sourceUrl);
   if (!response.ok) throw new Error(`Website returned ${response.status}`);
   const html = await response.text();
-  const modelResponse = await fetch(new URL('tiny_tel_aviv.glb', sourceUrl));
+  const modelVersion = html.match(/const MODEL_VERSION = '([0-9a-f]{10})'/)[1];
+  const modelResponse = await fetch(new URL(`model/${modelVersion}/manifest.json`, sourceUrl));
   if (!modelResponse.ok) throw new Error(`Model returned ${modelResponse.status}`);
   const sourceModelSha256 = sha(Buffer.from(await modelResponse.arrayBuffer()));
   const hook = 'renderer.setAnimationLoop(() => {';
@@ -47,6 +48,8 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
     }));
     await page.goto(sourceUrl);
     await page.locator('#loader').waitFor({ state: 'hidden', timeout: 60000 });
+    // The city streams in tiles after the base model; capture only the complete scene.
+    await page.waitForFunction(() => document.documentElement.dataset.model === 'complete', null, { timeout: 180000 });
     await page.evaluate(() => document.fonts.ready);
     // Keep the website's own title, data, credits, and controls visible. Add its
     // address for viewers seeing the clip outside a browser; hide the idle hint.

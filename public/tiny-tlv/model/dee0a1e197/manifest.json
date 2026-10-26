@@ -1,0 +1,259 @@
+{
+ "version": "dee0a1e197",
+ "units": "metres",
+ "up": "glTF +Y (Blender +Z); tile centres are Blender x,y -> viewer x,-z",
+ "grid": {
+  "n": 4,
+  "tile_m": 117.421,
+  "origin": [
+   -230.268,
+   -230.222
+  ],
+  "extent": [
+   466.662,
+   469.685
+  ]
+ },
+ "base": {
+  "file": "base.glb",
+  "bytes": 4065244,
+  "sha256": "52523c4269be0278258e43596709c6cb4cbb9946f18b6b3fafeb9319be50f421",
+  "triangles": 791255,
+  "coarse_tree_ratio": 0.18
+ },
+ "tiles": [
+  {
+   "i": 0,
+   "j": 0,
+   "file": "tiles/0_0.glb",
+   "bytes": 1971284,
+   "triangles": 241051,
+   "objects": 93,
+   "trees": 40,
+   "center": [
+    -171.56,
+    -171.51
+   ],
+   "sha256": "9544c05391c55ca1f10ee2bf7a1c4e8d04a4dc0183173748021c1508f51cb73d"
+  },
+  {
+   "i": 0,
+   "j": 1,
+   "file": "tiles/0_1.glb",
+   "bytes": 1629928,
+   "triangles": 217620,
+   "objects": 107,
+   "trees": 26,
+   "center": [
+    -171.56,
+    -54.09
+   ],
+   "sha256": "d36b51ec874f95eca362d96a53488bf1a237d7852f72cd79aad37f689265bcd2"
+  },
+  {
+   "i": 0,
+   "j": 2,
+   "file": "tiles/0_2.glb",
+   "bytes": 2176536,
+   "triangles": 340170,
+   "objects": 135,
+   "trees": 57,
+   "center": [
+    -171.56,
+    63.33
+   ],
+   "sha256": "d988c26f4d6b5405da311b4bac63d27f91351e851d265e14e00a257db2854b80"
+  },
+  {
+   "i": 0,
+   "j": 3,
+   "file": "tiles/0_3.glb",
+   "bytes": 2257820,
+   "triangles": 344409,
+   "objects": 148,
+   "trees": 53,
+   "center": [
+    -171.56,
+    180.75
+   ],
+   "sha256": "d82d701c97382f59f8828dfe8878e2820b4cc69aaef5fed3c77f61f422b083e7"
+  },
+  {
+   "i": 1,
+   "j": 0,
+   "file": "tiles/1_0.glb",
+   "bytes": 2944600,
+   "triangles": 467045,
+   "objects": 164,
+   "trees": 69,
+   "center": [
+    -54.14,
+    -171.51
+   ],
+   "sha256": "a2eb495a76b66dba7f3607696bd2d4e7ca7609d753acac602db96bde683ac4da"
+  },
+  {
+   "i": 1,
+   "j": 1,
+   "file": "tiles/1_1.glb",
+   "bytes": 1728704,
+   "triangles": 182250,
+   "objects": 109,
+   "trees": 15,
+   "center": [
+    -54.14,
+    -54.09
+   ],
+   "sha256": "d19a8125d7841300319b9383f8b01be767ca1370e93b147a3ca8685b39486de2"
+  },
+  {
+   "i": 1,
+   "j": 2,
+   "file": "tiles/1_2.glb",
+   "bytes": 2292944,
+   "triangles": 269739,
+   "objects": 125,
+   "trees": 38,
+   "center": [
+    -54.14,
+    63.33
+   ],
+   "sha256": "38260a024804ed2360b749702862aa5b7987b376bf2974b820fc39fd7907eaf8"
+  },
+  {
+   "i": 1,
+   "j": 3,
+   "file": "tiles/1_3.glb",
+   "bytes": 2633552,
+   "triangles": 270561,
+   "objects": 132,
+   "trees": 38,
+   "center": [
+    -54.14,
+    180.75
+   ],
+   "sha256": "9b9d6e7ba3063aecc04e315a8f2dab5885f2345a18071b36b85d5d394c909c3c"
+  },
+  {
+   "i": 2,
+   "j": 0,
+   "file": "tiles/2_0.glb",
+   "bytes": 3129548,
+   "triangles": 362294,
+   "objects": 171,
+   "trees": 39,
+   "center": [
+    63.29,
+    -171.51
+   ],
+   "sha256": "84271c046947466097f1190711f608eae3328a854a37f8b74cc7906721a10584"
+  },
+  {
+   "i": 2,
+   "j": 1,
+   "file": "tiles/2_1.glb",
+   "bytes": 1706812,
+   "triangles": 187899,
+   "objects": 94,
+   "trees": 22,
+   "center": [
+    63.29,
+    -54.09
+   ],
+   "sha256": "19a7fb5dcd419955d8f7613e934a490900b86eca6da9f9b1f19a36c1e2ad51d8"
+  },
+  {
+   "i": 2,
+   "j": 2,
+   "file": "tiles/2_2.glb",
+   "bytes": 1611128,
+   "triangles": 193879,
+   "objects": 96,
+   "trees": 23,
+   "center": [
+    63.29,
+    63.33
+   ],
+   "sha256": "ff56bb087837d2c87a35dde990a3a9f8b80cdd136843d6a0782d21e3ba17e631"
+  },
+  {
+   "i": 2,
+   "j": 3,
+   "file": "tiles/2_3.glb",
+   "bytes": 1910400,
+   "triangles": 241582,
+   "objects": 111,
+   "trees": 34,
+   "center": [
+    63.29,
+    180.75
+   ],
+   "sha256": "af5806f4b913f26034a4983dc7ba8de41ffa52bd5648ad553e61718b0580d2f5"
+  },
+  {
+   "i": 3,
+   "j": 0,
+   "file": "tiles/3_0.glb",
+   "bytes": 2564556,
+   "triangles": 258517,
+   "objects": 187,
+   "trees": 27,
+   "center": [
+    180.71,
+    -171.51
+   ],
+   "sha256": "3aca88ff87bdd4f83b51b8ac362908ec55a70ac2d013cd068bd068ae13db7d63"
+  },
+  {
+   "i": 3,
+   "j": 1,
+   "file": "tiles/3_1.glb",
+   "bytes": 2017744,
+   "triangles": 198557,
+   "objects": 99,
+   "trees": 21,
+   "center": [
+    180.71,
+    -54.09
+   ],
+   "sha256": "ab3840996cc15be43960d8368c8cfc8f3cfe6082e822c399ffca9f4d866fa3c4"
+  },
+  {
+   "i": 3,
+   "j": 2,
+   "file": "tiles/3_2.glb",
+   "bytes": 1815352,
+   "triangles": 182163,
+   "objects": 98,
+   "trees": 20,
+   "center": [
+    180.71,
+    63.33
+   ],
+   "sha256": "f3dfc8a8d2d1efab7b0d68667bbefbdf2f08a3c6564af3132f8e8daf857ca23f"
+  },
+  {
+   "i": 3,
+   "j": 3,
+   "file": "tiles/3_3.glb",
+   "bytes": 1894512,
+   "triangles": 251564,
+   "objects": 106,
+   "trees": 34,
+   "center": [
+    180.71,
+    180.75
+   ],
+   "sha256": "18e71654786cd2afcb97bbb3624bc4096e37cb767435b786f5dab085414e1fd7"
+  }
+ ],
+ "counts": {
+  "vehicles": 601,
+  "buildings": 268,
+  "people": 279,
+  "trees": 545
+ },
+ "total_bytes": 38350664,
+ "total_triangles": 4533970,
+ "source_blend_sha256": "f5b1a7d43d887a8e7ec6071e18b55c669047df613bbe6873931af97effbcc711"
+}

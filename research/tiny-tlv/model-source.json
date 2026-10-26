@@ -1,23 +1,30 @@
 {
   "source_project": "tiny-tel-aviv",
-  "source_commit": "b224b11",
-  "source_scene": "out/rbvd_views/tiny_tel_aviv_pilot_day.blend",
-  "source_blend_sha256": "13707a1ff82fe79947b2a5667f2a47d7e3eaa91adfd1d2d33c063b09a5f0d201",
-  "model_sha256": "5f8dd3b03db5a617149572a0bc3a9485aeddd2ec6105f87fb138cb9edc59b0c6",
-  "model_bytes": 5731496,
-  "buildings": 281,
-  "landmarks": 20,
-  "lod2_blocks": 47,
-  "trees": 603,
-  "triangles": 3251138,
-  "embedded_images": [
-    "endwall",
-    "crown_plain",
-    "fascia",
-    "glazed",
-    "south_office",
-    "podium_south",
-    "crown_south"
-  ],
-  "export_notes": "Orthophoto roof textures replaced with a plain roof material. Commons facade images retained; procedural material shaders flattened as in the original web export."
+  "source_commit": "2b17063",
+  "source_scene": "out/orbit_v2/tiny_tel_aviv_pilot_day.blend",
+  "source_blend_sha256": "f5b1a7d43d887a8e7ec6071e18b55c669047df613bbe6873931af97effbcc711",
+  "model_version": "dee0a1e197",
+  "model_bytes": 38350664,
+  "base_bytes": 4065244,
+  "tiles": 16,
+  "grid": {
+    "n": 4,
+    "tile_m": 117.421,
+    "origin": [
+      -230.268,
+      -230.222
+    ],
+    "extent": [
+      466.662,
+      469.685
+    ]
+  },
+  "triangles": 4533970,
+  "counts": {
+    "vehicles": 601,
+    "buildings": 268,
+    "people": 279,
+    "trees": 545
+  },
+  "export_notes": "Tiled export: base.glb (ground, buildings, landmarks, tower, facade detail, decimated stand-in trees per tile) plus 16 detail tiles (full trees, street furniture, roof items, kerb paint, balconies, signs, bollards, people, vehicles). Orthophoto roof textures replaced with a plain roof tone; only UV-mapped base-colour textures kept (JPEG, up to 1024 px); box-projected CC0 material sets, height/roughness/normal maps and procedural shaders flattened to palette colours."
 }
