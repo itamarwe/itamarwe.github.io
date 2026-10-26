@@ -6,7 +6,7 @@
   "fps": 30,
   "duration": 13,
   "frames": 390,
-  "orbits": 0,
+  "orbits": 1,
   "fixedZoom": true,
   "cameraDistance": 6.5,
   "fieldOfView": 34,
@@ -21,7 +21,8 @@
     "overheadHoldSeconds": 5,
     "returnSeconds": 2.5,
     "easing": "quintic smootherstep",
-    "yawAmplitudeDegrees": 12
+    "azimuthDegrees": 360,
+    "angularSpeedDegreesPerSecond": 27.692307692307693
   },
   "motionReference": "https://mappalabs.com/?drape=alpine&stereo=off",
   "audio": false,

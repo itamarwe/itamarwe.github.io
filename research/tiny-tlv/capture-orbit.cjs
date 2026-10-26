@@ -97,11 +97,9 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
         const distance = linkedin ? 6.5 : 4.1 + 2.4 * zoom;
         const tilt = linkedin ? topBlend(t * 13) : zoom;
         const elevation = (35 + (linkedin ? 50 : 6) * tilt) * Math.PI / 180;
-        // A small periodic sideways drift settles to a fixed heading overhead.
-        // This replaces the full spin, which competed with the reference's pause.
-        const azimuth = -Math.PI / 4 + (linkedin
-          ? 12 * Math.PI / 180 * Math.sin(2 * Math.PI * t) * (1 - tilt)
-          : 6 * Math.PI * t);
+        // Complete one continuous turn, including the overhead hold. The final
+        // heading is equivalent to the first, with the same angular velocity.
+        const azimuth = -Math.PI / 4 + (linkedin ? 2 : 6) * Math.PI * t;
         camera.position.set(
           distance * Math.cos(elevation) * Math.sin(azimuth),
           0.16 + distance * Math.sin(elevation),
@@ -153,10 +151,10 @@ const sha = buffer => createHash('sha256').update(buffer).digest('hex');
       if (code !== 0) throw new Error(`ffmpeg exited with code ${code}`);
       await writeFile(path.join(scratch, 'capture.json'), JSON.stringify({
         sourceUrl, sourceHtmlSha256: sha(html), width, height, fps, duration, frames,
-        orbits: linkedin ? 0 : 3, fixedZoom: linkedin,
+        orbits: linkedin ? 1 : 3, fixedZoom: linkedin,
         ...(linkedin ? { cameraDistance: 6.5, fieldOfView: 34, elevationDegrees: [35, 85, 35],
           motion: { angledHoldSeconds: 3, riseSeconds: 2.5, overheadHoldSeconds: 5,
-            returnSeconds: 2.5, easing: 'quintic smootherstep', yawAmplitudeDegrees: 12 },
+            returnSeconds: 2.5, easing: 'quintic smootherstep', azimuthDegrees: 360, angularSpeedDegreesPerSecond: 360 / 13 },
           motionReference: 'https://mappalabs.com/?drape=alpine&stereo=off' } : {}),
         audio: false, loopEndpointIdentical: true,
         sourceTriangles: await page.locator('#s-tri').textContent(),
