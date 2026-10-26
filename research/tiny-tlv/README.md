@@ -58,3 +58,31 @@ response. It never changes the viewer's runtime layout or adds a public capture
 mode. Reduced motion freezes rotation, and the script waits for the model and
 fonts before taking the images. The original Google Fonts require network access
 for matching typography. All output paths are derived from the script location.
+
+## Looping website video
+
+`capture-orbit.cjs` records the live website at 1920×1080 and 30 fps. It makes
+three complete turns in 36 seconds while easing from a near view to a wide view
+and back. The website title, controls, credits, and data remain visible; a URL is
+added for people watching the clip outside a browser. Changes to the camera and
+capture layout exist only in the local browser response, not on the website.
+
+```sh
+CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  node research/tiny-tlv/capture-orbit.cjs --preview
+CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  node research/tiny-tlv/capture-orbit.cjs
+```
+
+Requires the same Playwright tooling as the social captures, plus `ffmpeg` on
+PATH. Output: `public/img/tiny-tlv/tiny-tlv-orbit.mp4`. Scratch frames and capture
+metadata are saved to the ignored `research/tiny-tlv/out/orbit/` directory.
+The script pipes actual browser frames into ffmpeg so rendering speed does not
+cause dropped or duplicate video frames. It uses H.264, yuv420p, an 8 Mbps peak
+rate, and MP4 fast-start metadata. The clip is silent.
+
+The camera path is periodic: azimuth advances by three full turns, while zoom
+and elevation follow `sin(pi*t)^2`. The virtual endpoint must be pixel-identical
+to the first frame before rendering can continue. That duplicate endpoint is
+excluded from the encoded clip, leaving a normal single-frame motion step across
+the loop boundary. A video player must still have looping enabled.
