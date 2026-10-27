@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <title>Tiny Tel Aviv</title>
-<meta name="description" content="Explore a miniature 3D model of central Tel Aviv around Shalom Meir Tower, with orbit controls and red-cyan 3D glasses mode.">
+<meta name="description" content="Explore a miniature 3D model of central Tel Aviv around Shalom Meir Tower: streets, trees, rooftops, people and traffic, streamed in tiles, with orbit controls and red-cyan 3D glasses mode.">
 <link rel="canonical" href="https://www.itamarweiss.com/tiny-tlv/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Tiny Tel Aviv">
@@ -43,7 +43,7 @@
   .sub { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 
   footer.hud { bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); left: max(16px, env(safe-area-inset-left, 0px)); max-width: min(440px, calc(100vw - 32px)); }
-  .stats { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 18px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: repeat(6, auto); gap: 4px 18px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .stats dt { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .stats dd { margin: 0; font-size: 15px; color: var(--paper); }
   .stats div { display: flex; flex-direction: column-reverse; gap: 2px; }
@@ -64,8 +64,12 @@
   #loader div { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
   #loader b { color: var(--paper); font-weight: 500; }
 
+  #stream { position: fixed; left: 0; right: 0; top: 0; height: 3px; pointer-events: none; }
+  #stream-bar { position: absolute; left: 0; top: 0; height: 100%; background: var(--amber); transition: width 0.3s; }
+  #stream-text { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 10px); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
   @media (max-width: 640px) {
-    .stats { grid-template-columns: repeat(2, auto); }
+    .stats { grid-template-columns: repeat(3, auto); }
     .credits { display: none; }
     footer.hud { bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); }
     .hint { display: none; }
@@ -78,17 +82,19 @@
 
 <header class="hud">
   <h1>Tiny Tel Aviv</h1>
-  <p class="sub">Shalom Meir Tower · 460 × 460 m · 47 blocks with LOD2 facades</p>
+  <p class="sub">Shalom Meir Tower · 470 × 470 m · streamed in 16 tiles</p>
 </header>
 
 <footer class="hud">
   <dl class="stats">
-    <div><dt>Buildings</dt><dd>281</dd></div>
-    <div><dt>Landmarks</dt><dd>20</dd></div>
-    <div><dt>Trees</dt><dd>603</dd></div>
+    <div><dt>Buildings</dt><dd id="s-bld">—</dd></div>
+    <div><dt>Trees</dt><dd id="s-tree">—</dd></div>
+    <div><dt>People</dt><dd id="s-ppl">—</dd></div>
+    <div><dt>Vehicles</dt><dd id="s-veh">—</dd></div>
     <div><dt>Triangles</dt><dd id="s-tri">—</dd></div>
+    <div><dt>Tiles</dt><dd id="s-tiles">—</dd></div>
   </dl>
-  <p class="credits">Footprints and streets © OpenStreetMap contributors (ODbL). Heights, trees and canopy: Tel Aviv-Yafo municipal GIS. Tower facade textures from Wikimedia Commons photos (CC BY-SA). Window grids on ordinary blocks are flattened in this web export.</p>
+  <p class="credits">Footprints and streets © OpenStreetMap contributors (ODbL). Heights, trees, street furniture and canopy: Tel Aviv-Yafo municipal GIS. Tower facade textures from Wikimedia Commons photos (CC BY-SA); vehicles from Kenney (CC0) and Poly Pizza (CC BY). Window grids on ordinary blocks are flattened in this web export.</p>
 </footer>
 
 <div class="controls">
@@ -98,7 +104,8 @@
   <button id="anaglyph" type="button" aria-pressed="false"><span class="glasses" aria-hidden="true"><i></i><i></i></span><span id="ana-label">3D glasses: off</span></button>
 </div>
 
-<div id="loader"><div>Loading model <b id="pct">0%</b></div></div>
+<div id="loader"><div>Loading city <b id="pct">0%</b></div></div>
+<div id="stream" hidden><span id="stream-bar"></span><span id="stream-text"></span></div>
 
 <script type="importmap">
 { "imports": {
@@ -113,9 +120,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { AnaglyphEffect } from 'three/addons/effects/AnaglyphEffect.js';
 
+// Immutable, content-addressed model version (see research/tiny-tlv/export_web.py). The folder name is a hash of
+// every file in it, so a new export is a new URL and the old one can be cached forever.
+const MODEL_VERSION = 'dee0a1e197';
+const MODEL_URL = `./model/${MODEL_VERSION}/`;
 // The model is in metres; it is shown at 1:250 (1 unit = 250 m) so the anaglyph's fixed 6.4 cm eye separation is
 // ~2.5% of the viewing distance: a miniature-like stereo depth (the "tiny" in Tiny Tel Aviv).
 const SCALE = 0.004;
+const PARALLEL = 4;             // tile downloads in flight
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -132,7 +144,7 @@ scene.background = new THREE.Color('#141414');
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.02, 80);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 0.25; controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 0.12; controls.maxDistance = 12;
 controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 controls.autoRotateSpeed = 0.5;
 
@@ -140,7 +152,6 @@ scene.add(new THREE.HemisphereLight('#eef3ff', '#5d564c', 1.4));
 const sun = new THREE.DirectionalLight('#fff3e2', 2.6);
 sun.position.set(-1.2, 2.4, 1.6); sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.01;
-Object.assign(sun.shadow.camera, { left: -1.45, right: 1.45, top: 1.45, bottom: -1.45, near: 0.05, far: 8 });
 scene.add(sun, sun.target);
 
 const anaglyph = new AnaglyphEffect(renderer);
@@ -168,62 +179,170 @@ draco.setDecoderConfig({ type: 'js' });
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
 const pct = document.getElementById('pct');
-// Serve the compact binary GLB directly; no base64 decoding or extra text copy.
-async function fetchModel() {
-  const res = await fetch('./tiny_tel_aviv.glb?v=5f8dd3b03db5');
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const total = +res.headers.get('content-length') || 5731496;
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+
+async function fetchBytes(url, expected, onProgress) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  const total = +res.headers.get('content-length') || expected || 0;
   const reader = res.body.getReader(); const parts = []; let got = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     parts.push(value); got += value.length;
-    pct.textContent = Math.min(99, Math.round(100 * got / total)) + '%';
+    if (onProgress && total) onProgress(got / total);
   }
   return new Blob(parts).arrayBuffer();
 }
-const onError = (err) => {
-  document.querySelector('#loader div').textContent = 'The model could not load. Reload the page to try again.';
-  console.error(err);
-};
-fetchModel().then((buf) => loader.parse(buf, './', onModel, onError)).catch(onError);
-function onModel(gltf) {
-  const root = gltf.scene;
-  root.scale.setScalar(SCALE);
+const parseGltf = (buf) => new Promise((ok, err) => loader.parse(buf, MODEL_URL, ok, err));
+
+function prepare(root) {
   let tris = 0;
   root.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = true; o.receiveShadow = true;
-    tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+    const g = o.geometry;
+    const n = (g.index ? g.index.count : g.attributes.position.count) / 3;
+    tris += o.isInstancedMesh ? n * o.count : n;
+    // InstancedMesh culls by its geometry's own sphere unless told where its instances are.
+    if (o.isInstancedMesh) o.computeBoundingSphere();
     const m = o.material;
     if (m && m.transparent && m.opacity > 0.95) m.transparent = false;
   });
+  return tris;
+}
+
+// ----- streaming: base first, then tiles by camera priority ---------------------------------------------------------
+const root = new THREE.Group();
+root.scale.setScalar(SCALE);
+scene.add(root);
+const stats = { tris: 0, tiles: 0, bytes: 0 };
+let manifest, tiles = [], coarseTrees = new Map();
+const streamEl = $('stream'), streamBar = $('stream-bar'), streamText = $('stream-text');
+const onError = (err) => {
+  document.querySelector('#loader div').textContent = 'The model could not load. Reload the page to try again.';
+  document.documentElement.dataset.model = 'error';
+  console.error(err);
+};
+
+async function loadBase() {
+  manifest = await (await fetch(MODEL_URL + 'manifest.json')).json();
+  const buf = await fetchBytes(MODEL_URL + manifest.base.file, manifest.base.bytes,
+                               (f) => { pct.textContent = Math.min(99, Math.round(100 * f)) + '%'; });
+  const gltf = await parseGltf(buf);
+  stats.tris += prepare(gltf.scene); stats.bytes += buf.byteLength;
+  gltf.scene.traverse((o) => { if (o.name.startsWith('coarse_trees_')) coarseTrees.set(o.name.slice(13), o); });
+  root.add(gltf.scene);
   // centre on the model's footprint; keep the ground at y = 0
   const box = new THREE.Box3().setFromObject(root);
   const c = box.getCenter(new THREE.Vector3());
   root.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
-  scene.add(root);
   modelRadius = box.getSize(new THREE.Vector3()).length() / 2;
+  const half = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2 + 0.1;
+  Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 0.05, far: 8 });
+  sun.shadow.camera.updateProjectionMatrix();
   home.target.set(0, 0.1, 0);
-  fitHome();
-  goHome();
-  document.getElementById('s-tri').textContent = Math.round(tris).toLocaleString('en-US');
-  document.getElementById('loader').hidden = true;
+  fitHome(); goHome();
+  const k = manifest.counts || {};
+  $('s-bld').textContent = fmt(k.buildings || 0); $('s-tree').textContent = fmt(k.trees || 0);
+  $('s-ppl').textContent = fmt(k.people || 0); $('s-veh').textContent = fmt(k.vehicles || 0);
+  $('loader').hidden = true;
+  document.documentElement.dataset.model = 'base';
+  // Tile centres in the root's frame: Blender (x, y) -> glTF (x, -y) on the ground plane.
+  const o = manifest.grid.origin, t = manifest.grid.tile_m;
+  tiles = manifest.tiles.map((d) => ({ ...d, key: `${d.i}_${d.j}`, state: 'queued',
+    centre: new THREE.Vector3(d.center[0], 0, -d.center[1]), radius: t * Math.SQRT1_2 }));
+  updateStreamUi();
+  pump();
 }
 
-const btnA = document.getElementById('anaglyph'), lblA = document.getElementById('ana-label');
+const camLocal = new THREE.Vector3(), tgtLocal = new THREE.Vector3();
+function priority(tile) {
+  // Nearest to the orbit target first, with a bonus for tiles inside the view frustum.
+  const d = tile.centre.distanceTo(tgtLocal);
+  const toCam = tile.centre.clone().sub(camLocal).normalize();
+  const fwd = tgtLocal.clone().sub(camLocal).normalize();
+  const facing = toCam.dot(fwd);                // 1 = straight ahead
+  return d * (facing > 0.6 ? 1 : 1.6);
+}
+let inFlight = 0;
+function pump() {
+  if (!tiles.length) return;
+  root.worldToLocal(camLocal.copy(camera.position));
+  root.worldToLocal(tgtLocal.copy(controls.target));
+  const queued = tiles.filter((t) => t.state === 'queued').sort((a, b) => priority(a) - priority(b));
+  while (inFlight < PARALLEL && queued.length) loadTile(queued.shift());
+}
+async function loadTile(tile) {
+  tile.state = 'loading'; inFlight++;
+  try {
+    const buf = await fetchBytes(MODEL_URL + tile.file, tile.bytes);
+    const gltf = await parseGltf(buf);
+    tile.group = gltf.scene; tile.group.name = 'tile_' + tile.key;
+    stats.tris += prepare(gltf.scene); stats.bytes += buf.byteLength; stats.tiles++;
+    root.add(gltf.scene);
+    const coarse = coarseTrees.get(tile.key);
+    if (coarse) { coarse.visible = false; stats.tris -= countTris(coarse); }
+    tile.state = 'ready';
+  } catch (err) {
+    console.error('tile', tile.key, err);
+    tile.state = tile.retries ? 'failed' : 'queued'; tile.retries = (tile.retries || 0) + 1;
+  } finally {
+    inFlight--; updateStreamUi(); pump();
+  }
+}
+function countTris(o) {
+  let n = 0;
+  o.traverse((m) => { if (m.isMesh) { const g = m.geometry; const k = (g.index ? g.index.count : g.attributes.position.count) / 3; n += m.isInstancedMesh ? k * m.count : k; } });
+  return n;
+}
+function updateStreamUi() {
+  $('s-tri').textContent = fmt(stats.tris);
+  $('s-tiles').textContent = `${stats.tiles}/${tiles.length}`;
+  const done = stats.tiles === tiles.length;
+  streamEl.hidden = done;
+  if (!done) {
+    streamBar.style.width = (100 * stats.tiles / tiles.length) + '%';
+    streamText.textContent = `Streaming detail · ${stats.tiles}/${tiles.length} tiles · ${(stats.bytes / 1e6).toFixed(1)} MB`;
+  } else {
+    document.documentElement.dataset.model = 'complete';
+  }
+}
+
+// Performance governor: if frames stay slow (phones, integrated GPUs), show detail tiles only near the camera
+// and fall back to the coarse trees elsewhere, like a map that keeps coarse levels under the view.
+let slowFrames = 0, detailRange = Infinity, lastT = performance.now(), lastSort = 0;
+function governDetail(now) {
+  const dt = now - lastT; lastT = now;
+  if (dt > 45) slowFrames++; else slowFrames = Math.max(0, slowFrames - 1);
+  if (slowFrames > 40 && detailRange === Infinity) { detailRange = modelRadius * 0.9; slowFrames = 0; }
+  if (detailRange === Infinity) return;
+  root.worldToLocal(camLocal.copy(camera.position));
+  for (const t of tiles) {
+    if (t.state !== 'ready') continue;
+    const near = t.centre.distanceTo(camLocal) * SCALE < detailRange;
+    t.group.visible = near;
+    const coarse = coarseTrees.get(t.key);
+    if (coarse) coarse.visible = !near;
+  }
+}
+
+loadBase().catch(onError);
+
+const btnA = $('anaglyph'), lblA = $('ana-label');
 btnA.addEventListener('click', () => {
   useAnaglyph = !useAnaglyph;
   btnA.setAttribute('aria-pressed', String(useAnaglyph));
   lblA.textContent = useAnaglyph ? '3D glasses: on' : '3D glasses: off';
 });
-const btnS = document.getElementById('spin');
+const btnS = $('spin');
 btnS.setAttribute('aria-pressed', String(controls.autoRotate));
 btnS.addEventListener('click', () => {
   controls.autoRotate = !controls.autoRotate;
   btnS.setAttribute('aria-pressed', String(controls.autoRotate));
 });
-document.getElementById('reset').addEventListener('click', goHome);
+$('reset').addEventListener('click', goHome);
 renderer.domElement.addEventListener('pointerdown', () => {
   if (controls.autoRotate) { controls.autoRotate = false; btnS.setAttribute('aria-pressed', 'false'); }
 });
@@ -236,6 +355,9 @@ addEventListener('resize', () => {
 
 renderer.setAnimationLoop(() => {
   controls.update();
+  const now = performance.now();
+  if (now - lastSort > 400) { lastSort = now; pump(); }   // re-prioritise queued tiles as the view moves
+  governDetail(now);
   if (useAnaglyph) {
     camera.focus = camera.position.distanceTo(controls.target);  // zero parallax at the orbit target
     anaglyph.render(scene, camera);

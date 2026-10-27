@@ -1,12 +1,57 @@
 # Tiny Tel Aviv web export and sharing assets
 
-The viewer uses the latest scene from the local Tiny Tel Aviv Claude session,
-`out/rbvd_views/tiny_tel_aviv_pilot_day.blend`. `model-source.json` records the
-source commit, scene hash, export hash, and real counts from its Blender metadata.
-This scene updates Rothschild Boulevard with measured paths, kerbs, crossings,
-trees, the sand promenade, grey sidewalks, and the octagonal first kiosk.
-The source project and large Blender inputs remain in the separate Tiny Tel Aviv
-project/data directories; they are not needed to build or serve this website.
+The viewer streams the latest scene from the local Tiny Tel Aviv Claude session,
+`out/orbit_v2/tiny_tel_aviv_pilot_day.blend` (source commit `2b17063`): the street-level
+round with roof items (solar heaters, AC units, water tanks), municipal street
+furniture (lights, Tel-O-Fun stations), kerb paint, balconies, shopfronts, Hebrew
+signs, bollards, zebra crossings, and static people and vehicles on every street.
+`model-source.json` records the source commit, scene hash, model version, byte total
+and real counts from the export. The source project and large Blender inputs remain
+in the separate Tiny Tel Aviv project/data directories; they are not needed to
+build or serve this website.
+
+## Streaming model: how it is tiled, and why
+
+The reference for this is how [tiny.london](https://tiny.london/) and
+[isometric.nyc](https://cannoneyed.com/projects/isometric-nyc) serve their maps: one
+canvas cut into a Deep Zoom pyramid of 512 px tiles, viewed with OpenSeadragon.
+The viewer shows a coarse level everywhere, fetches sharp tiles only under the
+view, keeps coarser levels resident so zooming never shows holes, and ships each
+version in an immutable folder with immutable cache headers. That works for a
+picture; a 3-D scene needs the same idea in geometry, so the export
+(`export_web.py`) writes one content-addressed folder,
+`public/tiny-tlv/model/<version>/`, with:
+
+- `base.glb` (about 4.6 MB): the ground, every building and landmark, the tower,
+  facade detail, and a decimated stand-in copy of every tree, grouped per grid cell
+  under an empty named `coarse_trees_<i>_<j>`. It paints first, in a few seconds.
+- `tiles/<i>_<j>.glb` (16 files, 1.7 to 3.3 MB each): the full-detail content of one
+  117 m grid cell, which is everything the base leaves out: the LOD2 trees, roof
+  items, street furniture, kerb paint, balconies, signs, bollards, people and
+  vehicles. Meshes that span several cells (kerb paint, bollards, roof items) are
+  cut per cell by face centroid; small or instanced objects go whole into the cell
+  of their bounding-box centre. Trees and vehicles are written with
+  `EXT_mesh_gpu_instancing`, so each tile draws them as instanced meshes.
+- `manifest.json`: the grid, the tile centres, byte sizes, SHA-256 hashes, triangle
+  counts, and the real object counts shown in the viewer's statistics.
+
+The viewer (`public/tiny-tlv/index.html`) loads the manifest, shows the base, then
+streams tiles four at a time, nearest to the orbit target first with a bonus for
+tiles inside the view frustum, re-sorting the queue as the camera moves. When a
+tile arrives its coarse trees in the base are hidden. If frames stay slow (phones,
+integrated GPUs) a governor keeps detail tiles only near the camera and shows the
+coarse trees elsewhere, like a map that keeps coarse levels under the view. The
+folder name is a hash of every file in it, so `next.config.ts` serves everything
+under `/tiny-tlv/model/<version>/` with a one-year immutable cache; a new export is
+a new folder and a new `MODEL_VERSION` in the viewer.
+
+What glTF cannot carry: the CC0 material sets are box-projected on world position
+(the meshes have no UVs), so those and every procedural shader (window grids,
+paving, asphalt noise) are flattened to their palette colour. Only UV-mapped
+photo textures survive: the Commons tower facades (CC BY-SA), the CC0/CC-BY vehicle
+kits, and the sign faces. The internal orthophoto roof texture is replaced with a
+plain roof tone. This is the actual web model, not a screenshot of the richer
+Blender render.
 
 ## Model export
 
@@ -19,16 +64,13 @@ python3 research/tiny-tlv/validate-model.py
 ```
 
 Use the source project's `tools/blender_safe.sh` wrapper instead of `blender`
-when its macOS memory watchdog is available. The default output is
-`public/tiny-tlv/tiny_tel_aviv.glb`; an optional explicit output follows `--`.
-The exporter removes cameras, lights, mask objects, and internal orthophoto roof
-textures. Seven Commons facade textures are preserved, resized to at most
-1024 pixels, and embedded. Procedural Blender materials (including window grids)
-remain flattened to base colors, as in the previous artifact export. Roofs use a
-plain material. This is the actual web model, not a screenshot of the richer
-Blender render. Update the provenance hashes and counts deliberately after a new
-export; validation checks them against the actual shipped GLB, including instance
-triangle counts and the texture inventory.
+when its macOS memory watchdog is available. The export takes about a minute and
+prints `TTLV_VERSION <hash>`; set that hash as `MODEL_VERSION` in
+`public/tiny-tlv/index.html`, copy the manifest's version, byte total, counts and
+scene hash into `model-source.json`, and delete the previous version folder (the
+repository ships exactly one). Validation checks the viewer, the manifest, every
+GLB's size and hash, that each file is self-contained with no orthophoto texture,
+instance-aware triangle counts, and that `model-source.json` matches.
 
 ## Social images
 

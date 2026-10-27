@@ -60,6 +60,16 @@ const nextConfig: NextConfig = {
     return [
       { source: "/(about|contact|privacy)?", headers: [vary] },
       { source: "/blog/:slug", headers: [vary] },
+      // The Tiny Tel Aviv model lives in a content-addressed folder (the
+      // folder name is a hash of its files; see research/tiny-tlv/
+      // export_web.py), so every file under it can be cached forever. A new
+      // export is a new folder and a new URL in the viewer.
+      {
+        source: "/tiny-tlv/model/:version/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
     ];
   },
 
