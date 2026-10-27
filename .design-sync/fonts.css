@@ -1,0 +1,27 @@
+/* Brand fonts for itamar-weiss.com.
+   Geist Sans/Mono: variable woff2 shipped in the repo's `geist` npm package
+   (the site loads them via next/font — same binaries).
+   Doto: Google Font (OFL), latin subset, used for the site title; the runtime
+   site loads it via next/font/google, so a local copy lives in
+   .design-sync/fonts/ for the design-system bundle. */
+@font-face {
+  font-family: 'Geist Sans';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Doto';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(./fonts/Doto-Variable.woff2) format('woff2');
+}
