@@ -1,6 +1,11 @@
 import "server-only";
-import { DATA_URL, REDIRECTS_URL } from "./config";
-import type { Dataset, RedirectManifest, VideoRecord } from "./types";
+import { DATA_URL, REDIRECTS_URL, REMOVED_URL } from "./config";
+import type {
+  Dataset,
+  RedirectManifest,
+  RemovedManifest,
+  VideoRecord,
+} from "./types";
 
 // Fetch the published manifest server-side. Cached for 5 minutes so new videos
 // / scenes show up within minutes of a `publish-web` without a redeploy, and so
@@ -11,9 +16,23 @@ export async function getDataset(): Promise<Dataset> {
   return (await res.json()) as Dataset;
 }
 
+// Withdrawn IDs answer 410 in middleware, but the manifest can still list them
+// (the dataset repo publishes the two files independently). Drop them here so
+// the gallery, sitemap and static params never link to a 410.
+async function getRemovedIds(): Promise<Set<string>> {
+  try {
+    const res = await fetch(REMOVED_URL, { next: { revalidate: 300 } });
+    if (!res.ok) return new Set();
+    const payload = (await res.json()) as RemovedManifest;
+    return new Set(payload.removed.map((r) => r.id));
+  } catch {
+    return new Set();
+  }
+}
+
 export async function getVideos(): Promise<VideoRecord[]> {
-  const data = await getDataset();
-  return [...data.videos].sort((a, b) =>
+  const [data, removed] = await Promise.all([getDataset(), getRemovedIds()]);
+  return data.videos.filter((v) => !removed.has(v.slug)).sort((a, b) =>
     a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
   );
 }
