@@ -1,24 +1,27 @@
-"""
-Dataset-overview figures for the FPV-drone-strikes post.
+"""Generate the catalog charts and schematic figures for the FPV-drone-strikes post."""
 
-  - target_mix.png : what the enemy strikes — REAL counts parsed from the dataset
-                     manifest snapshot (../2026-06-21_manifest_snapshot.tsv).
-  - timeline.png   : cumulative documented strikes over time (REAL dates).
-  - pipeline.png   : qualitative schematic of the video -> 3-D flight-path pipeline
-                     (no numeric axes — it's a concept diagram).
-  - social.png     : 1200x630 OpenGraph card.
+import argparse
+from collections import Counter
+from datetime import date, timedelta
+import json
+import os
+from pathlib import Path
+import re
+from urllib.request import urlopen
 
-Counts are real; the target buckets are a coarse hand-grouping of the manifest's
-free-text slugs (see categorize()). Re-run after pulling a fresh manifest.
-"""
-import os, csv, datetime as dt, numpy as np
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+from matplotlib.ticker import MaxNLocator
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MANIFEST = os.path.join(HERE, "..", "2026-06-21_manifest_snapshot.tsv")
+CATALOG_REVISION = "20b7f30e44648dcd703628eadb4ce733e0a3465b"
+CATALOG_URL = (
+    "https://raw.githubusercontent.com/itamarwe/fpv-drone-strikes-lebanon-dataset/"
+    f"{CATALOG_REVISION}/data/catalog.json"
+)
 OUT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "public", "img", "fpv-drone-strikes"))
 os.makedirs(OUT, exist_ok=True)
 
@@ -31,101 +34,102 @@ plt.rcParams.update({
     "ytick.color": MUTED, "axes.edgecolor": "#333a45", "font.size": 12,
 })
 
-def categorize(slug):
-    s = slug.lower()
-    if "merkava" in s or ("tank" in s and "anti" not in s):
-        return "Merkava tanks"
-    if "namer" in s:
-        return "Namer APCs"
-    if "humvee" in s or "hummer" in s:
-        return "Humvees"
-    if any(k in s for k in ["d9", "bulldozer", "excavator", "engineering", "digger"]):
-        return "Engineering vehicles"
-    if any(k in s for k in ["soldier", "troop", "personnel", "commander", "forces", "company"]):
-        return "Personnel"
-    if any(k in s for k in ["iron_dome", "launcher", "radar", "camera", "drone_control",
-                            "anti_drone", "howitzer", "sholef", "communications",
-                            "surveillance", "platform", "position", "command", "hq"]):
-        return "Sensors, air-defense & positions"
-    return "Other vehicles"
+# Match the target phrase before the first comma, which usually introduces
+# the location. The specific target and mixed-target rules precede broader ones.
+TARGET_GROUPS = (
+    ("Mixed targets", r"^israeli army vehicles and soldiers|^soldier gathering \+|"
+                      r"^soldiers' position and"),
+    ("Tanks", r"\btanks?\b"),
+    ("Namer APCs", r"\bnamers?\b|\bnamera\b"),
+    ("Humvees", r"\b(?:humvees?|hummers?)\b"),
+    ("Engineering vehicles", r"\b(?:d9|bulldozers?|excavators?|engineering vehicles?)\b"),
+    ("Air defense, sensors & equipment",
+     r"\b(?:iron dome|radar|camera|drone control system|counter-drone system|"
+     r"communications (?:system|equipment)|technical equipment)\b"),
+    ("Other vehicles", r"\b(?:vehicles?|tankers?|troop carriers?|apcs?)\b"),
+    ("Positions & facilities",
+     r"\b(?:positions?|positioning|logistics point|tent|house|command center|command room|hq)\b"),
+    ("Personnel", r"\b(?:soldiers?|personnel|forces?)\b"),
+)
 
-ORDER = ["Merkava tanks", "Personnel", "Namer APCs", "Engineering vehicles",
-         "Humvees", "Sensors, air-defense & positions", "Other vehicles"]
 
-def load():
-    rows = []
-    with open(MANIFEST) as f:
-        for r in csv.DictReader(f, delimiter="\t"):
-            rows.append(r)
-    return rows
+def categorize(description):
+    target = description.split(",", 1)[0].lower()
+    for category, pattern in TARGET_GROUPS:
+        if re.search(pattern, target):
+            return category
+    return "Unclassified"
 
-def parse_dates(rows):
-    ds = []
-    for r in rows:
-        try:
-            ds.append(dt.date.fromisoformat(r["date"]))
-        except Exception:
-            pass
-    return sorted(ds)
 
-# --------------------------------------------------------------------------
+def load_catalog(path):
+    if path is None:
+        with urlopen(CATALOG_URL, timeout=30) as response:
+            return json.load(response)["videos"]
+    return json.loads(path.read_text(encoding="utf-8"))["videos"]
+
+
+def format_date(day):
+    return f"{day:%b} {day.day}"
+
+
 def fig_target_mix(rows):
-    from collections import Counter
-    c = Counter(categorize(r["slug"]) for r in rows)
-    cats = [k for k in ORDER if k in c]
-    vals = [c[k] for k in cats]
-    total = sum(c.values())
-    colors = [RED, GOLD, "#ff8a5a", PURPLE, CYAN, GREEN, MUTED][:len(cats)]
-    fig, ax = plt.subplots(figsize=(9, 4.6))
-    y = np.arange(len(cats))[::-1]
-    ax.barh(y, vals, color=colors, height=0.66)
-    for yi, v in zip(y, vals):
-        ax.text(v + 0.4, yi, str(v), va="center", color=TXT, fontsize=12, fontweight="bold")
-    ax.set_yticks(y); ax.set_yticklabels(cats, fontsize=12, color=TXT)
-    ax.set_xlim(0, max(vals) + 4)
-    ax.set_xlabel("documented strike videos")
-    ax.set_title(f"What the FPV strikes target   ·   {total} videos, Apr–Jun 2026",
-                 color=TXT, fontsize=13, loc="left")
-    for sp in ["top", "right"]:
-        ax.spines[sp].set_visible(False)
+    counts = Counter(categorize(row["description"]) for row in rows)
+    categories, values = zip(*counts.most_common())
+    positions = range(len(categories))
+    colors = [RED, GOLD, CYAN, GREEN, PURPLE, "#ff8a5a", "#8cb5ff", "#64dace", MUTED]
+
+    fig, ax = plt.subplots(figsize=(8, 5.1))
+    ax.barh(positions, values, color=colors[:len(categories)], height=0.64)
+    for position, value in zip(positions, values):
+        ax.text(value + 0.6, position, str(value), va="center", fontsize=14, fontweight="bold")
+    labels = [category.replace("sensors & equipment", "sensors\n& equipment")
+              for category in categories]
+    ax.set_yticks(positions, labels, fontsize=14, color=TXT)
+    ax.invert_yaxis()
+    ax.set_xlim(0, max(values) * 1.14)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xlabel("Cataloged videos", fontsize=13)
+    fig.suptitle(f"Targets named in the catalog  ·  {len(rows)} videos",
+                 x=0.025, y=0.965, ha="left", fontsize=16)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
     ax.tick_params(length=0)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(os.path.join(OUT, "target_mix.png"), dpi=150, facecolor=BG)
     plt.close(fig)
-    print("target_mix.png", dict(zip(cats, vals)))
+    print("target_mix.png", dict(counts.most_common()))
+
 
 def fig_timeline(rows):
-    ds = parse_dates(rows)
-    d0, d1 = ds[0], ds[-1]
-    days = [(d - d0).days for d in ds]
-    span = (d1 - d0).days
-    cum = np.arange(1, len(ds) + 1)
-    fig, ax = plt.subplots(figsize=(9, 3.8))
-    ax.fill_between(days, cum, color=CYAN, alpha=0.18, step="post")
-    ax.step(days, cum, where="post", color=CYAN, lw=2.2)
-    ax.scatter(days, cum, s=10, color=CYAN, zorder=3)
-    # month ticks
-    ticks, labels = [], []
-    cur = dt.date(d0.year, d0.month, 1)
-    while cur <= d1:
-        ticks.append((cur - d0).days)
-        labels.append(cur.strftime("%b %-d"))
-        cur = (cur.replace(day=28) + dt.timedelta(days=7)).replace(day=1)
-    ax.set_xticks(ticks); ax.set_xticklabels(labels)
-    ax.set_xlim(-1, span + 1); ax.set_ylim(0, len(ds) + 14)
-    ax.set_ylabel("cumulative videos")
-    ax.set_title("A constantly-growing log of documented strikes", color=TXT,
-                 fontsize=13, loc="left")
-    # label sits in the empty upper-left region, clear of the climbing curve
-    ax.text(span * 0.03, len(ds) + 6,
-            f"{d0.strftime('%b %-d')} → {d1.strftime('%b %-d')}, {d1.year}\nand still climbing",
-            color=GOLD, fontsize=11, va="top", linespacing=1.4)
-    for sp in ["top", "right"]:
-        ax.spines[sp].set_visible(False)
+    daily = Counter(date.fromisoformat(row["date"]) for row in rows)
+    dates = sorted(daily)
+    first, last = dates[0], dates[-1]
+    start = first - timedelta(days=1)
+    cumulative = [0]
+    for day in dates:
+        cumulative.append(cumulative[-1] + daily[day])
+
+    fig, ax = plt.subplots(figsize=(8, 3.9))
+    ax.fill_between([start, *dates], cumulative, color=CYAN, alpha=0.18, step="post")
+    ax.step([start, *dates], cumulative, where="post", color=CYAN, lw=2.2)
+    ax.scatter(last, cumulative[-1], s=30, color=CYAN, zorder=3)
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
+    ax.set_xlim(start, last + timedelta(days=3))
+    ax.set_ylim(0, len(rows) * 1.12)
+    ax.set_ylabel("Cumulative videos", fontsize=13)
+    ax.set_title("Cumulative videos by catalog date", fontsize=15, loc="left", pad=12)
+    ax.text(0.03, 0.94,
+            f"{len(rows)} videos\n{format_date(first)} – {format_date(last)}, {last.year}",
+            transform=ax.transAxes, color=GOLD, fontsize=13, va="top", linespacing=1.4)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, "timeline.png"), dpi=150, facecolor=BG)
     plt.close(fig)
-    print("timeline.png", len(ds), "videos over", span, "days")
+    print("timeline.png", len(rows), "videos,", first, "through", last)
+
 
 def fig_pipeline():
     fig, ax = plt.subplots(figsize=(10, 3.4))
@@ -190,8 +194,14 @@ def fig_social():
     print("social.png")
 
 if __name__ == "__main__":
-    rows = load()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--catalog", type=Path, help="Use a local catalog.json instead of the pinned snapshot.")
+    parser.add_argument("--charts-only", action="store_true", help="Render only target_mix.png and timeline.png.")
+    args = parser.parse_args()
+
+    rows = load_catalog(args.catalog)
     fig_target_mix(rows)
     fig_timeline(rows)
-    fig_pipeline()
-    fig_social()
+    if not args.charts_only:
+        fig_pipeline()
+        fig_social()
