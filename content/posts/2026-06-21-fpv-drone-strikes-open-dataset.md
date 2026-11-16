@@ -16,10 +16,12 @@ It's public on purpose. **I want anyone who is trying to understand how the enem
 
 ## What's in the dataset
 
-At the time of writing it's **95 strike videos** spanning 2026-04-29 to 2026-06-13,
-and it grows as new footage surfaces. The repo itself is deliberately lightweight —
-a catalog with stable links — while the MP4s and thumbnails live in S3. Each entry
-is just enough to be useful:
+When I first published this post, the dataset had 95 videos. The November 1, 2026
+snapshot used here contains **159 videos** dated **March 25 to June 17, 2026**.
+[Catalog snapshot](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset/blob/20b7f30e44648dcd703628eadb4ce733e0a3465b/data/catalog.json)
+
+The repo itself is deliberately lightweight — a catalog with stable links —
+while the MP4s and thumbnails live in S3. Each entry is just enough to be useful:
 
 - a **date**,
 - a **first-frame thumbnail**,
@@ -35,26 +37,21 @@ and
 
 ## What the enemy is actually striking
 
-Once you tabulate the target labels, the mix is its own piece of intelligence. This
-is **real counts** from the dataset manifest, not an estimate:
+I grouped the videos by the targets named in the catalog descriptions. Each clip
+counts once. I used **mixed targets** when the description listed both a vehicle
+and a separate group of people or a position.
 
-![Target mix across the dataset: Merkava tanks, personnel, Namer APCs, engineering vehicles, Humvees, sensors and air-defense](/img/fpv-drone-strikes/target_mix.png)
+![Catalog videos by target type. Tanks lead with 38 clips. Engineering vehicles appear in 21, Namer APCs and personnel in 18 each.](/img/fpv-drone-strikes/target_mix.png)
 
-Armor dominates — Merkava tanks are the single most-targeted category — followed by
-personnel and Namer APCs. But the long tail is the interesting part: **engineering
-vehicles** (D9 bulldozers, excavators) clearing terrain, and a cluster of
-**sensors, air-defense and counter-UAS platforms** — surveillance cameras, radar,
-Iron Dome launchers, even "anti-drone platforms." The enemy is deliberately going
-after the things that would *see* or *stop* the next drone. That alone tells you
-where defensive effort is worth spending.
+**Tanks are the largest single group**, with 38 videos. I also counted 21 clips
+of engineering vehicles such as bulldozers and excavators, and 14 in the group
+that includes Iron Dome launchers, surveillance cameras and counter-drone
+systems.
 
-And it keeps coming. Plotting the videos by date, the log just climbs:
+I plotted the same videos by their catalog dates. May accounts for **102 of the
+159 clips**. The curve reflects the footage I was able to collect and catalog.
 
-![Cumulative documented strike videos over time, climbing steadily from late April to mid-June 2026](/img/fpv-drone-strikes/timeline.png)
-
-That's the case for keeping this open and current: a snapshot ages instantly; a
-living dataset lets a detection model — or a person — keep learning as the tactics
-shift.
+![Cumulative catalog videos by date, reaching 159 on June 17, 2026.](/img/fpv-drone-strikes/timeline.png)
 
 ## Example — extracting FPV attack paths
 

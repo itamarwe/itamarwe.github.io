@@ -5,19 +5,17 @@ Source behind the post
 Everything here regenerates the figures and the path-extraction video, which live
 in `public/img/fpv-drone-strikes/`.
 
-The dataset itself (the 95 strike videos + manifest) lives in a separate repo:
+The dataset and its canonical catalog live in a separate repo:
 <https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset>.
 
 ## Layout
 
 ```
-2026-06-21_manifest_snapshot.tsv   Frozen copy of the dataset manifest the
-                                   figures are computed from (the live one keeps
-                                   growing).
+2026-06-21_manifest_snapshot.tsv   Historical input for the original charts.
 clips/                             (gitignored, large) the source strike MP4.
 sim/
-  figures.py     Dataset-overview figures: target_mix.png (REAL counts from the
-                 manifest), timeline.png (REAL dates), pipeline.png (qualitative
+  figures.py     Dataset-overview figures: target_mix.png (target descriptions
+                 from the catalog), timeline.png (catalog dates), pipeline.png (qualitative
                  schematic, no numeric axes), and the 1200x630 social.png card
                  (built around a real strike-video frame).
   render_path.py Renders the REAL VGGT output: reconstruction_hero.png and the
@@ -34,7 +32,22 @@ vggt/
   frames2/         (gitignored) the 129 sampled FPV frames, one per recovered pose.
 ```
 
-## Reproduce
+## Reproduce the catalog charts
+
+From this directory, use a Python virtual environment with Matplotlib installed.
+
+```bash
+python sim/figures.py --charts-only
+```
+
+The command reads the [pinned catalog revision](https://github.com/itamarwe/fpv-drone-strikes-lebanon-dataset/blob/20b7f30e44648dcd703628eadb4ce733e0a3465b/data/catalog.json)
+used in the post. To try a different snapshot, pass `--catalog /path/to/catalog.json`.
+The target chart groups the target phrases from the descriptions. The timeline
+counts videos by catalog date, collecting all the clips on a given date into
+one step. Both charts count catalog entries, including clips that cover multiple
+targets or strikes.
+
+## Reproduce the reconstruction and post assets
 
 ```bash
 python -m venv vggt/venv && source vggt/venv/bin/activate
@@ -66,5 +79,3 @@ python sim/figures.py             # target_mix / timeline / pipeline / social
 - VGGT mis-estimated **3 of 129 poses** (motion blur + the seam where the loiter was
   cut); `render_path.py` flags them as outliers (red crosses) and interpolates the
   drawn line across them.
-- `target_mix.png` buckets are a coarse hand-grouping of the manifest's free-text
-  slugs (see `categorize()` in `figures.py`); the **counts are exact**.
